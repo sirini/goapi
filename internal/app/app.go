@@ -1,18 +1,14 @@
 package app
 
 import (
-	"fmt"
+	"net/http"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/sirini/goapi/internal/app/router"
-	"github.com/sirini/goapi/internal/config"
 )
 
-// 서버 시작
-func StartServer(cfg *config.Config) {
-	app := fiber.New()
-	router.SetupRoutes(app)
+func SetupRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	router.SetupRoutes(mux)
 
-	port := fmt.Sprintf(":%s", cfg.Port)
-	app.Listen(port)
+	return mux
 }

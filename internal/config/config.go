@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	Version           string
 	Port              string
 	DBHost            string
 	DBUser            string
@@ -42,6 +43,7 @@ func LoadConfig() *Config {
 	}
 
 	config := &Config{
+		Version:           getEnv("GOAPI_VERSION", "1.0.0"),
 		Port:              getEnv("GOAPI_PORT", "3003"),
 		DBHost:            getEnv("DB_HOST", "localhost"),
 		DBUser:            getEnv("DB_USER", ""),
