@@ -1,12 +1,11 @@
 package router
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
 	"github.com/sirini/goapi/internal/handler"
 )
 
-func SetupRoutes(app *fiber.App) {
-	api := app.Group("/goapi")
-
-	api.Get("/hello", handler.HelloHandler)
+func SetupRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/goapi/hello", handler.Hello)
 }
