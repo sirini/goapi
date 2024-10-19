@@ -1,4 +1,4 @@
-package config
+package configs
 
 import (
 	"log"
@@ -36,13 +36,16 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// 설정 저장한 변수
+var Env Config
+
 // .env 파일에서 설정 내용 불러오기
-func LoadConfig() *Config {
+func LoadConfig() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found. Please make sure that this goapi binary is locate in tsboard.git directory.")
 	}
 
-	config := &Config{
+	Env = Config{
 		Version:           getEnv("GOAPI_VERSION", "1.0.0"),
 		Port:              getEnv("GOAPI_PORT", "3003"),
 		DBHost:            getEnv("DB_HOST", "localhost"),
@@ -62,6 +65,4 @@ func LoadConfig() *Config {
 		OAuthKakaoSecret:  getEnv("OAUTH_KAKAO_SECRET", ""),
 		OpenaiKey:         getEnv("OPENAI_API_KEY", ""),
 	}
-
-	return config
 }
