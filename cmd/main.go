@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
@@ -33,6 +33,6 @@ func main() {
 🚀 TSBOARD %v is running on port %v [tsboard.dev]
 	`, configs.Env.Version, configs.Env.Port)
 
-	port := strings.Join([]string{":", configs.Env.Port}, "")
+	port := fmt.Sprintf(":%s", configs.Env.Port)
 	log.Fatal(http.ListenAndServe(port, mux))
 }
