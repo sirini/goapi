@@ -36,3 +36,9 @@ func (s *TsboardUserService) ReportTargetUser(actorUid uint, targetUid uint, wan
 	s.repos.UserRepo.InsertReportUser(actorUid, targetUid, report)
 	return true
 }
+
+// 사용자 로그인 처리하기
+func (s *TsboardUserService) Signin(id string, pw string) bool {
+	// TODO
+	return false
+}

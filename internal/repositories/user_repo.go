@@ -16,6 +16,7 @@ type UserRepository interface {
 	CheckPermissionForAction(userUid uint, action models.Action) bool
 	InsertBlackList(actorUid uint, targetUid uint)
 	InsertReportUser(actorUid uint, targetUid uint, report string)
+	FindUserUidByIDPW(id string, pw string) uint
 }
 
 type MySQLUserRepository struct {
@@ -116,4 +117,13 @@ func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, re
 		query = fmt.Sprintf("INSERT INTO %sreport (to_uid, from_uid, request, response, timestamp, solved) VALUES (?, ?, ?, ? ,? ,?)", configs.Env.DBTablePrefix)
 		r.db.Exec(query, targetUid, actorUid, report, "", time.Now().UnixMilli(), 0)
 	}
+}
+
+// 아이디와 (sha256으로 해시된)비밀번호로 사용자 고유 번호 반환
+func (r *MySQLUserRepository) FindUserUidByIDPW(id string, pw string) uint {
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? AND password = ? LIMIT 1", configs.Env.DBTablePrefix)
+
+	var uid uint
+	r.db.QueryRow(query, id, pw).Scan(&uid)
+	return uid
 }
