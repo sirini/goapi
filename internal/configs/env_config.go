@@ -14,7 +14,7 @@ type Config struct {
 	DBUser            string
 	DBPass            string
 	DBName            string
-	DBTablePrefix     string
+	Prefix            string
 	DBPort            string
 	JWTSecretKey      string
 	GmailID           string
@@ -52,7 +52,7 @@ func LoadConfig() {
 		DBUser:            getEnv("DB_USER", ""),
 		DBPass:            getEnv("DB_PASS", ""),
 		DBName:            getEnv("DB_NAME", "tsboard"),
-		DBTablePrefix:     getEnv("DB_TABLE_PREFIX", "tsb_"),
+		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),

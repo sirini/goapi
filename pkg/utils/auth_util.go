@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"time"
+	"net/http"
+	"regexp"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirini/goapi/internal/configs"
@@ -25,24 +28,29 @@ func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 	return token, nil
 }
 
-// JWT 토큰 생성
-func GenerateJWT(userUid uint) (string, string, error) {
-	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"uid": userUid,
-		"exp": time.Now().Add(time.Hour * 2).Unix(),
-	})
-	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"exp": time.Now().AddDate(0, 1, 0).Unix(),
-	})
+// 아이디가 이메일 형식에 부합하는지 확인
+func IsValidEmail(email string) bool {
+	const regexPattern = `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`
+	re := regexp.MustCompile(regexPattern)
+	return re.MatchString(email)
+}
 
-	authToken, err := auth.SignedString(configs.Env.JWTSecretKey)
-	if err != nil {
-		return "", "", err
-	}
-	refreshToken, err := refresh.SignedString(configs.Env.JWTSecretKey)
-	if err != nil {
-		return authToken, "", err
-	}
+// 주어진 문자열을 sha256 알고리즘으로 변환
+func GetHashedString(input string) string {
+	hash := sha256.New()
+	hash.Write([]byte(input))
+	hashBytes := hash.Sum(nil)
+	return hex.EncodeToString(hashBytes)
+}
 
-	return authToken, refreshToken, nil
+// 리프레시 토큰을 쿠키에 저장
+func SetRefreshCookie(w http.ResponseWriter, refreshToken string) {
+	cookie := &http.Cookie{
+		Name:     "refresh",
+		Value:    refreshToken,
+		Path:     "/",
+		MaxAge:   86400 * 14, /* days */
+		HttpOnly: true,
+	}
+	http.SetCookie(w, cookie)
 }

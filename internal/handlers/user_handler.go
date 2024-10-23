@@ -5,18 +5,12 @@ import (
 	"strconv"
 
 	"github.com/sirini/goapi/internal/services"
-	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
 // 사용자 정보 열람
 func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		response := models.ResponseUserInfo{
-			Success: false,
-			Error:   "",
-		}
-
 		targetUserUidStr := r.URL.Query().Get("targetUserUid")
 		if targetUserUidStr == "" {
 			utils.ResponseError(w, "Missing targetUserUid parameter")
@@ -35,8 +29,7 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		response.Result = userInfo
-		utils.ResponseJSON(w, response)
+		utils.ResponseSuccess(w, userInfo)
 	}
 }
 
@@ -77,6 +70,27 @@ func ReportUserHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		utils.ResponseSuccess(w)
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
+// 로그인 하기
+func SigninHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.FormValue("id")
+		pw := r.FormValue("password")
+
+		if len(pw) != 64 || !utils.IsValidEmail(id) {
+			utils.ResponseError(w, "Failed to sign in, invalid ID or password")
+			return
+		}
+
+		user := s.UserService.Signin(id, pw)
+		if user.Uid < 1 {
+			utils.ResponseError(w, "Unable to get an information, invalid ID or password")
+			return
+		}
+
+		utils.ResponseSuccess(w, user)
 	}
 }
