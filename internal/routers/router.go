@@ -13,5 +13,6 @@ func SetupRoutes(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("GET /goapi/tsboard", handlers.Version)
 
 	mux.HandleFunc("GET /goapi/user/load/user/info", handlers.LoadUserInfoHandler(s))
+	mux.HandleFunc("POST /goapi/user/signin", handlers.SigninHandler(s))
 	mux.Handle("POST /goapi/user/report", middlewares.AuthMiddleware(handlers.ReportUserHandler(s)))
 }

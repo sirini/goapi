@@ -1,6 +1,6 @@
 package models
 
-// 사용자 정보
+// (공개된) 사용자 정보
 type UserInfo struct {
 	Uid       uint   `json:"uid"`
 	Name      string `json:"name"`
@@ -13,11 +13,13 @@ type UserInfo struct {
 	Blocked   bool   `json:"blocked"`
 }
 
-// 사용자 정보 응답
-type ResponseUserInfo struct {
-	Success bool      `json:"success"`
-	Error   string    `json:"error"`
-	Result  *UserInfo `json:"result"`
+// (로그인 한) 내 정보
+type MyInfo struct {
+	UserInfo
+	Id      string `json:"id"`
+	Point   uint   `json:"point"`
+	Token   string `json:"token"`
+	Refresh string `json:"refresh"`
 }
 
 // 권한 확인이 필요한 액션 정의
