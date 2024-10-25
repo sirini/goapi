@@ -1,7 +1,7 @@
 package models
 
 // (공개된) 사용자 정보
-type UserInfo struct {
+type UserInfoResult struct {
 	Uid       uint   `json:"uid"`
 	Name      string `json:"name"`
 	Profile   string `json:"profile"`
@@ -14,12 +14,27 @@ type UserInfo struct {
 }
 
 // (로그인 한) 내 정보
-type MyInfo struct {
-	UserInfo
+type MyInfoResult struct {
+	UserInfoResult
 	Id      string `json:"id"`
 	Point   uint   `json:"point"`
 	Token   string `json:"token"`
 	Refresh string `json:"refresh"`
+}
+
+// 회원가입 시 리턴 타입
+type SignupResult struct {
+	Sendmail bool `json:"sendmail"`
+	Target   uint `json:"target"`
+}
+
+// 인증 완료하기 파라미터
+type VerifyParameter struct {
+	Target   uint
+	Code     string
+	Id       string
+	Password string
+	Name     string
 }
 
 // 권한 확인이 필요한 액션 정의

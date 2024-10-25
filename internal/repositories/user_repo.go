@@ -12,14 +12,19 @@ import (
 )
 
 type UserRepository interface {
-	FindUserInfoByUid(userUid uint) (*models.UserInfo, error)
+	FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error)
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.Action) bool
 	InsertBlackList(actorUid uint, targetUid uint)
 	InsertReportUser(actorUid uint, targetUid uint, report string)
-	FindMyInfoByIDPW(id string, pw string) *models.MyInfo
+	FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult
 	UpdateUserSignin(userUid uint)
 	SaveRefreshToken(userUid uint, refreshToken string)
+	IsEmailDuplicated(id string) bool
+	IsNameDuplicated(name string) bool
+	InsertNewUser(id string, pw string, name string) uint
+	SaveVerificationCode(id string, code string) uint
+	CheckVerificationCode(param *models.VerifyParameter) bool
 }
 
 type MySQLUserRepository struct {
@@ -34,11 +39,11 @@ func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
 const NO_BOARD_UID = 0
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
-func (r *MySQLUserRepository) FindUserInfoByUid(userUid uint) (*models.UserInfo, error) {
+func (r *MySQLUserRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error) {
 	query := fmt.Sprintf("SELECT name, profile, level, signature, signup, signin, blocked FROM %suser WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 
 	var blocked uint
-	var info models.UserInfo
+	var info models.UserInfoResult
 
 	err := r.db.QueryRow(query, userUid).Scan(
 		&info.Name, &info.Profile, &info.Level, &info.Signature, &info.Signup, &info.Signin, &blocked)
@@ -124,15 +129,15 @@ func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, re
 }
 
 // 아이디와 (sha256으로 해시된)비밀번호로 사용자 고유 번호 반환
-func (r *MySQLUserRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfo {
+func (r *MySQLUserRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup FROM %suser
 	 WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`, configs.Env.Prefix)
 
-	var info models.MyInfo
+	var info models.MyInfoResult
 	err := r.db.QueryRow(query, id, pw).Scan(&info.Uid, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup)
 
 	if err == sql.ErrNoRows {
-		return &models.MyInfo{}
+		return &models.MyInfoResult{}
 	}
 
 	info.Id = id
@@ -164,4 +169,87 @@ func (r *MySQLUserRepository) SaveRefreshToken(userUid uint, refreshToken string
 		query = fmt.Sprintf("UPDATE %suser_token SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
 		r.db.Exec(query, hashed, now, userUid)
 	}
+}
+
+// (회원가입 시) 이메일 주소가 중복되는지 확인
+func (r *MySQLUserRepository) IsEmailDuplicated(id string) bool {
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
+	var uid uint
+	r.db.QueryRow(query, id).Scan(&uid)
+	return uid > 0
+}
+
+// (회원가입 시) 이름이 중복되는지 확인
+func (r *MySQLUserRepository) IsNameDuplicated(name string) bool {
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE name = ? LIMIT 1", configs.Env.Prefix)
+	var uid uint
+	r.db.QueryRow(query, name).Scan(&uid)
+	return uid > 0
+}
+
+// 신규 회원 등록
+func (r *MySQLUserRepository) InsertNewUser(id string, pw string, name string) uint {
+	isDupId := r.IsEmailDuplicated(id)
+	isDupName := r.IsNameDuplicated(name)
+	if isDupId || isDupName {
+		return 0
+	}
+
+	query := fmt.Sprintf(`INSERT INTO %suser 
+	(id, name, password, profile, level, point, signature, signup, signin, blocked)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix)
+	result, err := r.db.Exec(query, id, name, pw, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return 0
+	}
+	return uint(insertId)
+}
+
+// (회원가입 시) 인증 코드 보관해놓기
+func (r *MySQLUserRepository) SaveVerificationCode(id string, code string) uint {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %suser_verification WHERE email = ? LIMIT 1", configs.Env.Prefix)
+	err := r.db.QueryRow(query, id).Scan(&uid)
+	now := time.Now().UnixMilli()
+
+	if err == sql.ErrNoRows {
+		query = fmt.Sprintf("INSERT INTO %suser_verification (email, code, timestamp) VALUES (?, ?, ?)", configs.Env.Prefix)
+		result, _ := r.db.Exec(query, id, code, now)
+		insertId, err := result.LastInsertId()
+		if err != nil {
+			uid = 0
+		}
+		uid = uint(insertId)
+	} else {
+		query = fmt.Sprintf("UPDATE %suser_verification SET code = ?, timestamp = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+		r.db.Exec(query, code, now, uid)
+	}
+	return uid
+}
+
+// 인증 코드가 유효한지 확인
+func (r *MySQLUserRepository) CheckVerificationCode(param *models.VerifyParameter) bool {
+	var code string
+	var timestamp uint64
+
+	query := fmt.Sprintf("SELECT code, timestamp FROM %suser_verification WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+	err := r.db.QueryRow(query, param.Target).Scan(&code, &timestamp)
+	if err == sql.ErrNoRows {
+		return false
+	}
+
+	now := uint64(time.Now().UnixMilli())
+	gap := uint64(1000 * 60 * 10)
+	if now > timestamp+gap {
+		return false
+	}
+
+	if code == param.Code {
+		return true
+	}
+	return false
 }

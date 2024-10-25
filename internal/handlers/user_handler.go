@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/sirini/goapi/internal/services"
+	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -28,7 +29,6 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 			utils.ResponseError(w, "User not found")
 			return
 		}
-
 		utils.ResponseSuccess(w, userInfo)
 	}
 }
@@ -69,7 +69,6 @@ func ReportUserHandler(s *services.Service) http.HandlerFunc {
 			utils.ResponseError(w, "You have no permission to report other user")
 			return
 		}
-
 		utils.ResponseSuccess(w, nil)
 	}
 }
@@ -90,7 +89,111 @@ func SigninHandler(s *services.Service) http.HandlerFunc {
 			utils.ResponseError(w, "Unable to get an information, invalid ID or password")
 			return
 		}
-
 		utils.ResponseSuccess(w, user)
+	}
+}
+
+// 회원가입 하기
+func SignupHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.FormValue("email")
+		pw := r.FormValue("password")
+		name := r.FormValue("name")
+
+		if len(pw) != 64 || !utils.IsValidEmail(id) {
+			utils.ResponseError(w, "Failed to sign up, invalid ID or password")
+			return
+		}
+
+		result, err := s.UserService.Signup(id, pw, name, r)
+		if err != nil {
+			utils.ResponseError(w, err.Error())
+			return
+		}
+		utils.ResponseSuccess(w, result)
+	}
+}
+
+// (회원가입 시) 이메일 주소가 이미 등록되어 있는지 확인하기
+func CheckEmailHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.FormValue("email")
+
+		if !utils.IsValidEmail(id) {
+			utils.ResponseError(w, "Invalid email address")
+			return
+		}
+
+		result := s.UserService.CheckEmailExists(id)
+		if result {
+			utils.ResponseError(w, "Email address is already in use")
+			return
+		}
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
+// (회원가입 시) 이름이 이미 등록되어 있는지 확인하기
+func CheckNameHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := r.FormValue("name")
+
+		if len(name) < 2 {
+			utils.ResponseError(w, "Invalid name, too short")
+			return
+		}
+
+		result := s.UserService.CheckNameExists(name)
+		if result {
+			utils.ResponseError(w, "Name is already in use")
+			return
+		}
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
+// 인증 완료하기
+func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		targetStr := r.FormValue("target")
+		code := r.FormValue("code")
+		id := r.FormValue("email")
+		pw := r.FormValue("password")
+		name := r.FormValue("name")
+
+		if len(pw) != 64 || !utils.IsValidEmail(id) {
+			utils.ResponseError(w, "Failed to verify, invalid ID or password")
+			return
+		}
+
+		if len(name) < 2 {
+			utils.ResponseError(w, "Invalid name, too short")
+			return
+		}
+
+		if len(code) != 6 {
+			utils.ResponseError(w, "Invalid code, wrong length")
+			return
+		}
+
+		target, err := strconv.ParseUint(targetStr, 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid target, not a valid number")
+			return
+		}
+
+		result := s.UserService.VerifyEmail(&models.VerifyParameter{
+			Target:   uint(target),
+			Code:     code,
+			Id:       id,
+			Password: pw,
+			Name:     name,
+		})
+
+		if !result {
+			utils.ResponseError(w, "Failed to verify code")
+			return
+		}
+		utils.ResponseSuccess(w, nil)
 	}
 }
