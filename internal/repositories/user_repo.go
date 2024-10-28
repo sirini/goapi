@@ -25,6 +25,10 @@ type UserRepository interface {
 	InsertNewUser(id string, pw string, name string) uint
 	SaveVerificationCode(id string, code string) uint
 	CheckVerificationCode(param *models.VerifyParameter) bool
+	FindUserUidById(id string) uint
+	InsertNewChat(fromUserUid uint, toUserUid uint, message string) uint
+	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
+	UpdatePassword(userUid uint, password string)
 }
 
 type MySQLUserRepository struct {
@@ -252,4 +256,40 @@ func (r *MySQLUserRepository) CheckVerificationCode(param *models.VerifyParamete
 		return true
 	}
 	return false
+}
+
+// 아이디에 해당하는 고유번호 반환
+func (r *MySQLUserRepository) FindUserUidById(id string) uint {
+	var userUid uint
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
+	err := r.db.QueryRow(query, id).Scan(&userUid)
+	if err != nil {
+		return 0
+	}
+	return userUid
+}
+
+// 쪽지 보내기
+func (r *MySQLUserRepository) InsertNewChat(fromUserUid uint, toUserUid uint, message string) uint {
+	query := fmt.Sprintf("INSERT INTO %schat (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)", configs.Env.Prefix)
+	result, _ := r.db.Exec(query, toUserUid, fromUserUid, message, time.Now().UnixMilli())
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return 0
+	}
+	return uint(insertId)
+}
+
+// 인증용 고유번호로 아이디와 코드 가져오기
+func (r *MySQLUserRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
+	var id, code string
+	query := fmt.Sprintf("SELECT email, code FROM %suser_verification WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, verifyUid).Scan(&id, &code)
+	return id, code
+}
+
+// 사용자 비밀번호 변경하기
+func (r *MySQLUserRepository) UpdatePassword(userUid uint, pw string) {
+	query := fmt.Sprintf("UPDATE %suser SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.Exec(query, pw, userUid)
 }

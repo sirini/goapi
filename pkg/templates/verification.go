@@ -9,9 +9,9 @@ var VerificationBody string = `
     <title>Verification Code</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
         .email-container {
             max-width: 450px;
@@ -25,7 +25,7 @@ var VerificationBody string = `
             padding-bottom: 20px;
         }
         .header h1 {
-            color: #333333;
+            color: #263238;
         }
         .content {
             text-align: center;
@@ -60,7 +60,7 @@ var VerificationBody string = `
             <h1>Verify Your Email Address</h1>
         </div>
         <div class="content">
-            <p class="left">Hello {{Name}},</p>
+            <h2>Hello {{Name}},</h2>
             <p class="left">Thank you for signing up. To complete your registration, please use the following verification code:</p>
             <div class="code">{{Code}}</div>
             <p class="left">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>

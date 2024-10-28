@@ -24,7 +24,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		_, err := utils.ValidateJWT(parts[1])
 		if err != nil {
-			utils.ResponseError(w, "Invalid or expired token")
+			utils.ResponseError(w, err.Error())
 			return
 		}
 

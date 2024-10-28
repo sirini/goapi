@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,8 @@ type UserService interface {
 	CheckEmailExists(id string) bool
 	CheckNameExists(id string) bool
 	VerifyEmail(param *models.VerifyParameter) bool
+	ResetPassword(id string, r *http.Request) bool
+	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 }
 
 type TsboardUserService struct {
@@ -140,4 +143,50 @@ func (s *TsboardUserService) VerifyEmail(param *models.VerifyParameter) bool {
 		return true
 	}
 	return false
+}
+
+// 비밀번호 초기화하기
+func (s *TsboardUserService) ResetPassword(id string, r *http.Request) bool {
+	userUid := s.repos.UserRepo.FindUserUidById(id)
+	if userUid < 1 {
+		return false
+	}
+
+	if configs.Env.GmailAppPassword == "" {
+		message := strings.ReplaceAll(templates.ResetPasswordChat, "{{Id}}", id)
+		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
+		insertId := s.repos.UserRepo.InsertNewChat(userUid, 1, message)
+		if insertId < 1 {
+			return false
+		}
+	} else {
+		code := uuid.New().String()[:6]
+		verifyUid := s.repos.UserRepo.SaveVerificationCode(id, code)
+		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
+		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
+		body = strings.ReplaceAll(body, "{{Code}}", code)
+		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
+		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", r.Host)
+
+		return utils.SendMail(id, title, body)
+	}
+	return true
+}
+
+// 비밀번호 변경하기
+func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
+	id, code := s.repos.UserRepo.FindIDCodeByVerifyUid(verifyUid)
+	if id == "" || code == "" {
+		return false
+	}
+	if code != userCode {
+		return false
+	}
+	userUid := s.repos.UserRepo.FindUserUidById(id)
+	if userUid < 1 {
+		return false
+	}
+
+	s.repos.UserRepo.UpdatePassword(userUid, newPassword)
+	return true
 }

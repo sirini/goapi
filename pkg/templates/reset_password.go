@@ -1,12 +1,13 @@
 package templates
 
-var WelcomeBody = `
+var ResetPasswordTitle string = "[{{Host}}] Reset Your Password"
+var ResetPasswordBody string = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Email</title>
+    <title>Password Reset</title>
     <style>
         body {
             font-family: 'Roboto', Arial, sans-serif;
@@ -63,13 +64,14 @@ var WelcomeBody = `
 <body>
     <div class="container">
         <div class="header">
-            <h1>Welcome Aboard!</h1>
+            <h1>Password Reset Request</h1>
         </div>
         <div class="content">
-            <h2>Congratulations on Joining, {{Name}}!</h2>
-            <p>Thank you for signing up with us. You’re now all set to explore and make the most out of our platform's features and services.</p>
-            <p>To get started, click the button below to log in and begin your journey.</p>
-            <a href="{{Host}}/login" class="button" target="_blank">Go to Login</a>
+            <h2>Hello!</h2>
+            <p>We received a request to reset your password. Click the button below to set up a new password for your account.</p>
+            <a href="{{Host}}/changepassword/{{Uid}}/{{Code}}" class="button" target="_blank">Reset Password</a>
+            <p>If you didn't request a password reset, please ignore this email or contact support if you have any concerns.</p>
+            <p>For security reasons, this link will expire in 24 hours.</p>
         </div>
         <div class="footer">
             <p>If you have any questions, contact us at <a href="mailto:{{From}}">{{From}}</a> ⎯ <a href="http://{{Host}}">{{Host}}</a></p>
@@ -78,3 +80,5 @@ var WelcomeBody = `
 </body>
 </html>
 `
+
+var ResetPasswordChat string = "Request to reset password from {{Id}} ({{Uid}})"

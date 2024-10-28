@@ -37,6 +37,11 @@ type VerifyParameter struct {
 	Name     string
 }
 
+// 비밀번호 초기화 시 리턴 타입
+type ResetPasswordResult struct {
+	Sendmail bool `json:"sendmail"`
+}
+
 // 권한 확인이 필요한 액션 정의
 type Action uint8
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -192,6 +193,54 @@ func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
 
 		if !result {
 			utils.ResponseError(w, "Failed to verify code")
+			return
+		}
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
+// 비밀번호 초기화하기
+func ResetPasswordHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.FormValue("email")
+
+		if !utils.IsValidEmail(id) {
+			utils.ResponseError(w, "Failed to reset password, invalid ID(email)")
+			return
+		}
+
+		result := s.UserService.ResetPassword(id, r)
+		if !result {
+			utils.ResponseError(w, "Unable to reset password, internal error")
+			return
+		}
+		utils.ResponseSuccess(w, &models.ResetPasswordResult{
+			Sendmail: configs.Env.GmailAppPassword != "",
+		})
+	}
+}
+
+// 비밀번호 변경하기
+func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		targetStr := r.FormValue("target")
+		userCode := r.FormValue("code")
+		newPassword := r.FormValue("password")
+
+		if len(userCode) != 6 || len(newPassword) != 64 {
+			utils.ResponseError(w, "Failed to change your password, invalid inputs")
+			return
+		}
+
+		verifyUid, err := strconv.ParseUint(targetStr, 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid target, not a valid number")
+			return
+		}
+
+		result := s.UserService.ChangePassword(uint(verifyUid), userCode, newPassword)
+		if !result {
+			utils.ResponseError(w, "Unable to change your password, internal error")
 			return
 		}
 		utils.ResponseSuccess(w, nil)
