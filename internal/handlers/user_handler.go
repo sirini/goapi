@@ -11,7 +11,7 @@ import (
 // 사용자 정보 열람
 func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		targetUserUidStr := r.URL.Query().Get("targetUserUid")
+		targetUserUidStr := r.FormValue("targetUserUid")
 		if targetUserUidStr == "" {
 			utils.ResponseError(w, "Missing targetUserUid parameter")
 			return
@@ -35,7 +35,7 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 // 사용자 신고하기
 func ReportUserHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userUidStr := r.URL.Query().Get("userUid")
+		userUidStr := r.FormValue("userUid")
 		targetUserUidStr := r.FormValue("targetUserUid")
 		contentStr := r.FormValue("content")
 		checkedBlackListStr := r.FormValue("checkedBlackList")

@@ -1,5 +1,7 @@
 package models
 
+import "mime/multipart"
+
 // (공개된) 사용자 정보
 type UserInfoResult struct {
 	Uid       uint   `json:"uid"`
@@ -45,4 +47,14 @@ func (a Action) String() string {
 	default:
 		return "write_post"
 	}
+}
+
+// 내 정보 수정하기 파라미터 정의
+type UpdateUserInfoParameter struct {
+	UserUid        uint
+	Name           string
+	Signature      string
+	Password       string
+	Profile        multipart.File
+	ProfileHandler *multipart.FileHeader
 }

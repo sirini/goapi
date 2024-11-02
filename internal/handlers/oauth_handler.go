@@ -19,7 +19,7 @@ import (
 // 상태 검사 및 토큰 교환 후 토큰 반환
 func exchangeToken(w http.ResponseWriter, r *http.Request, cfg *oauth2.Config) (*oauth2.Token, error) {
 	cookie, err := r.Cookie("tsboard_oauth_state")
-	if err != nil || cookie.Value != r.URL.Query().Get("state") {
+	if err != nil || cookie.Value != r.FormValue("state") {
 		http.Redirect(w, r, configs.Env.URL, http.StatusTemporaryRedirect)
 		return nil, fmt.Errorf("wrong state: %v", err)
 	}
@@ -139,8 +139,8 @@ func NaverOAuthCallbackHandler(s *services.Service, cfg *oauth2.Config) http.Han
 			return
 		}
 
-		code := r.URL.Query().Get("code")
-		state := r.URL.Query().Get("state")
+		code := r.FormValue("code")
+		state := r.FormValue("state")
 
 		cookie, err := r.Cookie("tsboard_oauth_state")
 		if err != nil || cookie.Value != state {

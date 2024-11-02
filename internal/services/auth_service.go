@@ -22,6 +22,7 @@ type AuthService interface {
 	CheckNameExists(name string) bool
 	VerifyEmail(param *models.VerifyParameter) bool
 	ResetPassword(id string, r *http.Request) bool
+	GetMyInfo(userUid uint) *models.MyInfoResult
 }
 
 type TsboardAuthService struct {
@@ -35,7 +36,7 @@ func NewTsboardAuthService(repos *repositories.Repository) *TsboardAuthService {
 
 // 사용자 로그인 처리하기
 func (s *TsboardAuthService) Signin(id string, pw string) *models.MyInfoResult {
-	user := s.repos.UserRepo.FindMyInfoByIDPW(id, pw)
+	user := s.repos.AuthRepo.FindMyInfoByIDPW(id, pw)
 	if user.Uid < 1 {
 		return &models.MyInfoResult{}
 	}
@@ -52,8 +53,8 @@ func (s *TsboardAuthService) Signin(id string, pw string) *models.MyInfoResult {
 
 	user.Token = authToken
 	user.Refresh = refreshToken
-	s.repos.UserRepo.SaveRefreshToken(user.Uid, refreshToken)
-	s.repos.UserRepo.UpdateUserSignin(user.Uid)
+	s.repos.AuthRepo.SaveRefreshToken(user.Uid, refreshToken)
+	s.repos.AuthRepo.UpdateUserSignin(user.Uid)
 	return user
 }
 
@@ -86,7 +87,7 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 
 		result := utils.SendMail(id, subject, body)
 		if result {
-			target = s.repos.UserRepo.SaveVerificationCode(id, code)
+			target = s.repos.AuthRepo.SaveVerificationCode(id, code)
 		}
 	}
 	return &models.SignupResult{
@@ -107,7 +108,7 @@ func (s *TsboardAuthService) CheckNameExists(name string) bool {
 
 // 이메일 인증 완료하기
 func (s *TsboardAuthService) VerifyEmail(param *models.VerifyParameter) bool {
-	result := s.repos.UserRepo.CheckVerificationCode(param)
+	result := s.repos.AuthRepo.CheckVerificationCode(param)
 	if result {
 		s.repos.UserRepo.InsertNewUser(param.Id, param.Password, param.Name)
 		return true
@@ -117,7 +118,7 @@ func (s *TsboardAuthService) VerifyEmail(param *models.VerifyParameter) bool {
 
 // 비밀번호 초기화하기
 func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
-	userUid := s.repos.UserRepo.FindUserUidById(id)
+	userUid := s.repos.AuthRepo.FindUserUidById(id)
 	if userUid < 1 {
 		return false
 	}
@@ -131,7 +132,7 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 		}
 	} else {
 		code := uuid.New().String()[:6]
-		verifyUid := s.repos.UserRepo.SaveVerificationCode(id, code)
+		verifyUid := s.repos.AuthRepo.SaveVerificationCode(id, code)
 		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
 		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
 		body = strings.ReplaceAll(body, "{{Code}}", code)
@@ -141,4 +142,9 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 		return utils.SendMail(id, title, body)
 	}
 	return true
+}
+
+// 로그인 한 내 정보 가져오기
+func (s *TsboardAuthService) GetMyInfo(userUid uint) *models.MyInfoResult {
+	return s.repos.AuthRepo.FindMyInfoByUid(userUid)
 }

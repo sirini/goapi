@@ -14,7 +14,6 @@ func SetupUserRouter(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("POST /goapi/user/checkemail", handlers.CheckEmailHandler(s))
 	mux.HandleFunc("POST /goapi/user/checkname", handlers.CheckNameHandler(s))
 	mux.HandleFunc("POST /goapi/user/verify", handlers.VerifyCodeHandler(s))
-
 }
 
 // 사용자 관련 라우터 중 로그인 필요한 라우터 셋업

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"html"
 	"net/http"
 	"strconv"
 
@@ -153,5 +154,70 @@ func ResetPasswordHandler(s *services.Service) http.HandlerFunc {
 		utils.ResponseSuccess(w, &models.ResetPasswordResult{
 			Sendmail: configs.Env.GmailAppPassword != "",
 		})
+	}
+}
+
+// 로그인 한 사용자의 정보 불러오기
+func LoadMyInfoHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid user uid, not a valid number")
+			return
+		}
+
+		myinfo := s.AuthService.GetMyInfo(uint(userUid))
+		if myinfo.Uid < 1 {
+			utils.ResponseError(w, "Unable to load your information")
+			return
+		}
+		utils.ResponseSuccess(w, myinfo)
+	}
+}
+
+// 로그인 한 사용자 정보 업데이트
+func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name := html.EscapeString(r.FormValue("name"))
+		signature := html.EscapeString(r.FormValue("signature"))
+		password := r.FormValue("password")
+
+		if len(name) < 2 {
+			utils.ResponseError(w, "Invalid name, too short")
+			return
+		}
+
+		userUid64, err := strconv.ParseUint(r.FormValue("accessUserUid"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid access user uid, not a valid number")
+			return
+		}
+
+		if isDup := s.AuthService.CheckNameExists(name); isDup {
+			utils.ResponseError(w, "Duplicated name, please choose another one")
+			return
+		}
+
+		userUid := uint(userUid64)
+		userInfo, err := s.UserService.GetUserInfo(userUid)
+		if err != nil {
+			utils.ResponseError(w, "Unable to find your information")
+			return
+		}
+
+		userInfo.Name = name
+		userInfo.Signature = signature
+		file, handler, _ := r.FormFile("profile")
+		defer file.Close()
+
+		param := models.UpdateUserInfoParameter{
+			UserUid:        userUid,
+			Name:           name,
+			Signature:      signature,
+			Password:       password,
+			Profile:        file,
+			ProfileHandler: handler,
+		}
+		s.UserService.ChangeUserInfo(&param, userInfo)
 	}
 }

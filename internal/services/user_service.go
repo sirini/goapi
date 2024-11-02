@@ -1,14 +1,18 @@
 package services
 
 import (
+	"os"
+
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type UserService interface {
 	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
 	ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
+	ChangeUserInfo(info *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult)
 }
 
 type TsboardUserService struct {
@@ -22,12 +26,12 @@ func NewTsboardUserService(repos *repositories.Repository) *TsboardUserService {
 
 // 사용자의 공개 정보 조회
 func (s *TsboardUserService) GetUserInfo(userUid uint) (*models.UserInfoResult, error) {
-	return s.repos.UserRepo.FindUserInfoByUid(userUid)
+	return s.repos.AuthRepo.FindUserInfoByUid(userUid)
 }
 
 // 사용자가 특정 유저를 신고하기
 func (s *TsboardUserService) ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool {
-	isAllowedAction := s.repos.UserRepo.CheckPermissionForAction(actorUid, models.SEND_REPORT)
+	isAllowedAction := s.repos.AuthRepo.CheckPermissionForAction(actorUid, models.SEND_REPORT)
 	if !isAllowedAction {
 		return false
 	}
@@ -40,18 +44,36 @@ func (s *TsboardUserService) ReportTargetUser(actorUid uint, targetUid uint, wan
 
 // 비밀번호 변경하기
 func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
-	id, code := s.repos.UserRepo.FindIDCodeByVerifyUid(verifyUid)
+	id, code := s.repos.AuthRepo.FindIDCodeByVerifyUid(verifyUid)
 	if id == "" || code == "" {
 		return false
 	}
 	if code != userCode {
 		return false
 	}
-	userUid := s.repos.UserRepo.FindUserUidById(id)
+	userUid := s.repos.AuthRepo.FindUserUidById(id)
 	if userUid < 1 {
 		return false
 	}
 
 	s.repos.UserRepo.UpdatePassword(userUid, newPassword)
 	return true
+}
+
+// 사용자 정보 업데이트하기
+func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult) {
+	if len(param.Password) == 64 {
+		s.repos.UserRepo.UpdatePassword(param.UserUid, param.Password)
+	}
+	s.repos.UserRepo.UpdateUserInfoString(param.UserUid, param.Name, param.Signature)
+
+	if param.Profile != nil && param.ProfileHandler.Size > 0 {
+		_ = os.Remove("." + oldInfo.Profile)
+		imagePath := utils.SaveUploadedFile(models.PROFILE, param.Profile, param.ProfileHandler.Filename)
+		// TODO
+		// 이미지 리사이즈 등
+		if len(imagePath) > 0 {
+			s.repos.UserRepo.UpdateUserProfile(param.UserUid, imagePath)
+		}
+	}
 }
