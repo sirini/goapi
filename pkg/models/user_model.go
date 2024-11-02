@@ -22,26 +22,6 @@ type MyInfoResult struct {
 	Refresh string `json:"refresh"`
 }
 
-// 회원가입 시 리턴 타입
-type SignupResult struct {
-	Sendmail bool `json:"sendmail"`
-	Target   uint `json:"target"`
-}
-
-// 인증 완료하기 파라미터
-type VerifyParameter struct {
-	Target   uint
-	Code     string
-	Id       string
-	Password string
-	Name     string
-}
-
-// 비밀번호 초기화 시 리턴 타입
-type ResetPasswordResult struct {
-	Sendmail bool `json:"sendmail"`
-}
-
 // 권한 확인이 필요한 액션 정의
 type Action uint8
 

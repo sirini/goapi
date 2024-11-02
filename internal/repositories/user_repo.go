@@ -18,6 +18,7 @@ type UserRepository interface {
 	InsertBlackList(actorUid uint, targetUid uint)
 	InsertReportUser(actorUid uint, targetUid uint, report string)
 	FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult
+	FindMyInfoByUid(userUid uint) *models.MyInfoResult
 	UpdateUserSignin(userUid uint)
 	SaveRefreshToken(userUid uint, refreshToken string)
 	IsEmailDuplicated(id string) bool
@@ -41,6 +42,7 @@ func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
 }
 
 const NO_BOARD_UID = 0
+const NOT_FOUND = 0
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
 func (r *MySQLUserRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error) {
@@ -132,7 +134,7 @@ func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, re
 	}
 }
 
-// 아이디와 (sha256으로 해시된)비밀번호로 사용자 고유 번호 반환
+// 아이디와 (sha256으로 해시된)비밀번호로 내정보 가져오기
 func (r *MySQLUserRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup FROM %suser
 	 WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`, configs.Env.Prefix)
@@ -147,6 +149,22 @@ func (r *MySQLUserRepository) FindMyInfoByIDPW(id string, pw string) *models.MyI
 	info.Id = id
 	info.Blocked = false
 	info.Signin = uint64(time.Now().UnixMilli())
+	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
+	return &info
+}
+
+// 사용자 고유 번호로 내정보 가져오기
+func (r *MySQLUserRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResult {
+	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signature, signup, signin, blocked FROM %suser
+	 WHERE uid = ? LIMIT 1`, configs.Env.Prefix)
+
+	var info models.MyInfoResult
+	err := r.db.QueryRow(query, userUid).Scan(&info.Uid, &info.Id, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup, &info.Signin, &info.Blocked)
+
+	if err == sql.ErrNoRows {
+		return &models.MyInfoResult{}
+	}
+
 	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
 	return &info
 }
@@ -196,7 +214,7 @@ func (r *MySQLUserRepository) InsertNewUser(id string, pw string, name string) u
 	isDupId := r.IsEmailDuplicated(id)
 	isDupName := r.IsNameDuplicated(name)
 	if isDupId || isDupName {
-		return 0
+		return NOT_FOUND
 	}
 
 	query := fmt.Sprintf(`INSERT INTO %suser 
@@ -208,7 +226,7 @@ func (r *MySQLUserRepository) InsertNewUser(id string, pw string, name string) u
 	}
 	insertId, err := result.LastInsertId()
 	if err != nil {
-		return 0
+		return NOT_FOUND
 	}
 	return uint(insertId)
 }
@@ -225,7 +243,7 @@ func (r *MySQLUserRepository) SaveVerificationCode(id string, code string) uint 
 		result, _ := r.db.Exec(query, id, code, now)
 		insertId, err := result.LastInsertId()
 		if err != nil {
-			uid = 0
+			uid = NOT_FOUND
 		}
 		uid = uint(insertId)
 	} else {
@@ -264,7 +282,7 @@ func (r *MySQLUserRepository) FindUserUidById(id string) uint {
 	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
 	err := r.db.QueryRow(query, id).Scan(&userUid)
 	if err != nil {
-		return 0
+		return NOT_FOUND
 	}
 	return userUid
 }
@@ -275,7 +293,7 @@ func (r *MySQLUserRepository) InsertNewChat(fromUserUid uint, toUserUid uint, me
 	result, _ := r.db.Exec(query, toUserUid, fromUserUid, message, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
-		return 0
+		return NOT_FOUND
 	}
 	return uint(insertId)
 }

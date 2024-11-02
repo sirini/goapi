@@ -10,5 +10,6 @@ import (
 func SetupRoutes(mux *http.ServeMux, s *services.Service) {
 	SetupVersionRouter(mux, s)
 	SetupUserRouter(mux, s)
-	SetupAuthUserRouter(mux, s)
+	SetupLoggedInUserRouter(mux, s)
+	SetupAuthRouter(mux, s)
 }

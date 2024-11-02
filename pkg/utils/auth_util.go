@@ -2,10 +2,13 @@ package utils
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirini/goapi/internal/configs"
@@ -44,13 +47,40 @@ func GetHashedString(input string) string {
 }
 
 // 리프레시 토큰을 쿠키에 저장
-func SetRefreshCookie(w http.ResponseWriter, refreshToken string) {
+func SaveCookie(w http.ResponseWriter, name string, value string, days int) {
 	cookie := &http.Cookie{
-		Name:     "refresh",
-		Value:    refreshToken,
+		Name:     name,
+		Value:    value,
 		Path:     "/",
-		MaxAge:   86400 * 14, /* days */
+		MaxAge:   86400 * days,
 		HttpOnly: true,
 	}
 	http.SetCookie(w, cookie)
+}
+
+// 액세스 토큰 생성하기
+func GenerateAccessToken(userUid uint, hours time.Duration) (string, error) {
+	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"uid": userUid,
+		"exp": time.Now().Add(time.Hour * hours).Unix(),
+	})
+	return auth.SignedString([]byte(configs.Env.JWTSecretKey))
+}
+
+// 리프레시 토큰 생성하기
+func GenerateRefreshToken(months int) (string, error) {
+	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"exp": time.Now().AddDate(0, months, 0).Unix(),
+	})
+	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
+}
+
+// 구조체를 JSON 형식의 문자열로 변환
+func ConvertJsonString(value interface{}) (string, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	encoded := base64.URLEncoding.EncodeToString(data)
+	return encoded, nil
 }
