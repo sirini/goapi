@@ -58,3 +58,19 @@ type UpdateUserInfoParameter struct {
 	Profile        multipart.File
 	ProfileHandler *multipart.FileHeader
 }
+
+// 사용자의 권한 정보들
+type UserPermissionResult struct {
+	WritePost       bool `json:"writePost"`
+	WriteComment    bool `json:"writeComment"`
+	SendChatMessage bool `json:"sendChatMessage"`
+	SendReport      bool `json:"sendReport"`
+}
+
+// 사용자 권한 및 로그인, 신고 내역 정의
+type UserPermissionReportResult struct {
+	UserPermissionResult
+	Login    bool   `json:"login"`
+	UserUid  uint   `json:"userUid"`
+	Response string `json:"response"`
+}

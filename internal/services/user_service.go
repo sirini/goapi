@@ -12,6 +12,7 @@ type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult)
 	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
+	GetUserPermission(userUid uint) *models.UserPermissionReportResult
 	ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool
 }
 
@@ -64,6 +65,24 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 // 사용자의 공개 정보 조회
 func (s *TsboardUserService) GetUserInfo(userUid uint) (*models.UserInfoResult, error) {
 	return s.repos.AuthRepo.FindUserInfoByUid(userUid)
+}
+
+// 사용자의 권한 조회
+func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermissionReportResult {
+	var result models.UserPermissionReportResult
+	permission := s.repos.UserRepo.LoadUserPermission(userUid)
+	isBlocked := s.repos.UserRepo.IsBlocked(userUid)
+	response := s.repos.UserRepo.GetReportResponse(userUid)
+
+	result.WritePost = permission.WritePost
+	result.WriteComment = permission.WriteComment
+	result.SendChatMessage = permission.SendChatMessage
+	result.SendReport = permission.SendReport
+	result.Login = !isBlocked
+	result.UserUid = userUid
+	result.Response = response
+
+	return &result
 }
 
 // 사용자가 특정 유저를 신고하기

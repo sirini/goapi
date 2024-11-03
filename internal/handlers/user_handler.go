@@ -8,6 +8,33 @@ import (
 	"github.com/sirini/goapi/pkg/utils"
 )
 
+// 비밀번호 변경하기
+func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		targetStr := r.FormValue("target")
+		userCode := r.FormValue("code")
+		newPassword := r.FormValue("password")
+
+		if len(userCode) != 6 || len(newPassword) != 64 {
+			utils.ResponseError(w, "Failed to change your password, invalid inputs")
+			return
+		}
+
+		verifyUid, err := strconv.ParseUint(targetStr, 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid target, not a valid number")
+			return
+		}
+
+		result := s.UserService.ChangePassword(uint(verifyUid), userCode, newPassword)
+		if !result {
+			utils.ResponseError(w, "Unable to change your password, internal error")
+			return
+		}
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
 // 사용자 정보 열람
 func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +56,21 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		utils.ResponseSuccess(w, userInfo)
+	}
+}
+
+// 사용자 권한 및 리포트 응답 가져오기
+func LoadUserPermissionHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		targetUserUidStr := r.FormValue("targetUserUid")
+		targetUserUid, err := strconv.ParseUint(targetUserUidStr, 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid target user uid, not a valid number")
+			return
+		}
+
+		result := s.UserService.GetUserPermission(uint(targetUserUid))
+		utils.ResponseSuccess(w, result)
 	}
 }
 
@@ -66,33 +108,6 @@ func ReportUserHandler(s *services.Service) http.HandlerFunc {
 		result := s.UserService.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, contentStr)
 		if !result {
 			utils.ResponseError(w, "You have no permission to report other user")
-			return
-		}
-		utils.ResponseSuccess(w, nil)
-	}
-}
-
-// 비밀번호 변경하기
-func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		targetStr := r.FormValue("target")
-		userCode := r.FormValue("code")
-		newPassword := r.FormValue("password")
-
-		if len(userCode) != 6 || len(newPassword) != 64 {
-			utils.ResponseError(w, "Failed to change your password, invalid inputs")
-			return
-		}
-
-		verifyUid, err := strconv.ParseUint(targetStr, 10, 32)
-		if err != nil {
-			utils.ResponseError(w, "Invalid target, not a valid number")
-			return
-		}
-
-		result := s.UserService.ChangePassword(uint(verifyUid), userCode, newPassword)
-		if !result {
-			utils.ResponseError(w, "Unable to change your password, internal error")
 			return
 		}
 		utils.ResponseSuccess(w, nil)

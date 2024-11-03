@@ -19,4 +19,5 @@ func SetupUserRouter(mux *http.ServeMux, s *services.Service) {
 // 사용자 관련 라우터 중 로그인 필요한 라우터 셋업
 func SetupLoggedInUserRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("POST /goapi/user/report", middlewares.AuthMiddleware(handlers.ReportUserHandler(s)))
+	mux.Handle("GET /goapi/user/load/permission", middlewares.AuthMiddleware(handlers.LoadUserPermissionHandler(s)))
 }

@@ -7,15 +7,19 @@ import (
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/pkg/models"
 )
 
 type UserRepository interface {
+	GetReportResponse(userUid uint) string
 	InsertBlackList(actorUid uint, targetUid uint)
 	InsertReportUser(actorUid uint, targetUid uint, report string)
-	IsEmailDuplicated(id string) bool
-	IsNameDuplicated(name string) bool
 	InsertNewUser(id string, pw string, name string) uint
 	InsertNewChat(fromUserUid uint, toUserUid uint, message string) uint
+	IsEmailDuplicated(id string) bool
+	IsNameDuplicated(name string) bool
+	IsBlocked(userUid uint) bool
+	LoadUserPermission(userUid uint) *models.UserPermissionResult
 	UpdatePassword(userUid uint, password string)
 	UpdateUserInfoString(userUid uint, name string, signature string)
 	UpdateUserProfile(userUid uint, imagePath string)
@@ -32,6 +36,14 @@ func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
 
 const NO_BOARD_UID = 0
 const NOT_FOUND = 0
+
+// 사용자 신고 내용에 대한 응답 가져오기
+func (r *MySQLUserRepository) GetReportResponse(userUid uint) string {
+	var response string
+	query := fmt.Sprintf("SELECT response FROM %sreport WHERE to_uid = ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, userUid).Scan(&response)
+	return response
+}
 
 // 다른 사용자를 내 블랙리스트에 등록하기
 func (r *MySQLUserRepository) InsertBlackList(actorUid uint, targetUid uint) {
@@ -58,22 +70,6 @@ func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, re
 		query = fmt.Sprintf("INSERT INTO %sreport (to_uid, from_uid, request, response, timestamp, solved) VALUES (?, ?, ?, ? ,? ,?)", configs.Env.Prefix)
 		r.db.Exec(query, targetUid, actorUid, report, "", time.Now().UnixMilli(), 0)
 	}
-}
-
-// (회원가입 시) 이메일 주소가 중복되는지 확인
-func (r *MySQLUserRepository) IsEmailDuplicated(id string) bool {
-	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
-	var uid uint
-	r.db.QueryRow(query, id).Scan(&uid)
-	return uid > 0
-}
-
-// (회원가입 시) 이름이 중복되는지 확인
-func (r *MySQLUserRepository) IsNameDuplicated(name string) bool {
-	query := fmt.Sprintf("SELECT uid FROM %suser WHERE name = ? LIMIT 1", configs.Env.Prefix)
-	var uid uint
-	r.db.QueryRow(query, name).Scan(&uid)
-	return uid > 0
 }
 
 // 신규 회원 등록
@@ -107,6 +103,53 @@ func (r *MySQLUserRepository) InsertNewChat(fromUserUid uint, toUserUid uint, me
 		return NOT_FOUND
 	}
 	return uint(insertId)
+}
+
+// (회원가입 시) 이메일 주소가 중복되는지 확인
+func (r *MySQLUserRepository) IsEmailDuplicated(id string) bool {
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
+	var uid uint
+	r.db.QueryRow(query, id).Scan(&uid)
+	return uid > 0
+}
+
+// (회원가입 시) 이름이 중복되는지 확인
+func (r *MySQLUserRepository) IsNameDuplicated(name string) bool {
+	query := fmt.Sprintf("SELECT uid FROM %suser WHERE name = ? LIMIT 1", configs.Env.Prefix)
+	var uid uint
+	r.db.QueryRow(query, name).Scan(&uid)
+	return uid > 0
+}
+
+// 로그인이 차단되었는지 확인
+func (r *MySQLUserRepository) IsBlocked(userUid uint) bool {
+	var blocked uint8
+	query := fmt.Sprintf("SELECT blocked FROM %suser WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, userUid).Scan(&blocked)
+	return blocked > 0
+}
+
+// 사용자 권한 및 신고 받은 후 조치사항 조회
+func (r *MySQLUserRepository) LoadUserPermission(userUid uint) *models.UserPermissionResult {
+	var result models.UserPermissionResult = models.UserPermissionResult{
+		WritePost:       true,
+		WriteComment:    true,
+		SendChatMessage: true,
+		SendReport:      true,
+	}
+
+	var writePost, writeComment, sendChat, sendReport uint8
+	query := fmt.Sprintf("SELECT write_post, write_comment, send_chat, send_report FROM %suser_permission WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
+	err := r.db.QueryRow(query, userUid).Scan(&writePost, &writeComment, &sendChat, &sendReport)
+	if err == sql.ErrNoRows {
+		return &result
+	}
+
+	result.WritePost = writePost > 0
+	result.WriteComment = writeComment > 0
+	result.SendChatMessage = sendChat > 0
+	result.SendReport = sendReport > 0
+	return &result
 }
 
 // 사용자 비밀번호 변경하기
