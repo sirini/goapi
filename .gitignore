@@ -5,6 +5,9 @@
 .env.local
 .env.*.local
 
+# upload
+/upload
+
 # Editor directories and files
 .idea
 .vscode

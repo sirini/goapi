@@ -48,3 +48,8 @@ type KakaoUser struct {
 		} `json:"profile"`
 	} `json:"kakao_account"`
 }
+
+// JWT 컨텍스트 키값 설정
+type ContextKey string
+
+var JwtClaimsKey = ContextKey("jwtClaims")

@@ -22,6 +22,8 @@ func SetupAuthRouter(mux *http.ServeMux, s *services.Service) {
 // 사용자 정보 가져오기 등 로그인 필요한 라우터 셋업
 func SetupLoggedInAuthRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("GET /goapi/auth/load", middlewares.AuthMiddleware(handlers.LoadMyInfoHandler(s)))
+	mux.Handle("PATCH /goapi/auth/update", middlewares.AuthMiddleware(handlers.UpdateMyInfoHandler(s)))
+	mux.Handle("POST /goapi/auth/logout", middlewares.AuthMiddleware(handlers.LogoutHandler(s)))
 }
 
 // OAuth 사용자 로그인 관련 라우터 셋업

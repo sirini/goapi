@@ -16,13 +16,14 @@ import (
 )
 
 type AuthService interface {
-	Signin(id string, pw string) *models.MyInfoResult
-	Signup(id string, pw string, name string, r *http.Request) (*models.SignupResult, error)
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string) bool
-	VerifyEmail(param *models.VerifyParameter) bool
-	ResetPassword(id string, r *http.Request) bool
 	GetMyInfo(userUid uint) *models.MyInfoResult
+	Logout(userUid uint)
+	ResetPassword(id string, r *http.Request) bool
+	Signin(id string, pw string) *models.MyInfoResult
+	Signup(id string, pw string, name string, r *http.Request) (*models.SignupResult, error)
+	VerifyEmail(param *models.VerifyParameter) bool
 }
 
 type TsboardAuthService struct {
@@ -32,6 +33,54 @@ type TsboardAuthService struct {
 // 리포지토리 묶음 주입받기
 func NewTsboardAuthService(repos *repositories.Repository) *TsboardAuthService {
 	return &TsboardAuthService{repos: repos}
+}
+
+// 이메일 중복 체크
+func (s *TsboardAuthService) CheckEmailExists(id string) bool {
+	return s.repos.UserRepo.IsEmailDuplicated(id)
+}
+
+// 이름 중복 체크
+func (s *TsboardAuthService) CheckNameExists(name string) bool {
+	return s.repos.UserRepo.IsNameDuplicated(name)
+}
+
+// 로그인 한 내 정보 가져오기
+func (s *TsboardAuthService) GetMyInfo(userUid uint) *models.MyInfoResult {
+	return s.repos.AuthRepo.FindMyInfoByUid(userUid)
+}
+
+// 로그아웃하기
+func (s *TsboardAuthService) Logout(userUid uint) {
+	s.repos.AuthRepo.ClearRefreshToken(userUid)
+}
+
+// 비밀번호 초기화하기
+func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
+	userUid := s.repos.AuthRepo.FindUserUidById(id)
+	if userUid < 1 {
+		return false
+	}
+
+	if configs.Env.GmailAppPassword == "" {
+		message := strings.ReplaceAll(templates.ResetPasswordChat, "{{Id}}", id)
+		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
+		insertId := s.repos.UserRepo.InsertNewChat(userUid, 1, message)
+		if insertId < 1 {
+			return false
+		}
+	} else {
+		code := uuid.New().String()[:6]
+		verifyUid := s.repos.AuthRepo.SaveVerificationCode(id, code)
+		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
+		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
+		body = strings.ReplaceAll(body, "{{Code}}", code)
+		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
+		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", r.Host)
+
+		return utils.SendMail(id, title, body)
+	}
+	return true
 }
 
 // 사용자 로그인 처리하기
@@ -96,16 +145,6 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 	}, nil
 }
 
-// 이메일 중복 체크
-func (s *TsboardAuthService) CheckEmailExists(id string) bool {
-	return s.repos.UserRepo.IsEmailDuplicated(id)
-}
-
-// 이름 중복 체크
-func (s *TsboardAuthService) CheckNameExists(name string) bool {
-	return s.repos.UserRepo.IsNameDuplicated(name)
-}
-
 // 이메일 인증 완료하기
 func (s *TsboardAuthService) VerifyEmail(param *models.VerifyParameter) bool {
 	result := s.repos.AuthRepo.CheckVerificationCode(param)
@@ -114,37 +153,4 @@ func (s *TsboardAuthService) VerifyEmail(param *models.VerifyParameter) bool {
 		return true
 	}
 	return false
-}
-
-// 비밀번호 초기화하기
-func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
-	userUid := s.repos.AuthRepo.FindUserUidById(id)
-	if userUid < 1 {
-		return false
-	}
-
-	if configs.Env.GmailAppPassword == "" {
-		message := strings.ReplaceAll(templates.ResetPasswordChat, "{{Id}}", id)
-		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
-		insertId := s.repos.UserRepo.InsertNewChat(userUid, 1, message)
-		if insertId < 1 {
-			return false
-		}
-	} else {
-		code := uuid.New().String()[:6]
-		verifyUid := s.repos.AuthRepo.SaveVerificationCode(id, code)
-		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
-		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
-		body = strings.ReplaceAll(body, "{{Code}}", code)
-		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", r.Host)
-
-		return utils.SendMail(id, title, body)
-	}
-	return true
-}
-
-// 로그인 한 내 정보 가져오기
-func (s *TsboardAuthService) GetMyInfo(userUid uint) *models.MyInfoResult {
-	return s.repos.AuthRepo.FindMyInfoByUid(userUid)
 }

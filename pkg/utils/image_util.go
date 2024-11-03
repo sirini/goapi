@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/h2non/bimg"
+	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/pkg/models"
 )
 
 //                                                                              //
@@ -15,7 +19,7 @@ import (
 //                                                                              //
 
 // 바이트 버퍼 이미지를 지정된 크기로 줄여서 .avif 형식으로 저장
-func SaveImage(inputBuffer []byte, outputPath string, width int) {
+func SaveImage(inputBuffer []byte, outputPath string, width int) error {
 	options := bimg.Options{
 		Width:   width,
 		Height:  0,
@@ -25,35 +29,54 @@ func SaveImage(inputBuffer []byte, outputPath string, width int) {
 
 	processed, err := bimg.NewImage(inputBuffer).Process(options)
 	if err != nil {
-		return
+		return err
 	}
 
 	err = bimg.Write(outputPath, processed)
 	if err != nil {
-		return
+		return err
 	}
+	return nil
 }
 
 // URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .avif 형식으로 저장
-func DownloadImage(imageUrl string, outputPath string, width int) {
+func DownloadImage(imageUrl string, outputPath string, width int) error {
 	resp, err := http.Get(imageUrl)
 	if err != nil {
-		return
+		return err
 	}
 	defer resp.Body.Close()
 
 	buffer, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return
+		return err
 	}
 	SaveImage(buffer, outputPath, width)
+	return nil
 }
 
-// 이미지를 주어진 크기로 줄여서 .avif 형식으로 저장하기 (`libvips` 필요)
-func ResizeImage(inputPath string, outputPath string, width int) {
+// 이미지를 주어진 크기로 줄여서 .avif 형식으로 저장하기
+func ResizeImage(inputPath string, outputPath string, width int) error {
 	buffer, err := bimg.Read(inputPath)
 	if err != nil {
-		return
+		return err
 	}
 	SaveImage(buffer, outputPath, width)
+	return nil
+}
+
+// 이미지 저장하고 경로 반환 (맨 앞 . 제거)
+func SaveProfileImage(inputPath string) string {
+	savePath, err := MakeSavePath(models.PROFILE)
+	if err != nil {
+		return ""
+	}
+
+	outputPath := fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
+	err = ResizeImage(inputPath, outputPath, configs.Env.Number(configs.SIZE_PROFILE))
+	if err != nil {
+		return ""
+	}
+
+	return outputPath[1:]
 }

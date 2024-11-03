@@ -15,6 +15,7 @@ type AuthRepository interface {
 	CheckVerificationCode(param *models.VerifyParameter) bool
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.Action) bool
+	ClearRefreshToken(userUid uint)
 	FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error)
 	FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult
 	FindMyInfoByUid(userUid uint) *models.MyInfoResult
@@ -95,6 +96,12 @@ func (r *MySQLAuthRepository) CheckPermissionForAction(userUid uint, action mode
 		return true
 	}
 	return false
+}
+
+// 로그아웃 시 리프레시 토큰 비우기
+func (r *MySQLAuthRepository) ClearRefreshToken(userUid uint) {
+	query := fmt.Sprintf("UPDATE %suser_token SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.Exec(query, "", time.Now().UnixMilli(), userUid)
 }
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
