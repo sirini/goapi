@@ -5,13 +5,13 @@ import (
 	"strconv"
 
 	"github.com/sirini/goapi/internal/services"
+	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
 // 비밀번호 변경하기
 func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		targetStr := r.FormValue("target")
 		userCode := r.FormValue("code")
 		newPassword := r.FormValue("password")
 
@@ -20,7 +20,7 @@ func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		verifyUid, err := strconv.ParseUint(targetStr, 10, 32)
+		verifyUid, err := strconv.ParseUint(r.FormValue("target"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid target, not a valid number")
 			return
@@ -38,13 +38,7 @@ func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
 // 사용자 정보 열람
 func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		targetUserUidStr := r.FormValue("targetUserUid")
-		if targetUserUidStr == "" {
-			utils.ResponseError(w, "Missing targetUserUid parameter")
-			return
-		}
-
-		targetUserUid, err := strconv.ParseUint(targetUserUidStr, 10, 32)
+		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid targetUserUid parameter")
 			return
@@ -62,8 +56,7 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 // 사용자 권한 및 리포트 응답 가져오기
 func LoadUserPermissionHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		targetUserUidStr := r.FormValue("targetUserUid")
-		targetUserUid, err := strconv.ParseUint(targetUserUidStr, 10, 32)
+		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid target user uid, not a valid number")
 			return
@@ -74,38 +67,83 @@ func LoadUserPermissionHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 사용자 권한 수정하기
+func ManageUserPermissionHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		if actionUserUid < 1 {
+			utils.ResponseError(w, "Unable to get an user uid from token")
+			return
+		}
+		targetUserUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(userUid), not a valid number")
+			return
+		}
+		writePost, err := strconv.ParseBool(r.FormValue("writePost"))
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(writePost), not a valid boolean")
+			return
+		}
+		writeComment, err := strconv.ParseBool(r.FormValue("writeComment"))
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(writeComment), not a valid boolean")
+			return
+		}
+		sendChat, err := strconv.ParseBool(r.FormValue("sendChatMessage"))
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(sendChatMessage), not a valid boolean")
+			return
+		}
+		sendReport, err := strconv.ParseBool(r.FormValue("sendReport"))
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(sendReport), not a valid boolean")
+			return
+		}
+		login, err := strconv.ParseBool(r.FormValue("login"))
+		if err != nil {
+			utils.ResponseError(w, "Invalid parameter(login), not a valid boolean")
+			return
+		}
+		response := r.FormValue("response")
+
+		param := models.UserPermissionReportResult{
+			UserPermissionResult: models.UserPermissionResult{
+				WritePost:       writePost,
+				WriteComment:    writeComment,
+				SendChatMessage: sendChat,
+				SendReport:      sendReport,
+			},
+			Login:    login,
+			UserUid:  uint(targetUserUid),
+			Response: response,
+		}
+
+		s.UserService.ChangeUserPermission(actionUserUid, &param)
+		utils.ResponseSuccess(w, nil)
+	}
+}
+
 // 사용자 신고하기
 func ReportUserHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userUidStr := r.FormValue("userUid")
-		targetUserUidStr := r.FormValue("targetUserUid")
-		contentStr := r.FormValue("content")
-		checkedBlackListStr := r.FormValue("checkedBlackList")
-
-		if userUidStr == "" || targetUserUidStr == "" || contentStr == "" || checkedBlackListStr == "" {
-			utils.ResponseError(w, "Invalid parameters, unable to parse form")
-			return
-		}
-
-		userUid, err := strconv.ParseUint(userUidStr, 10, 32)
+		content := r.FormValue("content")
+		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid userUid parameter")
 			return
 		}
-
-		targetUserUid, err := strconv.ParseUint(targetUserUidStr, 10, 32)
+		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid targetUserUid parameter")
 			return
 		}
-
-		checkedBlackList, err := strconv.ParseUint(checkedBlackListStr, 10, 32)
+		checkedBlackList, err := strconv.ParseUint(r.FormValue("checkedBlackList"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid checkedBlackList parameter")
 			return
 		}
-
-		result := s.UserService.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, contentStr)
+		result := s.UserService.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, content)
 		if !result {
 			utils.ResponseError(w, "You have no permission to report other user")
 			return

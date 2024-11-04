@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type UserRepository interface {
@@ -15,30 +16,37 @@ type UserRepository interface {
 	InsertBlackList(actorUid uint, targetUid uint)
 	InsertReportUser(actorUid uint, targetUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
-	InsertNewChat(fromUserUid uint, toUserUid uint, message string) uint
+	InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint
+	InsertUserPermission(userUid uint, perm *models.UserPermissionResult)
+	InsertReportResponse(actionUserUid uint, targetUserUid uint, response string)
 	IsEmailDuplicated(id string) bool
 	IsNameDuplicated(name string) bool
 	IsBlocked(userUid uint) bool
+	IsPermissionAdded(userUid uint) bool
+	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) *models.UserPermissionResult
 	UpdatePassword(userUid uint, password string)
 	UpdateUserInfoString(userUid uint, name string, signature string)
 	UpdateUserProfile(userUid uint, imagePath string)
+	UpdateUserPermission(userUid uint, perm *models.UserPermissionResult)
+	UpdateReportResponse(userUid uint, response string)
+	UpdateUserBlocked(userUid uint, isBlocked bool)
 }
 
-type MySQLUserRepository struct {
+type TsboardUserRepository struct {
 	db *sql.DB
 }
 
 // *sql.DB 저장
-func NewMySQLUserRepository(db *sql.DB) *MySQLUserRepository {
-	return &MySQLUserRepository{db: db}
+func NewTsboardUserRepository(db *sql.DB) *TsboardUserRepository {
+	return &TsboardUserRepository{db: db}
 }
 
 const NO_BOARD_UID = 0
 const NOT_FOUND = 0
 
 // 사용자 신고 내용에 대한 응답 가져오기
-func (r *MySQLUserRepository) GetReportResponse(userUid uint) string {
+func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 	var response string
 	query := fmt.Sprintf("SELECT response FROM %sreport WHERE to_uid = ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix)
 	r.db.QueryRow(query, userUid).Scan(&response)
@@ -46,7 +54,7 @@ func (r *MySQLUserRepository) GetReportResponse(userUid uint) string {
 }
 
 // 다른 사용자를 내 블랙리스트에 등록하기
-func (r *MySQLUserRepository) InsertBlackList(actorUid uint, targetUid uint) {
+func (r *TsboardUserRepository) InsertBlackList(actorUid uint, targetUid uint) {
 	query := fmt.Sprintf("SELECT user_uid FROM %suser_black_list WHERE user_uid = ? AND black_uid = ? LIMIT 1",
 		configs.Env.Prefix)
 
@@ -60,7 +68,7 @@ func (r *MySQLUserRepository) InsertBlackList(actorUid uint, targetUid uint) {
 }
 
 // 다른 사용자를 신고하기
-func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, report string) {
+func (r *TsboardUserRepository) InsertReportUser(actorUid uint, targetUid uint, report string) {
 	query := fmt.Sprintf("SELECT uid FROM %sreport WHERE to_uid = ? AND from_uid = ? LIMIT 1", configs.Env.Prefix)
 
 	var uid uint
@@ -73,7 +81,7 @@ func (r *MySQLUserRepository) InsertReportUser(actorUid uint, targetUid uint, re
 }
 
 // 신규 회원 등록
-func (r *MySQLUserRepository) InsertNewUser(id string, pw string, name string) uint {
+func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string) uint {
 	isDupId := r.IsEmailDuplicated(id)
 	isDupName := r.IsNameDuplicated(name)
 	if isDupId || isDupName {
@@ -95,9 +103,9 @@ func (r *MySQLUserRepository) InsertNewUser(id string, pw string, name string) u
 }
 
 // 쪽지 보내기
-func (r *MySQLUserRepository) InsertNewChat(fromUserUid uint, toUserUid uint, message string) uint {
+func (r *TsboardUserRepository) InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint {
 	query := fmt.Sprintf("INSERT INTO %schat (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)", configs.Env.Prefix)
-	result, _ := r.db.Exec(query, toUserUid, fromUserUid, message, time.Now().UnixMilli())
+	result, _ := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return NOT_FOUND
@@ -105,8 +113,26 @@ func (r *MySQLUserRepository) InsertNewChat(fromUserUid uint, toUserUid uint, me
 	return uint(insertId)
 }
 
+// 사용자 권한 설정값 추가하기
+func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm *models.UserPermissionResult) {
+	query := fmt.Sprintf(`INSERT INTO %suser_permission (user_uid, write_post, write_comment, send_chat, send_report)
+												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix)
+	writePost := utils.ToUint(perm.WritePost)
+	writeComment := utils.ToUint(perm.WriteComment)
+	sendChat := utils.ToUint(perm.SendChatMessage)
+	sendReport := utils.ToUint(perm.SendReport)
+	r.db.Exec(query, userUid, writePost, writeComment, sendChat, sendReport)
+}
+
+// 신고받은 사용자에게 조치 결과 추가하기
+func (r *TsboardUserRepository) InsertReportResponse(actionUserUid uint, targetUserUid uint, response string) {
+	query := fmt.Sprintf(`INSERT INTO %sreport (to_uid, from_uid, request, response, timestamp, solved) 
+												VALUES (?, ?, ?, ?, ?, ?)`, configs.Env.Prefix)
+	r.db.Exec(query, targetUserUid, actionUserUid, "", response, time.Now().UnixMilli(), 1)
+}
+
 // (회원가입 시) 이메일 주소가 중복되는지 확인
-func (r *MySQLUserRepository) IsEmailDuplicated(id string) bool {
+func (r *TsboardUserRepository) IsEmailDuplicated(id string) bool {
 	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
 	var uid uint
 	r.db.QueryRow(query, id).Scan(&uid)
@@ -114,7 +140,7 @@ func (r *MySQLUserRepository) IsEmailDuplicated(id string) bool {
 }
 
 // (회원가입 시) 이름이 중복되는지 확인
-func (r *MySQLUserRepository) IsNameDuplicated(name string) bool {
+func (r *TsboardUserRepository) IsNameDuplicated(name string) bool {
 	query := fmt.Sprintf("SELECT uid FROM %suser WHERE name = ? LIMIT 1", configs.Env.Prefix)
 	var uid uint
 	r.db.QueryRow(query, name).Scan(&uid)
@@ -122,15 +148,31 @@ func (r *MySQLUserRepository) IsNameDuplicated(name string) bool {
 }
 
 // 로그인이 차단되었는지 확인
-func (r *MySQLUserRepository) IsBlocked(userUid uint) bool {
+func (r *TsboardUserRepository) IsBlocked(userUid uint) bool {
 	var blocked uint8
 	query := fmt.Sprintf("SELECT blocked FROM %suser WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.QueryRow(query, userUid).Scan(&blocked)
 	return blocked > 0
 }
 
+// 사용자의 권한 정보가 등록된 게 있는지 확인
+func (r *TsboardUserRepository) IsPermissionAdded(userUid uint) bool {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %suser_permission WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, userUid).Scan(&uid)
+	return uid > 0
+}
+
+// 사용자가 받은 신고가 있는지 확인
+func (r *TsboardUserRepository) IsUserReported(userUid uint) bool {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %sreport WHERE to_uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, userUid).Scan(&uid)
+	return uid > 0
+}
+
 // 사용자 권한 및 신고 받은 후 조치사항 조회
-func (r *MySQLUserRepository) LoadUserPermission(userUid uint) *models.UserPermissionResult {
+func (r *TsboardUserRepository) LoadUserPermission(userUid uint) *models.UserPermissionResult {
 	var result models.UserPermissionResult = models.UserPermissionResult{
 		WritePost:       true,
 		WriteComment:    true,
@@ -153,19 +195,42 @@ func (r *MySQLUserRepository) LoadUserPermission(userUid uint) *models.UserPermi
 }
 
 // 사용자 비밀번호 변경하기
-func (r *MySQLUserRepository) UpdatePassword(userUid uint, pw string) {
+func (r *TsboardUserRepository) UpdatePassword(userUid uint, pw string) {
 	query := fmt.Sprintf("UPDATE %suser SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.Exec(query, pw, userUid)
 }
 
 // 사용자 이름, 서명 변경하기
-func (r *MySQLUserRepository) UpdateUserInfoString(userUid uint, name string, signature string) {
+func (r *TsboardUserRepository) UpdateUserInfoString(userUid uint, name string, signature string) {
 	query := fmt.Sprintf("UPDATE %suser SET name = ?, signature = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.Exec(query, name, signature, userUid)
 }
 
 // 사용자 프로필 이미지 변경하기
-func (r *MySQLUserRepository) UpdateUserProfile(userUid uint, imagePath string) {
+func (r *TsboardUserRepository) UpdateUserProfile(userUid uint, imagePath string) {
 	query := fmt.Sprintf("UPDATE %suser SET profile = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.Exec(query, imagePath, userUid)
+}
+
+// 사용자 권한 정보 변경하기
+func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm *models.UserPermissionResult) {
+	query := fmt.Sprintf(`UPDATE %suser_permission SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
+												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix)
+	writePost := utils.ToUint(perm.WritePost)
+	writeComment := utils.ToUint(perm.WriteComment)
+	sendChat := utils.ToUint(perm.SendChatMessage)
+	sendReport := utils.ToUint(perm.SendReport)
+	r.db.Exec(query, writePost, writeComment, sendChat, sendReport, userUid)
+}
+
+// 신고받은 사용자에게 조치 결과 업데이트 해주기
+func (r *TsboardUserRepository) UpdateReportResponse(userUid uint, response string) {
+	query := fmt.Sprintf("UPDATE %sreport SET response = ?, solved = ? WHERE to_uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.Exec(query, response, 1, userUid)
+}
+
+// 사용자가 로그인 할 수 있는지 여부 업데이트하기
+func (r *TsboardUserRepository) UpdateUserBlocked(userUid uint, isBlocked bool) {
+	query := fmt.Sprintf("UPDATE %suser SET blocked = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.Exec(query, utils.ToUint(isBlocked), userUid)
 }

@@ -11,7 +11,7 @@ type Repository struct {
 // 모든 리포지토리를 생성
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{
-		UserRepo: NewMySQLUserRepository(db),
-		AuthRepo: NewMySQLAuthRepository(db),
+		UserRepo: NewTsboardUserRepository(db),
+		AuthRepo: NewTsboardAuthRepository(db),
 	}
 }

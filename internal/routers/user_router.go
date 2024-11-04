@@ -20,4 +20,5 @@ func SetupUserRouter(mux *http.ServeMux, s *services.Service) {
 func SetupLoggedInUserRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("POST /goapi/user/report", middlewares.AuthMiddleware(handlers.ReportUserHandler(s)))
 	mux.Handle("GET /goapi/user/load/permission", middlewares.AuthMiddleware(handlers.LoadUserPermissionHandler(s)))
+	mux.Handle("POST /goapi/user/manage/user", middlewares.AuthMiddleware(handlers.ManageUserPermissionHandler(s)))
 }

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
@@ -16,7 +15,6 @@ import (
 func CheckEmailHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.FormValue("email")
-
 		if !utils.IsValidEmail(id) {
 			utils.ResponseError(w, "Invalid email address")
 			return
@@ -35,7 +33,6 @@ func CheckEmailHandler(s *services.Service) http.HandlerFunc {
 func CheckNameHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
-
 		if len(name) < 2 {
 			utils.ResponseError(w, "Invalid name, too short")
 			return
@@ -71,14 +68,11 @@ func LoadMyInfoHandler(s *services.Service) http.HandlerFunc {
 // 로그아웃 처리하기
 func LogoutHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		claims, _ := r.Context().Value(models.JwtClaimsKey).(jwt.MapClaims)
-		uidFloat, ok := claims["uid"].(float64)
-		if !ok {
-			utils.ResponseError(w, "Invalid type, uid is not a valid number")
+		userUid := utils.GetUserUidFromToken(r)
+		if userUid < 1 {
+			utils.ResponseError(w, "Unable to get an user uid from token")
 			return
 		}
-
-		userUid := uint(uidFloat)
 		s.AuthService.Logout(userUid)
 		utils.ResponseSuccess(w, nil)
 	}

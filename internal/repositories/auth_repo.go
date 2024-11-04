@@ -26,17 +26,17 @@ type AuthRepository interface {
 	UpdateUserSignin(userUid uint)
 }
 
-type MySQLAuthRepository struct {
+type TsboardAuthRepository struct {
 	db *sql.DB
 }
 
 // *sql.DB 저장
-func NewMySQLAuthRepository(db *sql.DB) *MySQLAuthRepository {
-	return &MySQLAuthRepository{db: db}
+func NewTsboardAuthRepository(db *sql.DB) *TsboardAuthRepository {
+	return &TsboardAuthRepository{db: db}
 }
 
 // 인증 코드가 유효한지 확인
-func (r *MySQLAuthRepository) CheckVerificationCode(param *models.VerifyParameter) bool {
+func (r *TsboardAuthRepository) CheckVerificationCode(param *models.VerifyParameter) bool {
 	var code string
 	var timestamp uint64
 
@@ -59,7 +59,7 @@ func (r *MySQLAuthRepository) CheckVerificationCode(param *models.VerifyParamete
 }
 
 // 게시판, 그룹 혹은 최고 관리자인지 확인 (boardUid = 0 일 때는 게시판 관리자인지 검사 안함)
-func (r *MySQLAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) bool {
+func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) bool {
 	if userUid == 1 {
 		return true
 	}
@@ -83,7 +83,7 @@ func (r *MySQLAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) 
 }
 
 // 사용자가 지정된 액션에 대한 권한이 있는지 확인
-func (r *MySQLAuthRepository) CheckPermissionForAction(userUid uint, action models.Action) bool {
+func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.Action) bool {
 	query := fmt.Sprintf("SELECT %s AS action FROM %suser_permission WHERE user_uid = ? LIMIT 1",
 		action.String(), configs.Env.Prefix)
 
@@ -99,13 +99,13 @@ func (r *MySQLAuthRepository) CheckPermissionForAction(userUid uint, action mode
 }
 
 // 로그아웃 시 리프레시 토큰 비우기
-func (r *MySQLAuthRepository) ClearRefreshToken(userUid uint) {
+func (r *TsboardAuthRepository) ClearRefreshToken(userUid uint) {
 	query := fmt.Sprintf("UPDATE %suser_token SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.Exec(query, "", time.Now().UnixMilli(), userUid)
 }
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
-func (r *MySQLAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error) {
+func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error) {
 	query := fmt.Sprintf("SELECT name, profile, level, signature, signup, signin, blocked FROM %suser WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 
 	var blocked uint
@@ -128,7 +128,7 @@ func (r *MySQLAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoR
 }
 
 // 아이디와 (sha256으로 해시된)비밀번호로 내정보 가져오기
-func (r *MySQLAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult {
+func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup FROM %suser
 	 WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`, configs.Env.Prefix)
 
@@ -147,7 +147,7 @@ func (r *MySQLAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.MyI
 }
 
 // 사용자 고유 번호로 내정보 가져오기
-func (r *MySQLAuthRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResult {
+func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signature, signup, signin, blocked FROM %suser
 	 WHERE uid = ? LIMIT 1`, configs.Env.Prefix)
 
@@ -163,7 +163,7 @@ func (r *MySQLAuthRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResult
 }
 
 // 인증용 고유번호로 아이디와 코드 가져오기
-func (r *MySQLAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
+func (r *TsboardAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
 	var id, code string
 	query := fmt.Sprintf("SELECT email, code FROM %suser_verification WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.QueryRow(query, verifyUid).Scan(&id, &code)
@@ -171,7 +171,7 @@ func (r *MySQLAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, str
 }
 
 // 아이디에 해당하는 고유번호 반환
-func (r *MySQLAuthRepository) FindUserUidById(id string) uint {
+func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 	var userUid uint
 	query := fmt.Sprintf("SELECT uid FROM %suser WHERE id = ? LIMIT 1", configs.Env.Prefix)
 	err := r.db.QueryRow(query, id).Scan(&userUid)
@@ -182,7 +182,7 @@ func (r *MySQLAuthRepository) FindUserUidById(id string) uint {
 }
 
 // 로그인 시 리프레시 토큰 저장하기
-func (r *MySQLAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
+func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
 	now := time.Now().UnixMilli()
 	hashed := utils.GetHashedString(refreshToken)
 	query := fmt.Sprintf("SELECT user_uid FROM %suser_token WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
@@ -200,7 +200,7 @@ func (r *MySQLAuthRepository) SaveRefreshToken(userUid uint, refreshToken string
 }
 
 // (회원가입 시) 인증 코드 보관해놓기
-func (r *MySQLAuthRepository) SaveVerificationCode(id string, code string) uint {
+func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %suser_verification WHERE email = ? LIMIT 1", configs.Env.Prefix)
 	err := r.db.QueryRow(query, id).Scan(&uid)
@@ -222,7 +222,7 @@ func (r *MySQLAuthRepository) SaveVerificationCode(id string, code string) uint 
 }
 
 // 로그인 시간 업데이트
-func (r *MySQLAuthRepository) UpdateUserSignin(userUid uint) {
+func (r *TsboardAuthRepository) UpdateUserSignin(userUid uint) {
 	query := fmt.Sprintf("UPDATE %suser SET signin = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix)
 	r.db.Exec(query, time.Now().UnixMilli(), userUid)
 }

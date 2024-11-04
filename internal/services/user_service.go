@@ -11,6 +11,7 @@ import (
 type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult)
+	ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult)
 	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
 	GetUserPermission(userUid uint) *models.UserPermissionReportResult
 	ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool
@@ -43,7 +44,7 @@ func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, new
 	return true
 }
 
-// 사용자 정보 업데이트하기
+// 사용자 정보 변경하기
 func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult) {
 	if len(param.Password) == 64 {
 		s.repos.UserRepo.UpdatePassword(param.UserUid, param.Password)
@@ -60,6 +61,29 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 			_ = os.Remove("." + imagePath)
 		}
 	}
+}
+
+// 사용자 권한 변경하기
+func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult) {
+	targetUserUid := perm.UserUid
+	permission := &perm.UserPermissionResult
+
+	isPermAdded := s.repos.UserRepo.IsPermissionAdded(targetUserUid)
+	if isPermAdded {
+		s.repos.UserRepo.UpdateUserPermission(targetUserUid, permission)
+	} else {
+		s.repos.UserRepo.InsertUserPermission(targetUserUid, permission)
+	}
+
+	isReported := s.repos.UserRepo.IsUserReported(targetUserUid)
+	if isReported {
+		s.repos.UserRepo.UpdateReportResponse(targetUserUid, perm.Response)
+	} else {
+		s.repos.UserRepo.InsertReportResponse(actionUserUid, targetUserUid, perm.Response)
+	}
+
+	s.repos.UserRepo.UpdateUserBlocked(targetUserUid, !perm.Login)
+	s.repos.UserRepo.InsertNewChat(actionUserUid, targetUserUid, perm.Response)
 }
 
 // 사용자의 공개 정보 조회
