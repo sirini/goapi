@@ -30,7 +30,7 @@ type TsboardAuthRepository struct {
 	db *sql.DB
 }
 
-// *sql.DB 저장
+// sql.DB 포인터 주입받기
 func NewTsboardAuthRepository(db *sql.DB) *TsboardAuthRepository {
 	return &TsboardAuthRepository{db: db}
 }
@@ -78,7 +78,6 @@ func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -86,16 +85,12 @@ func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint
 func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.Action) bool {
 	query := fmt.Sprintf("SELECT %s AS action FROM %suser_permission WHERE user_uid = ? LIMIT 1",
 		action.String(), configs.Env.Prefix)
-
 	var actionValue uint8
 	err := r.db.QueryRow(query, userUid).Scan(&actionValue)
 	if err == sql.ErrNoRows {
 		return true // 별도 기록이 없다면 기본 허용
 	}
-	if actionValue > 0 {
-		return true
-	}
-	return false
+	return actionValue > 0
 }
 
 // 로그아웃 시 리프레시 토큰 비우기

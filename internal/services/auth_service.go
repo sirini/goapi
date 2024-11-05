@@ -18,6 +18,7 @@ import (
 type AuthService interface {
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string) bool
+	CheckUserPermission(userUid uint, action models.Action) bool
 	GetMyInfo(userUid uint) *models.MyInfoResult
 	Logout(userUid uint)
 	ResetPassword(id string, r *http.Request) bool
@@ -37,27 +38,32 @@ func NewTsboardAuthService(repos *repositories.Repository) *TsboardAuthService {
 
 // 이메일 중복 체크
 func (s *TsboardAuthService) CheckEmailExists(id string) bool {
-	return s.repos.UserRepo.IsEmailDuplicated(id)
+	return s.repos.User.IsEmailDuplicated(id)
 }
 
 // 이름 중복 체크
 func (s *TsboardAuthService) CheckNameExists(name string) bool {
-	return s.repos.UserRepo.IsNameDuplicated(name)
+	return s.repos.User.IsNameDuplicated(name)
+}
+
+// 사용자 권한 확인하기
+func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.Action) bool {
+	return s.repos.Auth.CheckPermissionForAction(userUid, action)
 }
 
 // 로그인 한 내 정보 가져오기
 func (s *TsboardAuthService) GetMyInfo(userUid uint) *models.MyInfoResult {
-	return s.repos.AuthRepo.FindMyInfoByUid(userUid)
+	return s.repos.Auth.FindMyInfoByUid(userUid)
 }
 
 // 로그아웃하기
 func (s *TsboardAuthService) Logout(userUid uint) {
-	s.repos.AuthRepo.ClearRefreshToken(userUid)
+	s.repos.Auth.ClearRefreshToken(userUid)
 }
 
 // 비밀번호 초기화하기
 func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
-	userUid := s.repos.AuthRepo.FindUserUidById(id)
+	userUid := s.repos.Auth.FindUserUidById(id)
 	if userUid < 1 {
 		return false
 	}
@@ -65,13 +71,13 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 	if configs.Env.GmailAppPassword == "" {
 		message := strings.ReplaceAll(templates.ResetPasswordChat, "{{Id}}", id)
 		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
-		insertId := s.repos.UserRepo.InsertNewChat(userUid, 1, message)
+		insertId := s.repos.Chat.InsertNewChat(userUid, 1, message)
 		if insertId < 1 {
 			return false
 		}
 	} else {
 		code := uuid.New().String()[:6]
-		verifyUid := s.repos.AuthRepo.SaveVerificationCode(id, code)
+		verifyUid := s.repos.Auth.SaveVerificationCode(id, code)
 		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
 		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
 		body = strings.ReplaceAll(body, "{{Code}}", code)
@@ -85,7 +91,7 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 
 // 사용자 로그인 처리하기
 func (s *TsboardAuthService) Signin(id string, pw string) *models.MyInfoResult {
-	user := s.repos.AuthRepo.FindMyInfoByIDPW(id, pw)
+	user := s.repos.Auth.FindMyInfoByIDPW(id, pw)
 	if user.Uid < 1 {
 		return &models.MyInfoResult{}
 	}
@@ -102,29 +108,30 @@ func (s *TsboardAuthService) Signin(id string, pw string) *models.MyInfoResult {
 
 	user.Token = authToken
 	user.Refresh = refreshToken
-	s.repos.AuthRepo.SaveRefreshToken(user.Uid, refreshToken)
-	s.repos.AuthRepo.UpdateUserSignin(user.Uid)
+	s.repos.Auth.SaveRefreshToken(user.Uid, refreshToken)
+	s.repos.Auth.UpdateUserSignin(user.Uid)
 	return user
 }
 
 // 신규 회원 바로 가입 혹은 인증 메일 발송
 func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.Request) (*models.SignupResult, error) {
-	isDupId := s.repos.UserRepo.IsEmailDuplicated(id)
+	isDupId := s.repos.User.IsEmailDuplicated(id)
 	var target uint
 	if isDupId {
-		return &models.SignupResult{}, fmt.Errorf("Email(%s) is already in use", id)
+		return nil, fmt.Errorf("Email(%s) is already in use", id)
 	}
 
-	isDupName := s.repos.UserRepo.IsNameDuplicated(name)
+	name = utils.Escape(name)
+	isDupName := s.repos.User.IsNameDuplicated(name)
 	if isDupName {
-		return &models.SignupResult{}, fmt.Errorf("Name(%s) is already in use", name)
+		return nil, fmt.Errorf("Name(%s) is already in use", name)
 	}
 
 	if configs.Env.GmailAppPassword == "" {
-		target = s.repos.UserRepo.InsertNewUser(id, pw, name)
+		target = s.repos.User.InsertNewUser(id, pw, name)
 		if target < 1 {
 			log.Fatalf("Failed to signup for %s (%s) : %s", id, name, pw)
-			return &models.SignupResult{}, fmt.Errorf("Failed to add a new user")
+			return nil, fmt.Errorf("Failed to add a new user")
 		}
 	} else {
 		code := uuid.New().String()[:6]
@@ -136,7 +143,7 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 
 		result := utils.SendMail(id, subject, body)
 		if result {
-			target = s.repos.AuthRepo.SaveVerificationCode(id, code)
+			target = s.repos.Auth.SaveVerificationCode(id, code)
 		}
 	}
 	return &models.SignupResult{
@@ -147,9 +154,9 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 
 // 이메일 인증 완료하기
 func (s *TsboardAuthService) VerifyEmail(param *models.VerifyParameter) bool {
-	result := s.repos.AuthRepo.CheckVerificationCode(param)
+	result := s.repos.Auth.CheckVerificationCode(param)
 	if result {
-		s.repos.UserRepo.InsertNewUser(param.Id, param.Password, param.Name)
+		s.repos.User.InsertNewUser(param.Id, param.Password, utils.Escape(param.Name))
 		return true
 	}
 	return false

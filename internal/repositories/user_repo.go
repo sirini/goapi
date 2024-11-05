@@ -13,15 +13,15 @@ import (
 
 type UserRepository interface {
 	GetReportResponse(userUid uint) string
-	InsertBlackList(actorUid uint, targetUid uint)
-	InsertReportUser(actorUid uint, targetUid uint, report string)
+	InsertBlackList(actionUserUid uint, targetUserUid uint)
+	InsertReportUser(actionUserUid uint, targetUserUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
-	InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint
 	InsertUserPermission(userUid uint, perm *models.UserPermissionResult)
 	InsertReportResponse(actionUserUid uint, targetUserUid uint, response string)
 	IsEmailDuplicated(id string) bool
 	IsNameDuplicated(name string) bool
 	IsBlocked(userUid uint) bool
+	IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool
 	IsPermissionAdded(userUid uint) bool
 	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) *models.UserPermissionResult
@@ -37,7 +37,7 @@ type TsboardUserRepository struct {
 	db *sql.DB
 }
 
-// *sql.DB 저장
+// sql.DB 포인터 주입받기
 func NewTsboardUserRepository(db *sql.DB) *TsboardUserRepository {
 	return &TsboardUserRepository{db: db}
 }
@@ -54,29 +54,29 @@ func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 }
 
 // 다른 사용자를 내 블랙리스트에 등록하기
-func (r *TsboardUserRepository) InsertBlackList(actorUid uint, targetUid uint) {
+func (r *TsboardUserRepository) InsertBlackList(actionUserUid uint, targetUserUid uint) {
 	query := fmt.Sprintf("SELECT user_uid FROM %suser_black_list WHERE user_uid = ? AND black_uid = ? LIMIT 1",
 		configs.Env.Prefix)
 
 	var uid uint
-	err := r.db.QueryRow(query, actorUid, targetUid).Scan(&uid)
+	err := r.db.QueryRow(query, actionUserUid, targetUserUid).Scan(&uid)
 
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf("INSERT INTO %suser_black_list (user_uid, black_uid) VALUES (?, ?)", configs.Env.Prefix)
-		r.db.Exec(query, actorUid, targetUid)
+		r.db.Exec(query, actionUserUid, targetUserUid)
 	}
 }
 
 // 다른 사용자를 신고하기
-func (r *TsboardUserRepository) InsertReportUser(actorUid uint, targetUid uint, report string) {
+func (r *TsboardUserRepository) InsertReportUser(actionUserUid uint, targetUserUid uint, report string) {
 	query := fmt.Sprintf("SELECT uid FROM %sreport WHERE to_uid = ? AND from_uid = ? LIMIT 1", configs.Env.Prefix)
 
 	var uid uint
-	err := r.db.QueryRow(query, targetUid, actorUid).Scan(&uid)
+	err := r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
 
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf("INSERT INTO %sreport (to_uid, from_uid, request, response, timestamp, solved) VALUES (?, ?, ?, ? ,? ,?)", configs.Env.Prefix)
-		r.db.Exec(query, targetUid, actorUid, report, "", time.Now().UnixMilli(), 0)
+		r.db.Exec(query, targetUserUid, actionUserUid, report, "", time.Now().UnixMilli(), 0)
 	}
 }
 
@@ -102,20 +102,9 @@ func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string)
 	return uint(insertId)
 }
 
-// 쪽지 보내기
-func (r *TsboardUserRepository) InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint {
-	query := fmt.Sprintf("INSERT INTO %schat (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)", configs.Env.Prefix)
-	result, _ := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
-	insertId, err := result.LastInsertId()
-	if err != nil {
-		return NOT_FOUND
-	}
-	return uint(insertId)
-}
-
 // 사용자 권한 설정값 추가하기
 func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm *models.UserPermissionResult) {
-	query := fmt.Sprintf(`INSERT INTO %suser_permission (user_uid, write_post, write_comment, send_chat, send_report)
+	query := fmt.Sprintf(`INSERT INTO %suser_permission (user_uid, ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT)
 												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix)
 	writePost := utils.ToUint(perm.WritePost)
 	writeComment := utils.ToUint(perm.WriteComment)
@@ -155,6 +144,14 @@ func (r *TsboardUserRepository) IsBlocked(userUid uint) bool {
 	return blocked > 0
 }
 
+// 상대방에게 차단되었는지 확인
+func (r *TsboardUserRepository) IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool {
+	var uid uint
+	query := fmt.Sprintf("SELECT user_uid FROM %suser_black_list WHERE user_uid = ? AND black_uid = ? LIMIT 1", configs.Env.Prefix)
+	r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
+	return uid > 0
+}
+
 // 사용자의 권한 정보가 등록된 게 있는지 확인
 func (r *TsboardUserRepository) IsPermissionAdded(userUid uint) bool {
 	var uid uint
@@ -181,7 +178,7 @@ func (r *TsboardUserRepository) LoadUserPermission(userUid uint) *models.UserPer
 	}
 
 	var writePost, writeComment, sendChat, sendReport uint8
-	query := fmt.Sprintf("SELECT write_post, write_comment, send_chat, send_report FROM %suser_permission WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
+	query := fmt.Sprintf("SELECT ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT FROM %suser_permission WHERE user_uid = ? LIMIT 1", configs.Env.Prefix)
 	err := r.db.QueryRow(query, userUid).Scan(&writePost, &writeComment, &sendChat, &sendReport)
 	if err == sql.ErrNoRows {
 		return &result
@@ -214,7 +211,7 @@ func (r *TsboardUserRepository) UpdateUserProfile(userUid uint, imagePath string
 
 // 사용자 권한 정보 변경하기
 func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm *models.UserPermissionResult) {
-	query := fmt.Sprintf(`UPDATE %suser_permission SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
+	query := fmt.Sprintf(`UPDATE %suser_permission SET ACTION_WRITE_POST = ?, ACTION_WRITE_COMMENT = ?, ACTION_SEND_CHAT = ?, ACTION_SEND_REPORT = ?
 												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix)
 	writePost := utils.ToUint(perm.WritePost)
 	writeComment := utils.ToUint(perm.WriteComment)

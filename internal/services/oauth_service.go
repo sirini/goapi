@@ -36,14 +36,14 @@ func (s *TsboardOAuthService) SaveProfileImage(userUid uint, profile string) {
 	}
 	newSavePath := fmt.Sprintf("%s/%s.avif", dirPath, uuid.New().String())
 	utils.DownloadImage(profile, newSavePath, configs.Env.Number(configs.SIZE_PROFILE))
-	s.repos.UserRepo.UpdateUserProfile(userUid, newSavePath)
+	s.repos.User.UpdateUserProfile(userUid, newSavePath)
 }
 
 // OAuth 로그인 시 미가입 상태이면 바로 등록해주기 (프로필도 있으면 함께)
 func (s *TsboardOAuthService) RegisterOAuthUser(id string, name string, profile string) uint {
 	pw := uuid.New().String()[:10]
 	pw = utils.GetHashedString(pw)
-	userUid := s.repos.UserRepo.InsertNewUser(id, pw, name)
+	userUid := s.repos.User.InsertNewUser(id, pw, name)
 	if userUid > 0 && profile != "" {
 		s.SaveProfileImage(userUid, profile)
 	}
@@ -59,16 +59,16 @@ func (s *TsboardOAuthService) GenerateTokens(userUid uint) (string, string) {
 
 // 리프레시 토큰을 DB에 저장해주기
 func (s *TsboardOAuthService) SaveRefreshToken(userUid uint, token string) {
-	s.repos.AuthRepo.SaveRefreshToken(userUid, token)
-	s.repos.AuthRepo.UpdateUserSignin(userUid)
+	s.repos.Auth.SaveRefreshToken(userUid, token)
+	s.repos.Auth.UpdateUserSignin(userUid)
 }
 
 // 회원 아이디(이메일)에 해당하는 고유 번호 반환
 func (s *TsboardOAuthService) GetUserUid(id string) uint {
-	return s.repos.AuthRepo.FindUserUidById(id)
+	return s.repos.Auth.FindUserUidById(id)
 }
 
 // 회원 정보 가져오기
 func (s *TsboardOAuthService) GetUserInfo(userUid uint) *models.MyInfoResult {
-	return s.repos.AuthRepo.FindMyInfoByUid(userUid)
+	return s.repos.Auth.FindMyInfoByUid(userUid)
 }

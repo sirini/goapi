@@ -4,16 +4,20 @@ import "github.com/sirini/goapi/internal/repositories"
 
 // 모든 서비스들을 관리
 type Service struct {
-	UserService  UserService
-	AuthService  AuthService
-	OAuthService OAuthService
+	Auth  AuthService
+	Chat  ChatService
+	Noti  NotiService
+	OAuth OAuthService
+	User  UserService
 }
 
 // 모든 서비스들을 생성
 func NewService(repos *repositories.Repository) *Service {
 	return &Service{
-		UserService:  NewTsboardUserService(repos),
-		AuthService:  NewTsboardAuthService(repos),
-		OAuthService: NewTsboardOAuthService(repos),
+		Auth:  NewTsboardAuthService(repos),
+		Chat:  NewTsboardChatService(repos),
+		Noti:  NewTsboardNotiService(repos),
+		OAuth: NewTsboardOAuthService(repos),
+		User:  NewTsboardUserService(repos),
 	}
 }

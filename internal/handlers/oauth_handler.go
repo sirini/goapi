@@ -35,22 +35,22 @@ func exchangeToken(w http.ResponseWriter, r *http.Request, cfg *oauth2.Config) (
 
 // 이미 등록된 사용자인지 확인하고 필요 시 등록 후 고유번호 반환
 func registerUser(s *services.Service, id string, name string, profile string) uint {
-	isRegistered := s.AuthService.CheckEmailExists(id)
+	isRegistered := s.Auth.CheckEmailExists(id)
 	var userUid uint
 	if !isRegistered {
-		userUid = s.OAuthService.RegisterOAuthUser(id, name, profile)
+		userUid = s.OAuth.RegisterOAuthUser(id, name, profile)
 	} else {
-		userUid = s.OAuthService.GetUserUid(id)
+		userUid = s.OAuth.GetUserUid(id)
 	}
 	return userUid
 }
 
 // 토큰 저장 및 쿠키에 사용자 정보 전달
 func finishOAuthLogin(s *services.Service, w http.ResponseWriter, r *http.Request, userUid uint) {
-	auth, refresh := s.OAuthService.GenerateTokens(userUid)
-	s.OAuthService.SaveRefreshToken(userUid, refresh)
+	auth, refresh := s.OAuth.GenerateTokens(userUid)
+	s.OAuth.SaveRefreshToken(userUid, refresh)
 
-	user := s.OAuthService.GetUserInfo(userUid)
+	user := s.OAuth.GetUserInfo(userUid)
 	user.Token = auth
 	user.Refresh = refresh
 	myinfo, err := utils.ConvertJsonString(user)

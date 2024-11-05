@@ -20,7 +20,7 @@ func CheckEmailHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.AuthService.CheckEmailExists(id)
+		result := s.Auth.CheckEmailExists(id)
 		if result {
 			utils.ResponseError(w, "Email address is already in use")
 			return
@@ -38,7 +38,7 @@ func CheckNameHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.AuthService.CheckNameExists(name)
+		result := s.Auth.CheckNameExists(name)
 		if result {
 			utils.ResponseError(w, "Name is already in use")
 			return
@@ -56,7 +56,7 @@ func LoadMyInfoHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		myinfo := s.AuthService.GetMyInfo(uint(userUid))
+		myinfo := s.Auth.GetMyInfo(uint(userUid))
 		if myinfo.Uid < 1 {
 			utils.ResponseError(w, "Unable to load your information")
 			return
@@ -73,7 +73,7 @@ func LogoutHandler(s *services.Service) http.HandlerFunc {
 			utils.ResponseError(w, "Unable to get an user uid from token")
 			return
 		}
-		s.AuthService.Logout(userUid)
+		s.Auth.Logout(userUid)
 		utils.ResponseSuccess(w, nil)
 	}
 }
@@ -88,7 +88,7 @@ func ResetPasswordHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.AuthService.ResetPassword(id, r)
+		result := s.Auth.ResetPassword(id, r)
 		if !result {
 			utils.ResponseError(w, "Unable to reset password, internal error")
 			return
@@ -110,7 +110,7 @@ func SigninHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		user := s.AuthService.Signin(id, pw)
+		user := s.Auth.Signin(id, pw)
 		if user.Uid < 1 {
 			utils.ResponseError(w, "Unable to get an information, invalid ID or password")
 			return
@@ -131,7 +131,7 @@ func SignupHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result, err := s.AuthService.Signup(id, pw, name, r)
+		result, err := s.Auth.Signup(id, pw, name, r)
 		if err != nil {
 			utils.ResponseError(w, err.Error())
 			return
@@ -170,7 +170,7 @@ func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.AuthService.VerifyEmail(&models.VerifyParameter{
+		result := s.Auth.VerifyEmail(&models.VerifyParameter{
 			Target:   uint(target),
 			Code:     code,
 			Id:       id,
@@ -204,13 +204,13 @@ func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		if isDup := s.AuthService.CheckNameExists(name); isDup {
+		if isDup := s.Auth.CheckNameExists(name); isDup {
 			utils.ResponseError(w, "Duplicated name, please choose another one")
 			return
 		}
 
 		userUid := uint(userUid64)
-		userInfo, err := s.UserService.GetUserInfo(userUid)
+		userInfo, err := s.User.GetUserInfo(userUid)
 		if err != nil {
 			utils.ResponseError(w, "Unable to find your information")
 			return
@@ -231,7 +231,7 @@ func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
 			Profile:        file,
 			ProfileHandler: handler,
 		}
-		s.UserService.ChangeUserInfo(&param, userInfo)
+		s.User.ChangeUserInfo(&param, userInfo)
 		utils.ResponseSuccess(w, nil)
 	}
 }

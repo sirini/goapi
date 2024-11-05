@@ -26,7 +26,7 @@ func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.UserService.ChangePassword(uint(verifyUid), userCode, newPassword)
+		result := s.User.ChangePassword(uint(verifyUid), userCode, newPassword)
 		if !result {
 			utils.ResponseError(w, "Unable to change your password, internal error")
 			return
@@ -40,11 +40,11 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid targetUserUid parameter")
+			utils.ResponseError(w, "Invalid targetUserUid, not a valid number")
 			return
 		}
 
-		userInfo, err := s.UserService.GetUserInfo(uint(targetUserUid))
+		userInfo, err := s.User.GetUserInfo(uint(targetUserUid))
 		if err != nil {
 			utils.ResponseError(w, "User not found")
 			return
@@ -62,7 +62,7 @@ func LoadUserPermissionHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.UserService.GetUserPermission(uint(targetUserUid))
+		result := s.User.GetUserPermission(uint(targetUserUid))
 		utils.ResponseSuccess(w, result)
 	}
 }
@@ -119,7 +119,7 @@ func ManageUserPermissionHandler(s *services.Service) http.HandlerFunc {
 			Response: response,
 		}
 
-		s.UserService.ChangeUserPermission(actionUserUid, &param)
+		s.User.ChangeUserPermission(actionUserUid, &param)
 		utils.ResponseSuccess(w, nil)
 	}
 }
@@ -130,20 +130,20 @@ func ReportUserHandler(s *services.Service) http.HandlerFunc {
 		content := r.FormValue("content")
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid userUid parameter")
+			utils.ResponseError(w, "Invalid userUid, not a valid number")
 			return
 		}
 		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid targetUserUid parameter")
+			utils.ResponseError(w, "Invalid targetUserUid, not a valid number")
 			return
 		}
 		checkedBlackList, err := strconv.ParseUint(r.FormValue("checkedBlackList"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid checkedBlackList parameter")
+			utils.ResponseError(w, "Invalid checkedBlackList, not a valid number")
 			return
 		}
-		result := s.UserService.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, content)
+		result := s.User.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, content)
 		if !result {
 			utils.ResponseError(w, "You have no permission to report other user")
 			return

@@ -24,25 +24,25 @@ type MyInfoResult struct {
 	Refresh string `json:"refresh"`
 }
 
-// 권한 확인이 필요한 액션 정의
+// 액션 타입 재정의
 type Action uint8
 
 // 액션 고유 값들
 const (
-	WRITE_POST = iota
-	WRITE_COMMENT
-	SEND_CHAT
-	SEND_REPORT
+	ACTION_WRITE_POST = iota
+	ACTION_WRITE_COMMENT
+	ACTION_SEND_CHAT
+	ACTION_SEND_REPORT
 )
 
 // 액션 이름 반환
 func (a Action) String() string {
 	switch a {
-	case WRITE_COMMENT:
+	case ACTION_WRITE_COMMENT:
 		return "write_comment"
-	case SEND_CHAT:
+	case ACTION_SEND_CHAT:
 		return "send_chat"
-	case SEND_REPORT:
+	case ACTION_SEND_REPORT:
 		return "send_report"
 	default:
 		return "write_post"
@@ -73,4 +73,11 @@ type UserPermissionReportResult struct {
 	Login    bool   `json:"login"`
 	UserUid  uint   `json:"userUid"`
 	Response string `json:"response"`
+}
+
+// 사용자의 최소 기본 정보들
+type UserBasicInfo struct {
+	UserUid uint   `json:"uid"`
+	Name    string `json:"name"`
+	Profile string `json:"profile"`
 }

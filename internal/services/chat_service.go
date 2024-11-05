@@ -1,0 +1,54 @@
+package services
+
+import (
+	"github.com/sirini/goapi/internal/repositories"
+	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
+)
+
+type ChatService interface {
+	GetChattingList(userUid uint, limit uint) ([]*models.ChatItem, error)
+	GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error)
+	SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint
+}
+
+type TsboardChatService struct {
+	repos *repositories.Repository
+}
+
+// 리포지토리 묶음 주입받기
+func NewTsboardChatService(repos *repositories.Repository) *TsboardChatService {
+	return &TsboardChatService{repos: repos}
+}
+
+// 쪽지 목록들 가져오기
+func (s *TsboardChatService) GetChattingList(userUid uint, limit uint) ([]*models.ChatItem, error) {
+	return s.repos.Chat.LoadChatList(userUid, limit)
+}
+
+// 상대방과의 대화내용 가져오기
+func (s *TsboardChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error) {
+	return s.repos.Chat.LoadChatHistory(actionUserUid, targetUserUid, limit)
+}
+
+// 다른 사용자에게 쪽지 남기기
+func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint {
+	if isBanned := s.repos.User.IsBannedByTarget(actionUserUid, targetUserUid); isBanned {
+		return 0
+	}
+	insertId := s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, utils.Escape(message))
+	noti := models.NewNotiParameter{
+		ActionUserUid: actionUserUid,
+		TargetUserUid: targetUserUid,
+		NotiType:      models.NOTI_CHAT_MESSAGE,
+		PostUid:       0,
+		CommentUid:    0,
+	}
+	if insertId > 0 {
+		if isDup := s.repos.Noti.IsNotiAdded(&noti); isDup {
+			return insertId
+		}
+		s.repos.Noti.InsertNewNotification(&noti)
+	}
+	return insertId
+}

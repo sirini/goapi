@@ -14,7 +14,7 @@ type UserService interface {
 	ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult)
 	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
 	GetUserPermission(userUid uint) *models.UserPermissionReportResult
-	ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool
+	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
 }
 
 type TsboardUserService struct {
@@ -28,28 +28,28 @@ func NewTsboardUserService(repos *repositories.Repository) *TsboardUserService {
 
 // 비밀번호 변경하기
 func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
-	id, code := s.repos.AuthRepo.FindIDCodeByVerifyUid(verifyUid)
+	id, code := s.repos.Auth.FindIDCodeByVerifyUid(verifyUid)
 	if id == "" || code == "" {
 		return false
 	}
 	if code != userCode {
 		return false
 	}
-	userUid := s.repos.AuthRepo.FindUserUidById(id)
+	userUid := s.repos.Auth.FindUserUidById(id)
 	if userUid < 1 {
 		return false
 	}
 
-	s.repos.UserRepo.UpdatePassword(userUid, newPassword)
+	s.repos.User.UpdatePassword(userUid, newPassword)
 	return true
 }
 
 // 사용자 정보 변경하기
 func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult) {
 	if len(param.Password) == 64 {
-		s.repos.UserRepo.UpdatePassword(param.UserUid, param.Password)
+		s.repos.User.UpdatePassword(param.UserUid, param.Password)
 	}
-	s.repos.UserRepo.UpdateUserInfoString(param.UserUid, param.Name, param.Signature)
+	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
 
 	if param.Profile != nil && param.ProfileHandler.Size > 0 {
 		_ = os.Remove("." + oldInfo.Profile)
@@ -57,7 +57,7 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 		profilePath := utils.SaveProfileImage("." + imagePath)
 
 		if len(profilePath) > 0 {
-			s.repos.UserRepo.UpdateUserProfile(param.UserUid, profilePath)
+			s.repos.User.UpdateUserProfile(param.UserUid, profilePath)
 			_ = os.Remove("." + imagePath)
 		}
 	}
@@ -68,35 +68,36 @@ func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm *mode
 	targetUserUid := perm.UserUid
 	permission := &perm.UserPermissionResult
 
-	isPermAdded := s.repos.UserRepo.IsPermissionAdded(targetUserUid)
+	isPermAdded := s.repos.User.IsPermissionAdded(targetUserUid)
 	if isPermAdded {
-		s.repos.UserRepo.UpdateUserPermission(targetUserUid, permission)
+		s.repos.User.UpdateUserPermission(targetUserUid, permission)
 	} else {
-		s.repos.UserRepo.InsertUserPermission(targetUserUid, permission)
+		s.repos.User.InsertUserPermission(targetUserUid, permission)
 	}
 
-	isReported := s.repos.UserRepo.IsUserReported(targetUserUid)
+	isReported := s.repos.User.IsUserReported(targetUserUid)
+	responseReport := utils.Escape(perm.Response)
 	if isReported {
-		s.repos.UserRepo.UpdateReportResponse(targetUserUid, perm.Response)
+		s.repos.User.UpdateReportResponse(targetUserUid, responseReport)
 	} else {
-		s.repos.UserRepo.InsertReportResponse(actionUserUid, targetUserUid, perm.Response)
+		s.repos.User.InsertReportResponse(actionUserUid, targetUserUid, responseReport)
 	}
 
-	s.repos.UserRepo.UpdateUserBlocked(targetUserUid, !perm.Login)
-	s.repos.UserRepo.InsertNewChat(actionUserUid, targetUserUid, perm.Response)
+	s.repos.User.UpdateUserBlocked(targetUserUid, !perm.Login)
+	s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, responseReport)
 }
 
 // 사용자의 공개 정보 조회
 func (s *TsboardUserService) GetUserInfo(userUid uint) (*models.UserInfoResult, error) {
-	return s.repos.AuthRepo.FindUserInfoByUid(userUid)
+	return s.repos.Auth.FindUserInfoByUid(userUid)
 }
 
 // 사용자의 권한 조회
 func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermissionReportResult {
 	var result models.UserPermissionReportResult
-	permission := s.repos.UserRepo.LoadUserPermission(userUid)
-	isBlocked := s.repos.UserRepo.IsBlocked(userUid)
-	response := s.repos.UserRepo.GetReportResponse(userUid)
+	permission := s.repos.User.LoadUserPermission(userUid)
+	isBlocked := s.repos.User.IsBlocked(userUid)
+	response := s.repos.User.GetReportResponse(userUid)
 
 	result.WritePost = permission.WritePost
 	result.WriteComment = permission.WriteComment
@@ -110,14 +111,14 @@ func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermiss
 }
 
 // 사용자가 특정 유저를 신고하기
-func (s *TsboardUserService) ReportTargetUser(actorUid uint, targetUid uint, wantBlock bool, report string) bool {
-	isAllowedAction := s.repos.AuthRepo.CheckPermissionForAction(actorUid, models.SEND_REPORT)
+func (s *TsboardUserService) ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool {
+	isAllowedAction := s.repos.Auth.CheckPermissionForAction(actionUserUid, models.ACTION_SEND_REPORT)
 	if !isAllowedAction {
 		return false
 	}
 	if wantBlock {
-		s.repos.UserRepo.InsertBlackList(actorUid, targetUid)
+		s.repos.User.InsertBlackList(actionUserUid, targetUserUid)
 	}
-	s.repos.UserRepo.InsertReportUser(actorUid, targetUid, report)
+	s.repos.User.InsertReportUser(actionUserUid, targetUserUid, utils.Escape(report))
 	return true
 }
