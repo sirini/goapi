@@ -6,6 +6,7 @@ import "github.com/sirini/goapi/internal/repositories"
 type Service struct {
 	Auth  AuthService
 	Chat  ChatService
+	Home  HomeService
 	Noti  NotiService
 	OAuth OAuthService
 	User  UserService
@@ -16,6 +17,7 @@ func NewService(repos *repositories.Repository) *Service {
 	return &Service{
 		Auth:  NewTsboardAuthService(repos),
 		Chat:  NewTsboardChatService(repos),
+		Home:  NewTsboardHomeService(repos),
 		Noti:  NewTsboardNotiService(repos),
 		OAuth: NewTsboardOAuthService(repos),
 		User:  NewTsboardUserService(repos),
