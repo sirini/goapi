@@ -26,7 +26,8 @@ func NewTsboardChatRepository(db *sql.DB) *TsboardChatRepository {
 
 // 쪽지 보내기
 func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint {
-	query := fmt.Sprintf("INSERT INTO %schat (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)", configs.Env.Prefix)
+	query := fmt.Sprintf("INSERT INTO %s%s (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)",
+		configs.Env.Prefix, models.TABLE_CHAT)
 	result, _ := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
@@ -39,8 +40,9 @@ func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid 
 func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]*models.ChatItem, error) {
 	query := fmt.Sprintf(`SELECT MAX(c.uid) AS latest_uid, c.from_uid, MAX(c.message) AS latest_message, 
 												MAX(c.timestamp) AS latest_timestamp, u.name, u.profile 
-		FROM %schat AS c JOIN %suser AS u ON c.from_uid = u.uid WHERE c.to_uid = ? 
-		GROUP BY c.from_uid ORDER BY latest_uid DESC LIMIT ?`, configs.Env.Prefix, configs.Env.Prefix)
+												FROM %s%s AS c JOIN %suser AS u ON c.from_uid = u.uid WHERE c.to_uid = ? 
+												GROUP BY c.from_uid ORDER BY latest_uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_CHAT, configs.Env.Prefix)
 
 	rows, err := r.db.Query(query, userUid, limit)
 	if err != nil {
@@ -66,9 +68,9 @@ func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]*model
 
 // 상대방과의 대화 내용 가져오기
 func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error) {
-	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %schat 
+	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %s%s 
 												WHERE to_uid IN (?, ?) AND from_uid IN (?, ?) 
-												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix)
+												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_CHAT)
 	rows, err := r.db.Query(query, actionUserUid, targetUserUid, actionUserUid, targetUserUid, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %w", err)
@@ -79,13 +81,13 @@ func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUi
 	for rows.Next() {
 		history := &models.ChatHistory{}
 		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp); err != nil {
-			return nil, fmt.Errorf("error scanning row: %w", err)
+			return nil, err
 		}
 		chatHistories = append(chatHistories, history)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
+		return nil, err
 	}
 	return chatHistories, nil
 }

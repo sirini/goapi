@@ -30,7 +30,7 @@ func NewTsboardOAuthService(repos *repositories.Repository) *TsboardOAuthService
 
 // OAuth 계정에 프로필 이미지가 있다면 가져와 저장하기
 func (s *TsboardOAuthService) SaveProfileImage(userUid uint, profile string) {
-	dirPath, err := utils.MakeSavePath("profile")
+	dirPath, err := utils.MakeSavePath(models.UPLOAD_PROFILE)
 	if err != nil {
 		return
 	}

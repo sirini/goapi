@@ -5,8 +5,8 @@ type UploadCategory string
 
 // 하위 폴더들의 상수 정의
 const (
-	ATTACH  UploadCategory = "attachments"
-	PROFILE UploadCategory = "profile"
-	TEMP    UploadCategory = "temp"
-	THUMB   UploadCategory = "thumbnails"
+	UPLOAD_ATTACH  UploadCategory = "attachments"
+	UPLOAD_PROFILE UploadCategory = "profile"
+	UPLOAD_TEMP    UploadCategory = "temp"
+	UPLOAD_THUMB   UploadCategory = "thumbnails"
 )

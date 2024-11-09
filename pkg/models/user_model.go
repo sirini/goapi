@@ -29,7 +29,7 @@ type Action uint8
 
 // 액션 고유 값들
 const (
-	ACTION_WRITE_POST = iota
+	ACTION_WRITE_POST Action = iota
 	ACTION_WRITE_COMMENT
 	ACTION_SEND_CHAT
 	ACTION_SEND_REPORT

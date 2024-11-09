@@ -26,7 +26,8 @@ func NewTsboardHomeRepository(db *sql.DB) *TsboardHomeRepository {
 
 // 방문자 기록하기
 func (r *TsboardHomeRepository) InsertVisitorLog(userUid uint) {
-	query := fmt.Sprintf("INSERT INTO %suser_access_log (user_uid, timestamp) VALUES (?, ?)", configs.Env.Prefix)
+	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, timestamp) VALUES (?, ?)",
+		configs.Env.Prefix, models.TABLE_USER_ACCESS)
 	r.db.Exec(query, userUid, time.Now().UnixMilli())
 }
 
@@ -34,7 +35,8 @@ func (r *TsboardHomeRepository) InsertVisitorLog(userUid uint) {
 func (r *TsboardHomeRepository) LoadBoardLinks(groupUid uint) ([]*models.HomeSidebarBoardResult, error) {
 	var boards []*models.HomeSidebarBoardResult
 
-	query := fmt.Sprintf("SELECT id, type, name, info FROM %sboard WHERE group_uid = ?", configs.Env.Prefix)
+	query := fmt.Sprintf("SELECT id, type, name, info FROM %s%s WHERE group_uid = ?",
+		configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query, groupUid)
 	if err != nil {
 		return nil, err
@@ -58,7 +60,7 @@ func (r *TsboardHomeRepository) LoadBoardLinks(groupUid uint) ([]*models.HomeSid
 // 그룹 및 하위 게시판 목록들 가져오기
 func (r *TsboardHomeRepository) LoadGroupBoardLinks() ([]*models.HomeSidebarGroupResult, error) {
 	var groups []*models.HomeSidebarGroupResult
-	query := fmt.Sprintf("SELECT uid, id FROM %sgroup", configs.Env.Prefix)
+	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err

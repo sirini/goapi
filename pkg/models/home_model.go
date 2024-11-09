@@ -14,7 +14,7 @@ type Board uint8
 
 // 게시판 타입 목록
 const (
-	BOARD_DEFAULT = iota
+	BOARD_DEFAULT Board = iota
 	BOARD_GALLERY
 	BOARD_BLOG
 	BOARD_SHOP

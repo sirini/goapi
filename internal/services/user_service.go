@@ -53,7 +53,7 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 
 	if param.Profile != nil && param.ProfileHandler.Size > 0 {
 		_ = os.Remove("." + oldInfo.Profile)
-		imagePath := utils.SaveUploadedFile(models.PROFILE, param.Profile, param.ProfileHandler.Filename)
+		imagePath := utils.SaveUploadedFile(models.UPLOAD_PROFILE, param.Profile, param.ProfileHandler.Filename)
 		profilePath := utils.SaveProfileImage("." + imagePath)
 
 		if len(profilePath) > 0 {

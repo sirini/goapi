@@ -12,4 +12,6 @@ func SetupVersionRouter(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("GET /goapi/home/tsboard", handlers.ShowVersionHandler)
 	mux.HandleFunc("GET /goapi/home/visit", handlers.CountingVisitorHandler(s))
 	mux.HandleFunc("GET /goapi/home/sidebar/links", handlers.LoadSidebarLinkHandler(s))
+	mux.HandleFunc("GET /goapi/home/latest", handlers.LoadAllPostsHandler(s))
+	mux.HandleFunc("GET /goapi/home/latest/post", handlers.LoadPostsByIdHandler(s))
 }

@@ -67,7 +67,7 @@ func ResizeImage(inputPath string, outputPath string, width int) error {
 
 // 이미지 저장하고 경로 반환 (맨 앞 . 제거)
 func SaveProfileImage(inputPath string) string {
-	savePath, err := MakeSavePath(models.PROFILE)
+	savePath, err := MakeSavePath(models.UPLOAD_PROFILE)
 	if err != nil {
 		return ""
 	}

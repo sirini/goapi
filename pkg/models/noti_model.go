@@ -4,7 +4,7 @@ package models
 type NewNotiParameter struct {
 	ActionUserUid uint
 	TargetUserUid uint
-	NotiType      uint
+	NotiType      Noti
 	PostUid       uint
 	CommentUid    uint
 }
@@ -26,7 +26,7 @@ type Noti uint8
 
 // 알림 타입 고유값들
 const (
-	NOTI_LIKE_POST = iota
+	NOTI_LIKE_POST Noti = iota
 	NOTI_LIKE_COMMENT
 	NOTI_LEAVE_COMMENT
 	NOTI_REPLY_COMMENT

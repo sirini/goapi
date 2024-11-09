@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -83,7 +82,6 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 		body = strings.ReplaceAll(body, "{{Code}}", code)
 		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
 		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", r.Host)
-
 		return utils.SendMail(id, title, body)
 	}
 	return true
@@ -130,7 +128,6 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 	if configs.Env.GmailAppPassword == "" {
 		target = s.repos.User.InsertNewUser(id, pw, name)
 		if target < 1 {
-			log.Fatalf("Failed to signup for %s (%s) : %s", id, name, pw)
 			return nil, fmt.Errorf("Failed to add a new user")
 		}
 	} else {
