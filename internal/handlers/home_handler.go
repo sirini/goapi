@@ -55,7 +55,7 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		bunch, err := strconv.ParseUint(r.FormValue("bunch"), 10, 32)
-		if err != nil {
+		if err != nil || bunch < 1 || bunch > 100 {
 			utils.ResponseError(w, "Invalid bunch, not a valid number")
 			return
 		}
@@ -93,7 +93,7 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		boardId := r.FormValue("id")
 		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
-		if err != nil {
+		if err != nil || bunch < 1 || bunch > 100 {
 			utils.ResponseError(w, "Invalid limit, not a valid number")
 			return
 		}
