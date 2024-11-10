@@ -7,7 +7,6 @@ type Repository struct {
 	Auth  AuthRepository
 	Board BoardRepository
 	Chat  ChatRepository
-	File  FileRepository
 	Home  HomeRepository
 	Noti  NotiRepository
 	User  UserRepository
@@ -15,12 +14,12 @@ type Repository struct {
 
 // 모든 리포지토리를 생성
 func NewRepository(db *sql.DB) *Repository {
+	board := NewTsboardBoardRepository(db)
 	return &Repository{
 		Auth:  NewTsboardAuthRepository(db),
-		Board: NewTsboardBoardRepository(db),
+		Board: board,
 		Chat:  NewTsboardChatRepository(db),
-		File:  NewTsboardFileRepository(db),
-		Home:  NewTsboardHomeRepository(db),
+		Home:  NewTsboardHomeRepository(db, board),
 		Noti:  NewTsboardNotiRepository(db),
 		User:  NewTsboardUserRepository(db),
 	}

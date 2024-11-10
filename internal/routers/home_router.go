@@ -8,7 +8,7 @@ import (
 )
 
 // TSBOARD : GOAPI 버전 확인 라우터 셋업
-func SetupVersionRouter(mux *http.ServeMux, s *services.Service) {
+func SetupHomeRouter(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("GET /goapi/home/tsboard", handlers.ShowVersionHandler)
 	mux.HandleFunc("GET /goapi/home/visit", handlers.CountingVisitorHandler(s))
 	mux.HandleFunc("GET /goapi/home/sidebar/links", handlers.LoadSidebarLinkHandler(s))

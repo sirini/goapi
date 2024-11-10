@@ -112,15 +112,11 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInf
 	err := r.db.QueryRow(query, userUid).Scan(
 		&info.Name, &info.Profile, &info.Level, &info.Signature, &info.Signup, &info.Signin, &blocked)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, err
-		}
-		return &info, err
+		return nil, err
 	}
 
 	info.Blocked = blocked > 0
 	info.Admin = r.CheckPermissionByUid(userUid, NO_BOARD_UID)
-
 	return &info, nil
 }
 
@@ -132,9 +128,8 @@ func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.M
 
 	var info models.MyInfoResult
 	err := r.db.QueryRow(query, id, pw).Scan(&info.Uid, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup)
-
 	if err == sql.ErrNoRows {
-		return &models.MyInfoResult{}
+		return &info
 	}
 
 	info.Id = id
@@ -151,11 +146,9 @@ func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResu
 
 	var info models.MyInfoResult
 	err := r.db.QueryRow(query, userUid).Scan(&info.Uid, &info.Id, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup, &info.Signin, &info.Blocked)
-
 	if err == sql.ErrNoRows {
-		return &models.MyInfoResult{}
+		return &info
 	}
-
 	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
 	return &info
 }

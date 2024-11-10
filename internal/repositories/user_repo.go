@@ -12,6 +12,7 @@ import (
 
 type UserRepository interface {
 	GetReportResponse(userUid uint) string
+	GetUserBlackList(userUid uint) []uint
 	InsertBlackList(actionUserUid uint, targetUserUid uint)
 	InsertReportUser(actionUserUid uint, targetUserUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
@@ -51,6 +52,28 @@ func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 		configs.Env.Prefix, models.TABLE_REPORT)
 	r.db.QueryRow(query, userUid).Scan(&response)
 	return response
+}
+
+// 사용자가 지정한 블랙 리스트 목록 가져오기
+func (r *TsboardUserRepository) GetUserBlackList(userUid uint) []uint {
+	var blocks []uint
+	query := fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ?",
+		configs.Env.Prefix, models.TABLE_USER_BLOCK)
+	rows, err := r.db.Query(query, userUid)
+	if err != nil {
+		return blocks
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var block uint
+		err := rows.Scan(&block)
+		if err != nil {
+			return blocks
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks
 }
 
 // 다른 사용자를 내 블랙리스트에 등록하기

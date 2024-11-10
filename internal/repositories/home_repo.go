@@ -7,21 +7,110 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type HomeRepository interface {
+	FindLatestPostsByTitleContent(param *models.HomePostParameter) ([]*models.HomePostItem, error)
+	FindLatestPostsByUserUidCatUid(param *models.HomePostParameter) ([]*models.HomePostItem, error)
+	FindLatestPostsByTag(param *models.HomePostParameter) ([]*models.HomePostItem, error)
+	GetBoardBasicSettings(boardUid uint) *models.BoardBasicSettingResult
 	InsertVisitorLog(userUid uint)
 	LoadBoardLinks(groupUid uint) ([]*models.HomeSidebarBoardResult, error)
 	LoadGroupBoardLinks() ([]*models.HomeSidebarGroupResult, error)
+	LoadLatestPosts(param *models.HomePostParameter) ([]*models.HomePostItem, error)
 }
 
 type TsboardHomeRepository struct {
-	db *sql.DB
+	db    *sql.DB
+	board BoardRepository
 }
 
-// sql.DB 포인터 주입받기
-func NewTsboardHomeRepository(db *sql.DB) *TsboardHomeRepository {
-	return &TsboardHomeRepository{db: db}
+// sql.DB, boardRepo 포인터 주입받기
+func NewTsboardHomeRepository(db *sql.DB, board BoardRepository) *TsboardHomeRepository {
+	return &TsboardHomeRepository{
+		db:    db,
+		board: board,
+	}
+}
+
+// 홈화면에서 게시글 제목 혹은 내용 일부를 검색해서 가져오기
+func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+	whereBoard := ""
+	if param.BoardUid > 0 {
+		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
+	}
+	option := param.Option.String()
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, 
+												title, content, submitted, modified, hit, status 
+												FROM %s%s WHERE status != ? %s AND %s LIKE ? 
+												ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
+	rows, err := r.db.Query(query, models.POST_REMOVED, "%"+param.Keyword+"%", param.Bunch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return utils.AppendItem(rows)
+}
+
+// 홈화면에서 사용자 고유 번호 혹은 게시글 카테고리 번호로 검색해서 가져오기
+func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+	whereBoard := ""
+	if param.BoardUid > 0 {
+		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
+	}
+	option := param.Option.String()
+	table := models.TABLE_USER
+	if param.Option == models.SEARCH_CATEGORY {
+		table = models.TABLE_BOARD_CAT
+	}
+	uid := r.board.GetUidByTable(table, param.Keyword)
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid,
+												title, content, submitted, modified, hit, status
+												FROM %s%s WHERE status != ? %s AND %s = ?
+												ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
+	rows, err := r.db.Query(query, models.POST_REMOVED, uid, param.Bunch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return utils.AppendItem(rows)
+}
+
+// 홈화면에서 태그 이름에 해당하는 최근 게시글들만 가져오기
+func (r *TsboardHomeRepository) FindLatestPostsByTag(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+	whereBoard := ""
+	if param.BoardUid > 0 {
+		whereBoard = fmt.Sprintf("AND p.board_uid = %d", param.BoardUid)
+	}
+	tagUidStr, tagCount := r.board.GetTagUids(param.Keyword)
+	query := fmt.Sprintf(`SELECT p.uid, p.board_uid, p.user_uid, p.category_uid, 
+												p.title, p.content, p.submitted, p.modified, p.hit, p.status 
+												FROM %s%s AS p JOIN %s%s AS ph ON p.uid = ph.post_uid 
+												WHERE p.status != ? %s AND uid < ? AND ph.hashtag_uid IN (%s) 
+												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?) 
+												ORDER BY p.uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, whereBoard, tagUidStr)
+	rows, err := r.db.Query(query, models.POST_REMOVED, param.SinceUid, tagCount, param.Bunch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return utils.AppendItem(rows)
+}
+
+// 게시판 기본 설정값 가져오기
+func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) *models.BoardBasicSettingResult {
+	var useCategory uint
+	settings := &models.BoardBasicSettingResult{}
+
+	query := fmt.Sprintf("SELECT id, type, use_category FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_BOARD)
+	r.db.QueryRow(query, boardUid).Scan(&settings.Id, &settings.Type, &useCategory)
+	settings.UseCategory = useCategory > 0
+	return settings
 }
 
 // 방문자 기록하기
@@ -31,10 +120,9 @@ func (r *TsboardHomeRepository) InsertVisitorLog(userUid uint) {
 	r.db.Exec(query, userUid, time.Now().UnixMilli())
 }
 
-// 게시판 목록들 가져오기
+// 홈화면에서 게시판 목록들 가져오기
 func (r *TsboardHomeRepository) LoadBoardLinks(groupUid uint) ([]*models.HomeSidebarBoardResult, error) {
 	var boards []*models.HomeSidebarBoardResult
-
 	query := fmt.Sprintf("SELECT id, type, name, info FROM %s%s WHERE group_uid = ?",
 		configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query, groupUid)
@@ -50,14 +138,13 @@ func (r *TsboardHomeRepository) LoadBoardLinks(groupUid uint) ([]*models.HomeSid
 		}
 		boards = append(boards, board)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 	return boards, nil
 }
 
-// 그룹 및 하위 게시판 목록들 가져오기
+// 홈화면 사이드바에 사용할 그룹 및 하위 게시판 목록들 가져오기
 func (r *TsboardHomeRepository) LoadGroupBoardLinks() ([]*models.HomeSidebarGroupResult, error) {
 	var groups []*models.HomeSidebarGroupResult
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
@@ -85,4 +172,23 @@ func (r *TsboardHomeRepository) LoadGroupBoardLinks() ([]*models.HomeSidebarGrou
 		groups = append(groups, group)
 	}
 	return groups, nil
+}
+
+// 홈화면 최근 게시글들 가져오기
+func (r *TsboardHomeRepository) LoadLatestPosts(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+	whereBoard := ""
+	if param.BoardUid > 0 {
+		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
+	}
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, 
+												title, content, submitted, modified, hit, status
+												FROM %s%s WHERE status != ? %s AND uid < ? 
+												ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, whereBoard)
+	rows, err := r.db.Query(query, models.POST_REMOVED, param.SinceUid, param.Bunch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return utils.AppendItem(rows)
 }

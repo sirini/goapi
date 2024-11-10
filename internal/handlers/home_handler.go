@@ -49,7 +49,8 @@ func LoadSidebarLinkHandler(s *services.Service) http.HandlerFunc {
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원)
 func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sinceUid, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
+		actionUserUid := utils.FindUserUidFromHeader(r)
+		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
 		if err != nil {
 			utils.ResponseError(w, "Invalid since uid, not a valid number")
 			return
@@ -64,15 +65,14 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 			utils.ResponseError(w, "Invalid option, not a valid number")
 			return
 		}
-		actionUserUid, err := strconv.ParseUint(r.FormValue("accessUserUid"), 10, 32)
-		if err != nil {
-			utils.ResponseError(w, "Invalid user uid, not a valid number")
-			return
-		}
 		keyword := utils.Escape(r.FormValue("keyword"))
 
-		parameter := &models.BoardPostParameter{
-			SinceUid: uint(sinceUid),
+		sinceUid := uint(sinceUid64)
+		if sinceUid < 1 {
+			sinceUid = s.Board.GetMaxUid()
+		}
+		parameter := &models.HomePostParameter{
+			SinceUid: sinceUid,
 			Bunch:    uint(bunch),
 			Option:   models.Search(option),
 			Keyword:  keyword,
@@ -91,15 +91,11 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기
 func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.FindUserUidFromHeader(r)
 		boardId := r.FormValue("id")
 		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
 		if err != nil || bunch < 1 || bunch > 100 {
 			utils.ResponseError(w, "Invalid limit, not a valid number")
-			return
-		}
-		actionUserUid, err := strconv.ParseUint(r.FormValue("accessUserUid"), 10, 32)
-		if err != nil {
-			utils.ResponseError(w, "Invalid user uid, not a valid number")
 			return
 		}
 
@@ -109,7 +105,7 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		parameter := &models.BoardPostParameter{
+		parameter := &models.HomePostParameter{
 			SinceUid: s.Board.GetMaxUid() + 1,
 			Bunch:    uint(bunch),
 			Option:   models.SEARCH_NONE,

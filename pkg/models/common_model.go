@@ -37,3 +37,9 @@ const (
 	TABLE_USER_TOKEN    Table = "user_token"
 	TABLE_USER_VERIFY   Table = "user_verification"
 )
+
+// 고유값과 이름 구조체 정의
+type Pair struct {
+	Uid  uint   `json:"uid"`
+	Name string `json:"name"`
+}

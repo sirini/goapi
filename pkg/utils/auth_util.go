@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -50,9 +51,33 @@ func GenerateRefreshToken(months int) (string, error) {
 	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
 }
 
-// 토큰에서 사용자 고유 번호 추출
+// (AuthMiddleware 통과 후) 토큰에서 사용자 고유 번호 추출
 func GetUserUidFromToken(r *http.Request) uint {
-	claims, _ := r.Context().Value(models.JwtClaimsKey).(jwt.MapClaims)
+	userUid, ok := r.Context().Value(models.JwtClaimsKey).(uint)
+	if !ok {
+		return 0
+	}
+	return userUid
+}
+
+// AuthMiddleware 생략하고 토큰이 있을 시 사용자 고유 번호 추출
+func FindUserUidFromHeader(r *http.Request) uint {
+	tokenStr := r.Header.Get("Authorization")
+	if tokenStr == "" {
+		return 0
+	}
+	parts := strings.Split(tokenStr, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return 0
+	}
+	token, err := ValidateJWT(parts[1])
+	if err != nil {
+		return 0
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return 0
+	}
 	uidFloat, ok := claims["uid"].(float64)
 	if !ok {
 		return 0
