@@ -17,7 +17,7 @@ import (
 type AuthService interface {
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string) bool
-	CheckUserPermission(userUid uint, action models.Action) bool
+	CheckUserPermission(userUid uint, action models.UserAction) bool
 	GetMyInfo(userUid uint) *models.MyInfoResult
 	Logout(userUid uint)
 	ResetPassword(id string, r *http.Request) bool
@@ -46,7 +46,7 @@ func (s *TsboardAuthService) CheckNameExists(name string) bool {
 }
 
 // 사용자 권한 확인하기
-func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.Action) bool {
+func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.UserAction) bool {
 	return s.repos.Auth.CheckPermissionForAction(userUid, action)
 }
 

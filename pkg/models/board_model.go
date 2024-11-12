@@ -156,3 +156,105 @@ type BoardListResult struct {
 	BlackList      []uint           `json:"blackList"`
 	IsAdmin        bool             `json:"isAdmin"`
 }
+
+// 사용자의 포인트 변경하기에 필요한 파라미터 정의
+type ChangeUserPointParameter struct {
+	BoardUid uint
+	UserUid  uint
+	Action   PointAction
+}
+
+// 게시판 관련 액션 정의
+type BoardAction uint
+
+// 게시판 관련 액션들
+const (
+	BOARD_ACTION_LIST BoardAction = iota
+	BOARD_ACTION_VIEW
+	BOARD_ACTION_COMMENT
+	BOARD_ACTION_WRITE
+	BOARD_ACTION_DOWNLOAD
+)
+
+// 게시판 액션들 문자로 변환
+func (ba BoardAction) String() string {
+	switch ba {
+	case BOARD_ACTION_VIEW:
+		return "view"
+	case BOARD_ACTION_COMMENT:
+		return "comment"
+	case BOARD_ACTION_WRITE:
+		return "write"
+	case BOARD_ACTION_DOWNLOAD:
+		return "download"
+	default:
+		return "list"
+	}
+}
+
+// 게시판 첨부파일 구조체 정의
+type BoardAttachment struct {
+	Pair
+	Size uint `json:"size"`
+}
+
+// 파일 기본 구조 정의
+type BoardFile struct {
+	Uid  uint   `json:"uid"`
+	Path string `json:"path"`
+}
+
+// 썸네일 크기별 종류 정의
+type BoardThumbnail struct {
+	Large string `json:"large"`
+	Small string `json:"small"`
+}
+
+// 게시판 첨부 이미지 구조체 정의
+type BoardAttachedImage struct {
+	File        BoardFile      `json:"file"`
+	Thumbnail   BoardThumbnail `json:"thumbnail"`
+	Exif        *BoardExif     `json:"exif"`
+	Description string         `json:"description"`
+}
+
+// EXIF 구조체 정의
+type BoardExif struct {
+	Make        string `json:"make"`
+	Model       string `json:"model"`
+	Aperture    uint   `json:"aperture"`
+	ISO         uint   `json:"iso"`
+	FocalLength uint   `json:"focalLength"`
+	Exposure    uint   `json:"exposure"`
+	Width       uint   `json:"width"`
+	Height      uint   `json:"height"`
+	Date        uint64 `json:"date"`
+}
+
+// 게시글 작성자의 최근 글/댓글에 전달할 게시판 기본 설정값 정의
+type BoardBasicConfig struct {
+	Id   string `json:"id"`
+	Type Board  `json:"type"`
+	Name string `json:"name"`
+}
+
+// 게시글 작성자의 최근 글/댓글 공통 요소 정의
+type BoardWriterLatestCommon struct {
+	Board     Board `json:"board"`
+	PostUid   uint  `json:"postUid"`
+	Like      uint  `json:"like"`
+	Submitted uint  `json:"submitted"`
+}
+
+// 게시글 작성자의 최근 댓글 정의
+type BoardWriterLatestComment struct {
+	BoardWriterLatestCommon
+	Content string `json:"content"`
+}
+
+// 게시글 작성자의 최근 글 정의
+type BoardWriterLatestPost struct {
+	BoardWriterLatestCommon
+	Comment uint   `json:"comment"`
+	Title   string `json:"title"`
+}

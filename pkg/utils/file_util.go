@@ -44,3 +44,12 @@ func SaveUploadedFile(target models.UploadCategory, file multipart.File, filenam
 	}
 	return savePath[1:]
 }
+
+// 파일의 크기 반환
+func GetFileSize(path string) uint {
+	info, err := os.Stat("." + path)
+	if err != nil {
+		return 0
+	}
+	return uint(info.Size())
+}

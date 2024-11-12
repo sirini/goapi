@@ -33,7 +33,12 @@ func (s *TsboardBoardService) GetMaxUid() uint {
 
 // 게시판 설정값 가져오기
 func (s *TsboardBoardService) GetBoardConfig(boardUid uint) *models.BoardConfig {
-	return s.repos.Board.LoadBoardConfig(boardUid)
+	return s.repos.Board.GetBoardConfig(boardUid)
+}
+
+// 글 작성자에게 차단당했는지 확인
+func (s *TsboardBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
+	return s.repos.Board.CheckBannedByWriter(postUid, viewerUid)
 }
 
 // 게시판 목록글들 가져오기
@@ -68,7 +73,7 @@ func (s *TsboardBoardService) LoadListItem(param *models.BoardListParameter) (*m
 
 	result := &models.BoardListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
-		Config:         s.repos.Board.LoadBoardConfig(param.BoardUid),
+		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
 		Posts:          items,
 		BlackList:      s.repos.User.GetUserBlackList(param.UserUid),
 		IsAdmin:        s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid),

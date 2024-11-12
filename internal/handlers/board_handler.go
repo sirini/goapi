@@ -9,7 +9,7 @@ import (
 	"github.com/sirini/goapi/pkg/utils"
 )
 
-// 게시글 목록 가져오기
+// 게시글 목록 가져오기 핸들러
 func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
@@ -57,5 +57,12 @@ func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		utils.ResponseSuccess(w, result)
+	}
+}
+
+// 게시글 보기 핸들러
+func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		//
 	}
 }

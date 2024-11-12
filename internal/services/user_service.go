@@ -13,6 +13,7 @@ type UserService interface {
 	ChangeUserInfo(info *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult)
 	ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult)
 	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
+	GetUserLevelPoint(userUid uint) (uint, uint)
 	GetUserPermission(userUid uint) *models.UserPermissionReportResult
 	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
 }
@@ -90,6 +91,11 @@ func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm *mode
 // 사용자의 공개 정보 조회
 func (s *TsboardUserService) GetUserInfo(userUid uint) (*models.UserInfoResult, error) {
 	return s.repos.Auth.FindUserInfoByUid(userUid)
+}
+
+// 사용자의 레벨과 보유 포인트 가져오기
+func (s *TsboardUserService) GetUserLevelPoint(userUid uint) (uint, uint) {
+	return s.repos.User.GetUserLevelPoint(userUid)
 }
 
 // 사용자의 권한 조회

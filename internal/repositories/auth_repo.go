@@ -13,7 +13,7 @@ import (
 type AuthRepository interface {
 	CheckVerificationCode(param *models.VerifyParameter) bool
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
-	CheckPermissionForAction(userUid uint, action models.Action) bool
+	CheckPermissionForAction(userUid uint, action models.UserAction) bool
 	ClearRefreshToken(userUid uint)
 	FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error)
 	FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult
@@ -84,7 +84,7 @@ func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint
 }
 
 // 사용자가 지정된 액션에 대한 권한이 있는지 확인
-func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.Action) bool {
+func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.UserAction) bool {
 	query := fmt.Sprintf("SELECT %s AS action FROM %s%s WHERE user_uid = ? LIMIT 1",
 		action.String(), configs.Env.Prefix, models.TABLE_USER_PERM)
 	var actionValue uint8

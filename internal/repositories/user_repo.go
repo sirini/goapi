@@ -13,6 +13,7 @@ import (
 type UserRepository interface {
 	GetReportResponse(userUid uint) string
 	GetUserBlackList(userUid uint) []uint
+	GetUserLevelPoint(userUid uint) (uint, uint)
 	InsertBlackList(actionUserUid uint, targetUserUid uint)
 	InsertReportUser(actionUserUid uint, targetUserUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
@@ -26,11 +27,13 @@ type UserRepository interface {
 	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) *models.UserPermissionResult
 	UpdatePassword(userUid uint, password string)
+	UpdatePointHistory(param *models.UpdatePointParameter)
 	UpdateUserInfoString(userUid uint, name string, signature string)
 	UpdateUserProfile(userUid uint, imagePath string)
 	UpdateUserPermission(userUid uint, perm *models.UserPermissionResult)
-	UpdateReportResponse(userUid uint, response string)
+	UpdateUserPoint(userUid uint, updatedPoint uint)
 	UpdateUserBlocked(userUid uint, isBlocked bool)
+	UpdateReportResponse(userUid uint, response string)
 }
 
 type TsboardUserRepository struct {
@@ -74,6 +77,14 @@ func (r *TsboardUserRepository) GetUserBlackList(userUid uint) []uint {
 		blocks = append(blocks, block)
 	}
 	return blocks
+}
+
+// 사용자의 레벨과 보유 포인트 가져오기
+func (r *TsboardUserRepository) GetUserLevelPoint(userUid uint) (uint, uint) {
+	var level, point uint
+	query := fmt.Sprintf("SELECT level, point FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	r.db.QueryRow(query, userUid).Scan(&level, &point)
+	return level, point
 }
 
 // 다른 사용자를 내 블랙리스트에 등록하기
@@ -233,6 +244,13 @@ func (r *TsboardUserRepository) UpdatePassword(userUid uint, pw string) {
 	r.db.Exec(query, pw, userUid)
 }
 
+// 사용자의 포인트 변경 이력 업데이트
+func (r *TsboardUserRepository) UpdatePointHistory(param *models.UpdatePointParameter) {
+	query := fmt.Sprintf(`INSERT INTO %s%s (user_uid, board_uid, action, point) 
+												VALUES (?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POINT_HISTORY)
+	r.db.Exec(query, param.UserUid, param.BoardUid, param.Action.String(), param.Point)
+}
+
 // 사용자 이름, 서명 변경하기
 func (r *TsboardUserRepository) UpdateUserInfoString(userUid uint, name string, signature string) {
 	query := fmt.Sprintf("UPDATE %s%s SET name = ?, signature = ? WHERE uid = ? LIMIT 1",
@@ -258,11 +276,10 @@ func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm *models.
 	r.db.Exec(query, writePost, writeComment, sendChat, sendReport, userUid)
 }
 
-// 신고받은 사용자에게 조치 결과 업데이트 해주기
-func (r *TsboardUserRepository) UpdateReportResponse(userUid uint, response string) {
-	query := fmt.Sprintf("UPDATE %s%s SET response = ?, solved = ? WHERE to_uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_REPORT)
-	r.db.Exec(query, response, 1, userUid)
+// 사용자 포인트 변경하기
+func (r *TsboardUserRepository) UpdateUserPoint(userUid uint, updatedPoint uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	r.db.Exec(query, updatedPoint, userUid)
 }
 
 // 사용자가 로그인 할 수 있는지 여부 업데이트하기
@@ -270,4 +287,11 @@ func (r *TsboardUserRepository) UpdateUserBlocked(userUid uint, isBlocked bool) 
 	query := fmt.Sprintf("UPDATE %s%s SET blocked = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
 	r.db.Exec(query, utils.ToUint(isBlocked), userUid)
+}
+
+// 신고받은 사용자에게 조치 결과 업데이트 해주기
+func (r *TsboardUserRepository) UpdateReportResponse(userUid uint, response string) {
+	query := fmt.Sprintf("UPDATE %s%s SET response = ?, solved = ? WHERE to_uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_REPORT)
+	r.db.Exec(query, response, 1, userUid)
 }

@@ -25,18 +25,18 @@ type MyInfoResult struct {
 }
 
 // 액션 타입 재정의
-type Action uint8
+type UserAction uint8
 
 // 액션 고유 값들
 const (
-	ACTION_WRITE_POST Action = iota
+	ACTION_WRITE_POST UserAction = iota
 	ACTION_WRITE_COMMENT
 	ACTION_SEND_CHAT
 	ACTION_SEND_REPORT
 )
 
 // 액션 이름 반환
-func (a Action) String() string {
+func (a UserAction) String() string {
 	switch a {
 	case ACTION_WRITE_COMMENT:
 		return "write_comment"
@@ -47,6 +47,39 @@ func (a Action) String() string {
 	default:
 		return "write_post"
 	}
+}
+
+// 사용자 포인트 변경 이력 타입 정의
+type PointAction uint
+
+// 포인트 변경 액션들
+const (
+	POINT_ACTION_VIEW PointAction = iota
+	POINT_ACTION_WRITE
+	POINT_ACTION_COMMENT
+	POINT_ACTION_DOWNLOAD
+)
+
+// 포인트 변경 액션 이름 반환
+func (pa PointAction) String() string {
+	switch pa {
+	case POINT_ACTION_WRITE:
+		return "write"
+	case POINT_ACTION_COMMENT:
+		return "comment"
+	case POINT_ACTION_DOWNLOAD:
+		return "download"
+	default:
+		return "view"
+	}
+}
+
+// 포인트 변경 파라미터 정의
+type UpdatePointParameter struct {
+	UserUid  uint
+	BoardUid uint
+	Action   PointAction
+	Point    uint
 }
 
 // 내 정보 수정하기 파라미터 정의
