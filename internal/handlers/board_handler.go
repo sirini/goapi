@@ -63,6 +63,43 @@ func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 // 게시글 보기 핸들러
 func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		//
+		actionUserUid := utils.FindUserUidFromHeader(r)
+		id := r.FormValue("id")
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid post uid, not a valid number")
+			return
+		}
+		updateHit, err := strconv.ParseUint(r.FormValue("needUpdateHit"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid need update hit, not a valid number")
+			return
+		}
+		limit, err := strconv.ParseUint(r.FormValue("latestLimit"), 10, 32)
+		if err != nil {
+			utils.ResponseError(w, "Invalid latest limit, not a valid number")
+			return
+		}
+
+		boardUid := s.Board.GetBoardUid(id)
+		if boardUid < 1 {
+			utils.ResponseError(w, "Invalid board id, cannot find a board")
+			return
+		}
+
+		parameter := &models.BoardViewParameter{
+			BoardUid:  boardUid,
+			PostUid:   uint(postUid),
+			UserUid:   actionUserUid,
+			UpdateHit: updateHit > 0,
+			Limit:     uint(limit),
+		}
+
+		result, err := s.Board.LoadViewItem(parameter)
+		if err != nil {
+			utils.ResponseError(w, err.Error())
+			return
+		}
+		utils.ResponseSuccess(w, result)
 	}
 }

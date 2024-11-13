@@ -79,7 +79,7 @@ type UpdatePointParameter struct {
 	UserUid  uint
 	BoardUid uint
 	Action   PointAction
-	Point    uint
+	Point    int
 }
 
 // 내 정보 수정하기 파라미터 정의

@@ -76,12 +76,12 @@ type BoardCommonPostItem struct {
 
 // 게시글 목록보기에 추가로 필요한 리턴 타입 정의
 type BoardCommonListItem struct {
-	Category Pair         `json:"category"`
-	Cover    string       `json:"cover"`
-	Comment  uint         `json:"comment"`
-	Like     uint         `json:"like"`
-	Liked    bool         `json:"liked"`
-	Writer   *BoardWriter `json:"writer"`
+	Category Pair        `json:"category"`
+	Cover    string      `json:"cover"`
+	Comment  uint        `json:"comment"`
+	Like     uint        `json:"like"`
+	Liked    bool        `json:"liked"`
+	Writer   BoardWriter `json:"writer"`
 }
 
 // 게시글 목록보기용 리턴 타입 정의
@@ -240,10 +240,10 @@ type BoardBasicConfig struct {
 
 // 게시글 작성자의 최근 글/댓글 공통 요소 정의
 type BoardWriterLatestCommon struct {
-	Board     Board `json:"board"`
-	PostUid   uint  `json:"postUid"`
-	Like      uint  `json:"like"`
-	Submitted uint  `json:"submitted"`
+	Board     BoardBasicConfig `json:"board"`
+	PostUid   uint             `json:"postUid"`
+	Like      uint             `json:"like"`
+	Submitted uint             `json:"submitted"`
 }
 
 // 게시글 작성자의 최근 댓글 정의
@@ -257,4 +257,26 @@ type BoardWriterLatestPost struct {
 	BoardWriterLatestCommon
 	Comment uint   `json:"comment"`
 	Title   string `json:"title"`
+}
+
+// 게시글 보기에 필요한 파라미터 정의
+type BoardViewParameter struct {
+	BoardUid  uint
+	PostUid   uint
+	UserUid   uint
+	UpdateHit bool
+	Limit     uint
+}
+
+// 게시글 보기에 반환 타입 정의
+type BoardViewResult struct {
+	Config         *BoardConfig                `json:"config"`
+	Post           *BoardListItem              `json:"post"`
+	Images         []BoardAttachedImage        `json:"images"`
+	Files          []BoardAttachment           `json:"files"`
+	Tags           []Pair                      `json:"tags"`
+	PrevPostUid    uint                        `json:"prevPostUid"`
+	NextPostUid    uint                        `json:"nextPostUid"`
+	WriterPosts    []*BoardWriterLatestPost    `json:"writerPosts"`
+	WriterComments []*BoardWriterLatestComment `json:"writerComments"`
 }

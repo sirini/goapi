@@ -7,44 +7,29 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
-	"github.com/sirini/goapi/pkg/utils"
 )
 
 type BoardRepository interface {
 	CheckLikedPost(postUid uint, userUid uint) bool
 	CheckLikedComment(commentUid uint, userUid uint) bool
-	CheckBannedByWriter(postUid uint, viewerUid uint) bool
 	FindPostsByTitleContent(param *models.BoardListParameter) ([]*models.BoardListItem, error)
 	FindPostsByNameCategory(param *models.BoardListParameter) ([]*models.BoardListItem, error)
 	FindPostsByHashtag(param *models.BoardListParameter) ([]*models.BoardListItem, error)
-	GetAttachments(postUid uint) ([]models.BoardAttachment, error)
-	GetAttachedImages(postUid uint) ([]*models.BoardAttachedImage, error)
 	GetBoardConfig(boardUid uint) *models.BoardConfig
 	GetBoardUidById(id string) uint
 	GetBoardCategories(boardUid uint) []models.Pair
 	GetCategoryByUid(categoryUid uint) models.Pair
 	GetCoverImage(postUid uint) string
 	GetCountByTable(table models.Table, postUid uint) uint
-	GetExif(fileUid uint) *models.BoardExif
 	GetGroupAdminUid(boardUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]*models.BoardListItem, error)
 	GetNormalPosts(param *models.BoardListParameter) ([]*models.BoardListItem, error)
-	GetNeededPoint(boardUid uint, action models.BoardAction) int
-	GetPrevPostUid(boardUid uint, postUid uint) uint
-	GetNextPostUid(boardUid uint, postUid uint) uint
 	GetMaxUid() uint
-	GetPost(postUid uint, actionUserUid uint) (*models.BoardListItem, error)
-	GetTags(postUid uint) []models.Pair
-	GetTagName(hashtagUid uint) string
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
-	GetThumbnailImage(fileUid uint) models.BoardThumbnail
 	GetUidByTable(table models.Table, name string) uint
-	GetWriterInfo(userUid uint) *models.BoardWriter
-	GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error)
-	GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error)
+	GetWriterInfo(userUid uint) models.BoardWriter
 	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]*models.BoardListItem, error)
-	UpdatePostHit(postUid uint)
 }
 
 type TsboardBoardRepository struct {
@@ -81,21 +66,6 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 	r.db.QueryRow(query, commentUid, userUid, 1).Scan(&liked)
 	return liked > 0
-}
-
-// 글작성자에게 차단당한 사용자인지 확인하기
-func (r *TsboardBoardRepository) CheckBannedByWriter(postUid uint, viewerUid uint) bool {
-	var writerUid uint
-	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, postUid).Scan(&writerUid)
-	if writerUid < 1 {
-		return false
-	}
-
-	var blackUid uint
-	query = fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	r.db.QueryRow(query, writerUid, viewerUid).Scan(&blackUid)
-	return blackUid > 0
 }
 
 // 게시글 제목 혹은 내용으로 검색해서 가져오기
@@ -153,68 +123,6 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param *models.BoardListParam
 	return r.MakeListItem(param.UserUid, rows)
 }
 
-// 게시글에 첨부된 파일 목록들 가져오기
-func (r *TsboardBoardRepository) GetAttachments(postUid uint) ([]models.BoardAttachment, error) {
-	var items []models.BoardAttachment
-	query := fmt.Sprintf("SELECT uid, name, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
-	rows, err := r.db.Query(query, postUid)
-	if err != nil {
-		return nil, err
-	}
-
-	for rows.Next() {
-		var path string
-		item := models.BoardAttachment{}
-		err = rows.Scan(&item.Uid, &item.Name, &path)
-		if err != nil {
-			return nil, err
-		}
-		item.Size = utils.GetFileSize(path)
-		if item.Size < 1 {
-			continue
-		}
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-// 게시글에 첨부된 이미지들 가져오기
-func (r *TsboardBoardRepository) GetAttachedImages(postUid uint) ([]*models.BoardAttachedImage, error) {
-	var items []*models.BoardAttachedImage
-	query := fmt.Sprintf("SELECT uid, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
-	rows, err := r.db.Query(query, postUid)
-	if err != nil {
-		return nil, err
-	}
-
-	for rows.Next() {
-		var fileUid uint
-		var filePath string
-		err = rows.Scan(&fileUid, &filePath)
-		if err != nil {
-			return nil, err
-		}
-
-		thumb := r.GetThumbnailImage(fileUid)
-		exif := r.GetExif(fileUid)
-		desc := r.GetImageDescription(fileUid)
-		item := &models.BoardAttachedImage{
-			File: models.BoardFile{
-				Uid:  fileUid,
-				Path: filePath,
-			},
-			Thumbnail: models.BoardThumbnail{
-				Small: thumb.Small,
-				Large: thumb.Large,
-			},
-			Exif:        exif,
-			Description: desc,
-		}
-		items = append(items, item)
-	}
-	return items, nil
-}
-
 // 게시판 설정값 가져오기
 func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) *models.BoardConfig {
 	config := &models.BoardConfig{}
@@ -227,6 +135,7 @@ func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) *models.BoardConf
 		&config.RowCount, &config.Width, &useCategory, &config.Level.List, &config.Level.View,
 		&config.Level.Write, &config.Level.Comment, &config.Level.Download, &config.Point.View,
 		&config.Point.Write, &config.Point.Comment, &config.Point.Download)
+	config.Uid = boardUid
 	config.UseCategory = useCategory > 0
 	config.Category = r.GetBoardCategories(boardUid)
 	config.Admin.Group = r.GetGroupAdminUid(boardUid)
@@ -288,15 +197,6 @@ func (r *TsboardBoardRepository) GetCountByTable(table models.Table, postUid uin
 	return count
 }
 
-// EXIF 정보 가져오기
-func (r *TsboardBoardRepository) GetExif(fileUid uint) *models.BoardExif {
-	exif := &models.BoardExif{}
-	query := fmt.Sprintf(`SELECT make, model, aperture, iso, focal_length, exposure, width, height, date 
-												FROM %s%s WHERE file_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_EXIF)
-	r.db.QueryRow(query, fileUid).Scan(&exif.Make, &exif.Model, &exif.Aperture, &exif.ISO, &exif.FocalLength, &exif.Exposure, &exif.Width, &exif.Height, &exif.Date)
-	return exif
-}
-
 // 게시판이 속한 그룹의 관리자 고유 번호값 가져오기
 func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 	var adminUid uint
@@ -305,14 +205,6 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 		configs.Env.Prefix, models.TABLE_GROUP, configs.Env.Prefix, models.TABLE_BOARD)
 	r.db.QueryRow(query, boardUid).Scan(&adminUid)
 	return adminUid
-}
-
-// 생성된 이미지 설명글 가져오기
-func (r *TsboardBoardRepository) GetImageDescription(fileUid uint) string {
-	var description string
-	query := fmt.Sprintf("SELECT description FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_IMAGE_DESC)
-	r.db.QueryRow(query, fileUid).Scan(&description)
-	return description
 }
 
 // 게시판 공지글만 가져오기
@@ -341,88 +233,12 @@ func (r *TsboardBoardRepository) GetNormalPosts(param *models.BoardListParameter
 	return r.MakeListItem(param.UserUid, rows)
 }
 
-// Action에 필요한 포인트 양 확인하기
-func (r *TsboardBoardRepository) GetNeededPoint(boardUid uint, action models.BoardAction) int {
-	var point int
-	query := fmt.Sprintf("SELECT point_%s FROM %s%s WHERE uid = ? LIMIT 1",
-		action.String(), configs.Env.Prefix, models.TABLE_BOARD)
-	r.db.QueryRow(query, boardUid).Scan(&point)
-	return point
-}
-
-// 현재 게시글의 이전 게시글 번호 가져오기
-func (r *TsboardBoardRepository) GetPrevPostUid(boardUid uint, postUid uint) uint {
-	var prevUid uint
-	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE board_uid = ? AND status != ? AND uid < ? 
-												ORDER BY uid DESC LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, boardUid, models.POST_REMOVED, postUid).Scan(&prevUid)
-	return prevUid
-}
-
-// 현재 게시글의 다음 게시글 번호 가져오기
-func (r *TsboardBoardRepository) GetNextPostUid(boardUid uint, postUid uint) uint {
-	var nextUid uint
-	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE board_uid = ? AND status != ? AND uid > ?
-											 ORDER BY uid ASC LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, boardUid, models.POST_REMOVED, postUid).Scan(&nextUid)
-	return nextUid
-}
-
 // 게시판의 현재 uid 값 반환하기
 func (r *TsboardBoardRepository) GetMaxUid() uint {
 	var max uint
 	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, models.TABLE_POST)
 	r.db.QueryRow(query).Scan(&max)
 	return max
-}
-
-// 게시글 보기 시 게시글 내용 가져오기
-func (r *TsboardBoardRepository) GetPost(postUid uint, actionUserUid uint) (*models.BoardListItem, error) {
-	item := &models.BoardListItem{}
-	var writerUid uint
-	query := fmt.Sprintf("SELECT %s FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
-		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
-	err := r.db.QueryRow(query, postUid, models.POST_REMOVED).Scan(&item.Uid, &writerUid, &item.Category.Uid, &item.Title, &item.Content, &item.Submitted, &item.Modified, &item.Hit, &item.Status)
-	if err != nil {
-		return nil, err
-	}
-
-	item.Writer = r.GetWriterInfo(writerUid)
-	item.Like = r.GetCountByTable(models.TABLE_POST_LIKE, postUid)
-	item.Liked = r.CheckLikedPost(postUid, actionUserUid)
-	item.Category = r.GetCategoryByUid(item.Category.Uid)
-	item.Comment = r.GetCountByTable(models.TABLE_COMMENT, postUid)
-	item.Cover = r.GetCoverImage(postUid)
-	return item, nil
-}
-
-// 게시글에 등록된 해시태그들 가져오기
-func (r *TsboardBoardRepository) GetTags(postUid uint) []models.Pair {
-	var items []models.Pair
-	query := fmt.Sprintf("SELECT hashtag_uid FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_POST_HASHTAG)
-	rows, err := r.db.Query(query, postUid)
-	if err != nil {
-		return items
-	}
-
-	for rows.Next() {
-		item := models.Pair{}
-		err = rows.Scan(&item.Uid)
-		if err != nil {
-			return items
-		}
-		item.Name = r.GetTagName(item.Uid)
-		items = append(items, item)
-	}
-	return items
-}
-
-// 해시태그명 가져오기
-func (r *TsboardBoardRepository) GetTagName(hashtagUid uint) string {
-	var name string
-	query := fmt.Sprintf("SELECT name FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_HASHTAG)
-	r.db.QueryRow(query, hashtagUid).Scan(&name)
-	return name
 }
 
 // 스페이스로 구분된 태그 이름들을 가져와서 태그 고유번호 문자열로 변환
@@ -451,14 +267,6 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 	return count
 }
 
-// 썸네일 이미지 가져오기
-func (r *TsboardBoardRepository) GetThumbnailImage(fileUid uint) models.BoardThumbnail {
-	thumb := models.BoardThumbnail{}
-	query := fmt.Sprintf("SELECT path, full_path FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE_THUMB)
-	r.db.QueryRow(query, fileUid).Scan(&thumb.Small, &thumb.Large)
-	return thumb
-}
-
 // 이름으로 고유 번호 가져오기 (회원 번호 혹은 카테고리 번호 등)
 func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) uint {
 	var uid uint
@@ -468,23 +276,13 @@ func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) 
 }
 
 // (댓)글 작성자 기본 정보 가져오기
-func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) *models.BoardWriter {
-	writer := &models.BoardWriter{}
+func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter {
+	writer := models.BoardWriter{}
 	writer.UserUid = userUid
 	query := fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query, userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
 	return writer
-}
-
-func (r *TsboardBoardRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error) {
-	// TODO
-	return nil, nil
-}
-
-func (r *TsboardBoardRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error) {
-	// TODO
-	return nil, nil
 }
 
 // 게시글 목록 만들어서 반환
@@ -507,10 +305,4 @@ func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows
 		items = append(items, item)
 	}
 	return items, nil
-}
-
-// 조회수 업데이트 하기
-func (r *TsboardBoardRepository) UpdatePostHit(postUid uint) {
-	query := fmt.Sprintf("UPDATE %s%s SET hit = hit + 1 WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
-	r.db.Exec(query, postUid)
 }

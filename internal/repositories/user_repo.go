@@ -13,7 +13,7 @@ import (
 type UserRepository interface {
 	GetReportResponse(userUid uint) string
 	GetUserBlackList(userUid uint) []uint
-	GetUserLevelPoint(userUid uint) (uint, uint)
+	GetUserLevelPoint(userUid uint) (int, int)
 	InsertBlackList(actionUserUid uint, targetUserUid uint)
 	InsertReportUser(actionUserUid uint, targetUserUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
@@ -80,8 +80,8 @@ func (r *TsboardUserRepository) GetUserBlackList(userUid uint) []uint {
 }
 
 // 사용자의 레벨과 보유 포인트 가져오기
-func (r *TsboardUserRepository) GetUserLevelPoint(userUid uint) (uint, uint) {
-	var level, point uint
+func (r *TsboardUserRepository) GetUserLevelPoint(userUid uint) (int, int) {
+	var level, point int
 	query := fmt.Sprintf("SELECT level, point FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query, userUid).Scan(&level, &point)
 	return level, point
