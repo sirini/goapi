@@ -18,4 +18,5 @@ func SetupBoardRouter(mux *http.ServeMux, s *services.Service) {
 func SetupLoggedInBoardRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("PATCH /goapi/board/like/post", middlewares.AuthMiddleware(handlers.LikePostHandler(s)))
 	mux.Handle("GET /goapi/board/download", middlewares.AuthMiddleware(handlers.DownloadHandler(s)))
+	mux.Handle("DELETE /goapi/board/remove/post", middlewares.AuthMiddleware(handlers.RemovePostHandler(s)))
 }

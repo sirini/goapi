@@ -26,8 +26,7 @@ func CountingVisitorHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.Error(w, "Invalid user uid, not a valid number")
-			return
+			userUid = 0
 		}
 		s.Home.AddVisitorLog(uint(userUid))
 		utils.Success(w, nil)

@@ -1,8 +1,6 @@
 package services
 
 import (
-	"os"
-
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -53,13 +51,13 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
 
 	if param.Profile != nil && param.ProfileHandler.Size > 0 {
-		_ = os.Remove("." + oldInfo.Profile)
+		utils.RemoveFile(oldInfo.Profile)
 		imagePath := utils.SaveUploadedFile(models.UPLOAD_PROFILE, param.Profile, param.ProfileHandler.Filename)
-		profilePath := utils.SaveProfileImage("." + imagePath)
+		profilePath := utils.SaveProfileImage(imagePath)
 
 		if len(profilePath) > 0 {
 			s.repos.User.UpdateUserProfile(param.UserUid, profilePath)
-			_ = os.Remove("." + imagePath)
+			utils.RemoveFile(imagePath)
 		}
 	}
 }

@@ -18,13 +18,11 @@ func DownloadHandler(s *services.Service) http.HandlerFunc {
 			utils.Error(w, "Invalid board uid, not a valid number")
 			return
 		}
-
 		fileUid, err := strconv.ParseUint(r.FormValue("fileUid"), 10, 32)
 		if err != nil {
 			utils.Error(w, "Invalid post uid, not a valid number")
 			return
 		}
-
 		result, err := s.Board.Download(uint(boardUid), uint(fileUid), actionUserUid)
 		if err != nil {
 			utils.Error(w, err.Error())
@@ -43,13 +41,11 @@ func LikePostHandler(s *services.Service) http.HandlerFunc {
 			utils.Error(w, "Invalid board uid, not a valid number")
 			return
 		}
-
 		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
 		if err != nil {
 			utils.Error(w, "Invalid post uid, not a valid number")
 			return
 		}
-
 		liked, err := strconv.ParseUint(r.FormValue("liked"), 10, 32)
 		if err != nil {
 			utils.Error(w, "Invalid liked value, not a valid number")
@@ -141,7 +137,6 @@ func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 			utils.Error(w, "Invalid latest limit, not a valid number")
 			return
 		}
-
 		boardUid := s.Board.GetBoardUid(id)
 		if boardUid < 1 {
 			utils.Error(w, "Invalid board id, cannot find a board")
@@ -164,5 +159,25 @@ func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		utils.Success(w, result)
+	}
+}
+
+// 게시글 삭제하기 핸들러
+func RemovePostHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		s.Board.RemovePost(uint(boardUid), uint(postUid), actionUserUid)
+		utils.Success(w, nil)
 	}
 }

@@ -16,10 +16,10 @@ type Status int8
 
 // 게시글 상태들
 const (
-	POST_REMOVED Status = -1 + iota
-	POST_NORMAL
-	POST_NOTICE
-	POST_SECRET
+	CONTENT_REMOVED Status = -1 + iota
+	CONTENT_NORMAL
+	CONTENT_NOTICE
+	CONTENT_SECRET
 )
 
 // 검색 옵션 정의

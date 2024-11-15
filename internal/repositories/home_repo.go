@@ -46,7 +46,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param *models.Home
 												FROM %s%s WHERE status != ? %s AND %s LIKE ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
-	rows, err := r.db.Query(query, models.POST_REMOVED, "%"+param.Keyword+"%", param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param *models.Hom
 												FROM %s%s WHERE status != ? %s AND %s = ?
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
-	rows, err := r.db.Query(query, models.POST_REMOVED, uid, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, uid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByTag(param *models.HomePostParam
 												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?) 
 												ORDER BY p.uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, whereBoard, tagUidStr)
-	rows, err := r.db.Query(query, models.POST_REMOVED, param.SinceUid, tagCount, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, tagCount, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (r *TsboardHomeRepository) LoadLatestPosts(param *models.HomePostParameter)
 												FROM %s%s WHERE status != ? %s AND uid < ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard)
-	rows, err := r.db.Query(query, models.POST_REMOVED, param.SinceUid, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}

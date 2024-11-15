@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
@@ -55,6 +57,29 @@ func DownloadImage(imageUrl string, outputPath string, width int) error {
 	return nil
 }
 
+// 주어진 파일 경로가 이미지 파일인지 아닌지 확인하기
+func IsImage(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".avif":
+		return true
+	case ".jpg":
+		return true
+	case ".jpeg":
+		return true
+	case ".png":
+		return true
+	case ".bmp":
+		return true
+	case ".webp":
+		return true
+	case ".gif":
+		return true
+	default:
+		return false
+	}
+}
+
 // 이미지를 주어진 크기로 줄여서 .avif 형식으로 저장하기
 func ResizeImage(inputPath string, outputPath string, width int) error {
 	buffer, err := bimg.Read(inputPath)
@@ -65,7 +90,7 @@ func ResizeImage(inputPath string, outputPath string, width int) error {
 	return nil
 }
 
-// 이미지 저장하고 경로 반환 (맨 앞 . 제거)
+// 이미지 저장하고 경로 반환
 func SaveProfileImage(inputPath string) string {
 	savePath, err := MakeSavePath(models.UPLOAD_PROFILE)
 	if err != nil {
@@ -73,7 +98,7 @@ func SaveProfileImage(inputPath string) string {
 	}
 
 	outputPath := fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
-	err = ResizeImage(inputPath, outputPath, configs.Env.Number(configs.SIZE_PROFILE))
+	err = ResizeImage("."+inputPath, outputPath, configs.Env.Number(configs.SIZE_PROFILE))
 	if err != nil {
 		return ""
 	}

@@ -10,6 +10,15 @@ import (
 	"github.com/sirini/goapi/pkg/models"
 )
 
+// 파일의 크기 반환
+func GetFileSize(path string) uint {
+	info, err := os.Stat("." + path)
+	if err != nil {
+		return 0
+	}
+	return uint(info.Size())
+}
+
 // 파일 저장 경로 만들기
 func MakeSavePath(target models.UploadCategory) (string, error) {
 	today := time.Now()
@@ -25,7 +34,13 @@ func MakeSavePath(target models.UploadCategory) (string, error) {
 	return finalPath, nil
 }
 
-// 업로드 된 파일 저장하고 경로 반환 (맨 앞 . 제거)
+// 파일 삭제하기
+func RemoveFile(path string) bool {
+	err := os.Remove("." + path)
+	return err == nil
+}
+
+// 업로드 된 파일 저장하고 경로 반환
 func SaveUploadedFile(target models.UploadCategory, file multipart.File, filename string) string {
 	dirPath, err := MakeSavePath(target)
 	if err != nil {
@@ -43,13 +58,4 @@ func SaveUploadedFile(target models.UploadCategory, file multipart.File, filenam
 		return ""
 	}
 	return savePath[1:]
-}
-
-// 파일의 크기 반환
-func GetFileSize(path string) uint {
-	info, err := os.Stat("." + path)
-	if err != nil {
-		return 0
-	}
-	return uint(info.Size())
 }

@@ -76,7 +76,7 @@ func (r *TsboardBoardRepository) FindPostsByTitleContent(param *models.BoardList
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s LIKE ? AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.POST_NORMAL, keyword, param.SinceUid, param.Bunch-param.NoticeCount)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, keyword, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (r *TsboardBoardRepository) FindPostsByNameCategory(param *models.BoardList
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s = ? AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.POST_NORMAL, uid, param.SinceUid, param.Bunch-param.NoticeCount)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, uid, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param *models.BoardListParam
 												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?)
 												ORDER BY p.uid %s LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, arrow, tagUidStr, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.POST_NORMAL, param.SinceUid, tagCount, param.Bunch-param.NoticeCount)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, param.SinceUid, tagCount, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]*models.BoardListItem, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
-	rows, err := r.db.Query(query, boardUid, models.POST_NOTICE)
+	rows, err := r.db.Query(query, boardUid, models.CONTENT_NOTICE)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (r *TsboardBoardRepository) GetNormalPosts(param *models.BoardListParameter
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status IN (?, ?) AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.POST_NORMAL, models.POST_SECRET, param.SinceUid, param.Bunch-param.NoticeCount)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE board_uid = ? AND status != ?",
 		configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, boardUid, models.POST_REMOVED).Scan(&count)
+	r.db.QueryRow(query, boardUid, models.CONTENT_REMOVED).Scan(&count)
 	return count
 }
 

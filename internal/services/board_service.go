@@ -16,6 +16,7 @@ type BoardService interface {
 	LikeThisPost(param *models.BoardViewLikeParameter)
 	LoadListItem(param *models.BoardListParameter) (*models.BoardListResult, error)
 	LoadViewItem(param *models.BoardViewParameter) (*models.BoardViewResult, error)
+	RemovePost(boardUid uint, postUid uint, userUid uint)
 }
 
 type TsboardBoardService struct {
@@ -154,7 +155,7 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 	if err != nil {
 		return nil, err
 	}
-	if post.Status == models.POST_SECRET {
+	if post.Status == models.CONTENT_SECRET {
 		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
 			return nil, fmt.Errorf("you don't have permission to open this post")
 		}
@@ -188,4 +189,21 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 	result.WriterPosts, _ = s.repos.BoardView.GetWriterLatestPost(post.Writer.UserUid, param.Limit)
 	result.WriterComments, _ = s.repos.BoardView.GetWriterLatestComment(post.Writer.UserUid, param.Limit)
 	return result, nil
+}
+
+// 게시글 삭제하기
+func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid uint) {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+	if !isAdmin && !isAuthor {
+		return
+	}
+
+	s.repos.BoardView.RemovePost(postUid)
+	s.repos.BoardView.RemovePostTags(postUid)
+	removes := s.repos.BoardView.RemoveAttachments(postUid)
+
+	for _, path := range removes {
+		utils.RemoveFile(path)
+	}
 }
