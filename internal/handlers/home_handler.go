@@ -12,7 +12,7 @@ import (
 
 // 메세지 출력 테스트
 func ShowVersionHandler(w http.ResponseWriter, r *http.Request) {
-	utils.ResponseSuccess(w, &models.HomeVisitResult{
+	utils.Success(w, &models.HomeVisitResult{
 		Success:         true,
 		OfficialWebsite: "tsboard.dev",
 		Version:         configs.Env.Version,
@@ -26,11 +26,11 @@ func CountingVisitorHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid user uid, not a valid number")
+			utils.Error(w, "Invalid user uid, not a valid number")
 			return
 		}
 		s.Home.AddVisitorLog(uint(userUid))
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -39,10 +39,10 @@ func LoadSidebarLinkHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		links, err := s.Home.GetSidebarLinks()
 		if err != nil {
-			utils.ResponseError(w, "Unable to load group/board links")
+			utils.Error(w, "Unable to load group/board links")
 			return
 		}
-		utils.ResponseSuccess(w, links)
+		utils.Success(w, links)
 	}
 }
 
@@ -52,17 +52,17 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 		actionUserUid := utils.FindUserUidFromHeader(r)
 		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid since uid, not a valid number")
+			utils.Error(w, "Invalid since uid, not a valid number")
 			return
 		}
 		bunch, err := strconv.ParseUint(r.FormValue("bunch"), 10, 32)
 		if err != nil || bunch < 1 || bunch > 100 {
-			utils.ResponseError(w, "Invalid bunch, not a valid number")
+			utils.Error(w, "Invalid bunch, not a valid number")
 			return
 		}
 		option, err := strconv.ParseUint(r.FormValue("option"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid option, not a valid number")
+			utils.Error(w, "Invalid option, not a valid number")
 			return
 		}
 		keyword := utils.Escape(r.FormValue("keyword"))
@@ -81,10 +81,10 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 		}
 		result, err := s.Home.GetLatestPosts(parameter)
 		if err != nil {
-			utils.ResponseError(w, "Failed to get latest posts")
+			utils.Error(w, "Failed to get latest posts")
 			return
 		}
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
 	}
 }
 
@@ -95,13 +95,13 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 		boardId := r.FormValue("id")
 		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
 		if err != nil || bunch < 1 || bunch > 100 {
-			utils.ResponseError(w, "Invalid limit, not a valid number")
+			utils.Error(w, "Invalid limit, not a valid number")
 			return
 		}
 
 		boardUid := s.Board.GetBoardUid(boardId)
 		if boardUid < 1 {
-			utils.ResponseError(w, "Invalid board id, unable to find board")
+			utils.Error(w, "Invalid board id, unable to find board")
 			return
 		}
 
@@ -115,9 +115,9 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 		}
 		result, err := s.Home.GetLatestPosts(parameter)
 		if err != nil {
-			utils.ResponseError(w, "Failed to get latest posts from specific board")
+			utils.Error(w, "Failed to get latest posts from specific board")
 			return
 		}
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
 	}
 }

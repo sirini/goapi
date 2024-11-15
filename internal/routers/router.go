@@ -18,4 +18,5 @@ func SetupRoutes(mux *http.ServeMux, s *services.Service) {
 	SetupLoggedInAuthRouter(mux, s)
 	SetupLoggedInChatRouter(mux, s)
 	SetupLoggedInNotiRouter(mux, s)
+	SetupLoggedInBoardRouter(mux, s)
 }

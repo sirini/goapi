@@ -16,16 +16,16 @@ func CheckEmailHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.FormValue("email")
 		if !utils.IsValidEmail(id) {
-			utils.ResponseError(w, "Invalid email address")
+			utils.Error(w, "Invalid email address")
 			return
 		}
 
 		result := s.Auth.CheckEmailExists(id)
 		if result {
-			utils.ResponseError(w, "Email address is already in use")
+			utils.Error(w, "Email address is already in use")
 			return
 		}
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -34,16 +34,16 @@ func CheckNameHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
 		if len(name) < 2 {
-			utils.ResponseError(w, "Invalid name, too short")
+			utils.Error(w, "Invalid name, too short")
 			return
 		}
 
 		result := s.Auth.CheckNameExists(name)
 		if result {
-			utils.ResponseError(w, "Name is already in use")
+			utils.Error(w, "Name is already in use")
 			return
 		}
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -52,16 +52,16 @@ func LoadMyInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid user uid, not a valid number")
+			utils.Error(w, "Invalid user uid, not a valid number")
 			return
 		}
 
 		myinfo := s.Auth.GetMyInfo(uint(userUid))
 		if myinfo.Uid < 1 {
-			utils.ResponseError(w, "Unable to load your information")
+			utils.Error(w, "Unable to load your information")
 			return
 		}
-		utils.ResponseSuccess(w, myinfo)
+		utils.Success(w, myinfo)
 	}
 }
 
@@ -70,11 +70,11 @@ func LogoutHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid := utils.GetUserUidFromToken(r)
 		if userUid < 1 {
-			utils.ResponseError(w, "Unable to get an user uid from token")
+			utils.Error(w, "Unable to get an user uid from token")
 			return
 		}
 		s.Auth.Logout(userUid)
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -84,16 +84,16 @@ func ResetPasswordHandler(s *services.Service) http.HandlerFunc {
 		id := r.FormValue("email")
 
 		if !utils.IsValidEmail(id) {
-			utils.ResponseError(w, "Failed to reset password, invalid ID(email)")
+			utils.Error(w, "Failed to reset password, invalid ID(email)")
 			return
 		}
 
 		result := s.Auth.ResetPassword(id, r)
 		if !result {
-			utils.ResponseError(w, "Unable to reset password, internal error")
+			utils.Error(w, "Unable to reset password, internal error")
 			return
 		}
-		utils.ResponseSuccess(w, &models.ResetPasswordResult{
+		utils.Success(w, &models.ResetPasswordResult{
 			Sendmail: configs.Env.GmailAppPassword != "",
 		})
 	}
@@ -106,16 +106,16 @@ func SigninHandler(s *services.Service) http.HandlerFunc {
 		pw := r.FormValue("password")
 
 		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.ResponseError(w, "Failed to sign in, invalid ID or password")
+			utils.Error(w, "Failed to sign in, invalid ID or password")
 			return
 		}
 
 		user := s.Auth.Signin(id, pw)
 		if user.Uid < 1 {
-			utils.ResponseError(w, "Unable to get an information, invalid ID or password")
+			utils.Error(w, "Unable to get an information, invalid ID or password")
 			return
 		}
-		utils.ResponseSuccess(w, user)
+		utils.Success(w, user)
 	}
 }
 
@@ -127,16 +127,16 @@ func SignupHandler(s *services.Service) http.HandlerFunc {
 		name := r.FormValue("name")
 
 		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.ResponseError(w, "Failed to sign up, invalid ID or password")
+			utils.Error(w, "Failed to sign up, invalid ID or password")
 			return
 		}
 
 		result, err := s.Auth.Signup(id, pw, name, r)
 		if err != nil {
-			utils.ResponseError(w, err.Error())
+			utils.Error(w, err.Error())
 			return
 		}
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
 	}
 }
 
@@ -150,23 +150,23 @@ func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
 		name := r.FormValue("name")
 
 		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.ResponseError(w, "Failed to verify, invalid ID or password")
+			utils.Error(w, "Failed to verify, invalid ID or password")
 			return
 		}
 
 		if len(name) < 2 {
-			utils.ResponseError(w, "Invalid name, too short")
+			utils.Error(w, "Invalid name, too short")
 			return
 		}
 
 		if len(code) != 6 {
-			utils.ResponseError(w, "Invalid code, wrong length")
+			utils.Error(w, "Invalid code, wrong length")
 			return
 		}
 
 		target, err := strconv.ParseUint(targetStr, 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid target, not a valid number")
+			utils.Error(w, "Invalid target, not a valid number")
 			return
 		}
 
@@ -179,10 +179,10 @@ func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
 		})
 
 		if !result {
-			utils.ResponseError(w, "Failed to verify code")
+			utils.Error(w, "Failed to verify code")
 			return
 		}
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -194,25 +194,25 @@ func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
 		password := r.FormValue("password")
 
 		if len(name) < 2 {
-			utils.ResponseError(w, "Invalid name, too short")
+			utils.Error(w, "Invalid name, too short")
 			return
 		}
 
 		userUid64, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid access user uid, not a valid number")
+			utils.Error(w, "Invalid access user uid, not a valid number")
 			return
 		}
 
 		if isDup := s.Auth.CheckNameExists(name); isDup {
-			utils.ResponseError(w, "Duplicated name, please choose another one")
+			utils.Error(w, "Duplicated name, please choose another one")
 			return
 		}
 
 		userUid := uint(userUid64)
 		userInfo, err := s.User.GetUserInfo(userUid)
 		if err != nil {
-			utils.ResponseError(w, "Unable to find your information")
+			utils.Error(w, "Unable to find your information")
 			return
 		}
 
@@ -232,6 +232,6 @@ func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
 			ProfileHandler: handler,
 		}
 		s.User.ChangeUserInfo(&param, userInfo)
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }

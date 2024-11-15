@@ -270,21 +270,21 @@ func RequestUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		myinfo, err := r.Cookie("tsboard_myinfo")
 		if err != nil {
-			utils.ResponseError(w, "Unable to read your data from cookie")
+			utils.Error(w, "Unable to read your data from cookie")
 			return
 		}
 		data, err := base64.URLEncoding.DecodeString(myinfo.Value)
 		if err != nil {
-			utils.ResponseError(w, "Unable to decode data")
+			utils.Error(w, "Unable to decode data")
 			return
 		}
 
 		var info models.MyInfoResult
 		err = json.Unmarshal([]byte(data), &info)
 		if err != nil {
-			utils.ResponseError(w, "Unable to unmarshal")
+			utils.Error(w, "Unable to unmarshal")
 			return
 		}
-		utils.ResponseSuccess(w, info)
+		utils.Success(w, info)
 	}
 }

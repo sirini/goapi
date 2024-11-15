@@ -12,6 +12,7 @@ type BoardService interface {
 	GetBoardUid(id string) uint
 	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) *models.BoardConfig
+	LikeThisPost(param *models.BoardViewLikeParameter)
 	LoadListItem(param *models.BoardListParameter) (*models.BoardListResult, error)
 	LoadViewItem(param *models.BoardViewParameter) (*models.BoardViewResult, error)
 }
@@ -43,6 +44,15 @@ func (s *TsboardBoardService) GetBoardConfig(boardUid uint) *models.BoardConfig 
 // 글 작성자에게 차단당했는지 확인
 func (s *TsboardBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
 	return s.repos.BoardView.CheckBannedByWriter(postUid, viewerUid)
+}
+
+// 게시글에 좋아요 클릭
+func (s *TsboardBoardService) LikeThisPost(param *models.BoardViewLikeParameter) {
+	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
+		s.repos.BoardView.UpdateLikePost(param)
+	} else {
+		s.repos.BoardView.InsertLikePost(param)
+	}
 }
 
 // 게시판 목록글들 가져오기

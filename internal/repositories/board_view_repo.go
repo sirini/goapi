@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
@@ -24,6 +25,9 @@ type BoardViewRepository interface {
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
 	GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error)
 	GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error)
+	InsertLikePost(param *models.BoardViewLikeParameter)
+	IsLikedPost(postUid uint, actionUserUid uint) bool
+	UpdateLikePost(param *models.BoardViewLikeParameter)
 	UpdatePostHit(postUid uint)
 }
 
@@ -223,6 +227,7 @@ func (r *TsboardBoardViewRepository) GetThumbnailImage(fileUid uint) models.Boar
 	return thumb
 }
 
+// 게시글 작성자의 최근 댓글들 가져오기
 func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, post_uid, content, submitted 
 												FROM %s%s WHERE user_uid = ? AND status != ? 
@@ -247,6 +252,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 	return items, nil
 }
 
+// 게시글 작성자의 최근 포스트들 가져오기
 func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, title, submitted FROM %s%s 
 												WHERE user_uid = ? AND status != ? 
@@ -270,6 +276,29 @@ func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit u
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// 게시글에 대해 좋아요를 클릭한 적 있는지 확인
+func (r *TsboardBoardViewRepository) IsLikedPost(postUid uint, actionUserUid uint) bool {
+	var uid uint
+	query := fmt.Sprintf("SELECT post_uid FROM %s%s WHERE post_uid = ? AND user_uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST_LIKE)
+	r.db.QueryRow(query, postUid, actionUserUid).Scan(&uid)
+	return uid > 0
+}
+
+// 게시글에 대한 좋아요를 추가하기
+func (r *TsboardBoardViewRepository) InsertLikePost(param *models.BoardViewLikeParameter) {
+	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, user_uid, liked, timestamp) 
+												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST_LIKE)
+	r.db.Exec(query, param.BoardUid, param.PostUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+}
+
+// 게시글에 대한 좋아요를 변경하기
+func (r *TsboardBoardViewRepository) UpdateLikePost(param *models.BoardViewLikeParameter) {
+	query := fmt.Sprintf(`UPDATE %s%s SET liked = ?, timestamp = ? 
+												WHERE post_uid = ? AND user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST_LIKE)
+	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.PostUid, param.UserUid)
 }
 
 // 조회수 업데이트 하기

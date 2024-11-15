@@ -17,22 +17,22 @@ func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 		keyword := r.FormValue("keyword")
 		page, err := strconv.ParseUint(r.FormValue("page"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid page, not a valid number")
+			utils.Error(w, "Invalid page, not a valid number")
 			return
 		}
 		paging, err := strconv.ParseInt(r.FormValue("pagingDirection"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid direction of paging, not a valid number")
+			utils.Error(w, "Invalid direction of paging, not a valid number")
 			return
 		}
 		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid since uid, not a valid number")
+			utils.Error(w, "Invalid since uid, not a valid number")
 			return
 		}
 		option, err := strconv.ParseUint(r.FormValue("option"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid option, not a valid number")
+			utils.Error(w, "Invalid option, not a valid number")
 			return
 		}
 
@@ -53,10 +53,10 @@ func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 
 		result, err := s.Board.LoadListItem(parameter)
 		if err != nil {
-			utils.ResponseError(w, "Failed to load a list of content")
+			utils.Error(w, "Failed to load a list of content")
 			return
 		}
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
 	}
 }
 
@@ -67,39 +67,77 @@ func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 		id := r.FormValue("id")
 		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid post uid, not a valid number")
+			utils.Error(w, "Invalid post uid, not a valid number")
 			return
 		}
 		updateHit, err := strconv.ParseUint(r.FormValue("needUpdateHit"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid need update hit, not a valid number")
+			utils.Error(w, "Invalid need update hit, not a valid number")
 			return
 		}
 		limit, err := strconv.ParseUint(r.FormValue("latestLimit"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid latest limit, not a valid number")
+			utils.Error(w, "Invalid latest limit, not a valid number")
 			return
 		}
 
 		boardUid := s.Board.GetBoardUid(id)
 		if boardUid < 1 {
-			utils.ResponseError(w, "Invalid board id, cannot find a board")
+			utils.Error(w, "Invalid board id, cannot find a board")
 			return
 		}
 
 		parameter := &models.BoardViewParameter{
-			BoardUid:  boardUid,
-			PostUid:   uint(postUid),
-			UserUid:   actionUserUid,
+			BoardViewCommonParameter: models.BoardViewCommonParameter{
+				BoardUid: boardUid,
+				PostUid:  uint(postUid),
+				UserUid:  actionUserUid,
+			},
 			UpdateHit: updateHit > 0,
 			Limit:     uint(limit),
 		}
 
 		result, err := s.Board.LoadViewItem(parameter)
 		if err != nil {
-			utils.ResponseError(w, err.Error())
+			utils.Error(w, err.Error())
 			return
 		}
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
+	}
+}
+
+// 게시글 좋아하기 핸들러
+func LikePostHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		liked, err := strconv.ParseUint(r.FormValue("liked"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid liked value, not a valid number")
+			return
+		}
+
+		parameter := &models.BoardViewLikeParameter{
+			BoardViewCommonParameter: models.BoardViewCommonParameter{
+				BoardUid: uint(boardUid),
+				PostUid:  uint(postUid),
+				UserUid:  actionUserUid,
+			},
+			Liked: liked > 0,
+		}
+
+		s.Board.LikeThisPost(parameter)
+		utils.Success(w, nil)
 	}
 }

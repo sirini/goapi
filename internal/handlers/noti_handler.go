@@ -13,12 +13,12 @@ func CheckedAllNoti(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid := utils.GetUserUidFromToken(r)
 		if userUid < 1 {
-			utils.ResponseError(w, "Unable to get an user uid from token")
+			utils.Error(w, "Unable to get an user uid from token")
 			return
 		}
 
 		s.Noti.CheckedAllNoti(userUid, 10)
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -27,21 +27,21 @@ func LoadNotiListHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid := utils.GetUserUidFromToken(r)
 		if userUid < 1 {
-			utils.ResponseError(w, "Unable to get an user uid from token")
+			utils.Error(w, "Unable to get an user uid from token")
 			return
 		}
 
 		limit, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid limit, not a valid number")
+			utils.Error(w, "Invalid limit, not a valid number")
 			return
 		}
 
 		notis, err := s.Noti.GetUserNoti(userUid, uint(limit))
 		if err != nil {
-			utils.ResponseError(w, "Failed to load your notifications")
+			utils.Error(w, "Failed to load your notifications")
 			return
 		}
-		utils.ResponseSuccess(w, notis)
+		utils.Success(w, notis)
 	}
 }

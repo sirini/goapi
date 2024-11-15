@@ -13,7 +13,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userUid := utils.FindUserUidFromHeader(r)
 		if userUid < 1 {
-			utils.ResponseError(w, "Unauthorized access, not a valid token")
+			utils.Error(w, "Unauthorized access, not a valid token")
 			return
 		}
 

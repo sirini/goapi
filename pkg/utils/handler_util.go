@@ -14,7 +14,7 @@ func ResponseJSON(w http.ResponseWriter, payload interface{}) {
 }
 
 // 에러 메시지 JSON 응답 처리용 헬퍼
-func ResponseError(w http.ResponseWriter, message string) {
+func Error(w http.ResponseWriter, message string) {
 	ResponseJSON(w, models.ResponseCommon{
 		Success: false,
 		Error:   message,
@@ -22,7 +22,7 @@ func ResponseError(w http.ResponseWriter, message string) {
 }
 
 // 성공 메시지 JSON 응답 처리용 헬퍼
-func ResponseSuccess(w http.ResponseWriter, result interface{}) {
+func Success(w http.ResponseWriter, result interface{}) {
 	ResponseJSON(w, models.ResponseCommon{
 		Success: true,
 		Result:  result,

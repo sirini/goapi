@@ -259,11 +259,16 @@ type BoardWriterLatestPost struct {
 	Title   string `json:"title"`
 }
 
+// 게시글 보기에서 공통으로 쓰이는 파라미터 정의
+type BoardViewCommonParameter struct {
+	BoardUid uint
+	PostUid  uint
+	UserUid  uint
+}
+
 // 게시글 보기에 필요한 파라미터 정의
 type BoardViewParameter struct {
-	BoardUid  uint
-	PostUid   uint
-	UserUid   uint
+	BoardViewCommonParameter
 	UpdateHit bool
 	Limit     uint
 }
@@ -279,4 +284,10 @@ type BoardViewResult struct {
 	NextPostUid    uint                        `json:"nextPostUid"`
 	WriterPosts    []*BoardWriterLatestPost    `json:"writerPosts"`
 	WriterComments []*BoardWriterLatestComment `json:"writerComments"`
+}
+
+// 게시글 좋아하기에 필요한 파라미터 정의
+type BoardViewLikeParameter struct {
+	BoardViewCommonParameter
+	Liked bool
 }

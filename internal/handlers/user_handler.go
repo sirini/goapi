@@ -16,22 +16,22 @@ func ChangePasswordHandler(s *services.Service) http.HandlerFunc {
 		newPassword := r.FormValue("password")
 
 		if len(userCode) != 6 || len(newPassword) != 64 {
-			utils.ResponseError(w, "Failed to change your password, invalid inputs")
+			utils.Error(w, "Failed to change your password, invalid inputs")
 			return
 		}
 
 		verifyUid, err := strconv.ParseUint(r.FormValue("target"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid target, not a valid number")
+			utils.Error(w, "Invalid target, not a valid number")
 			return
 		}
 
 		result := s.User.ChangePassword(uint(verifyUid), userCode, newPassword)
 		if !result {
-			utils.ResponseError(w, "Unable to change your password, internal error")
+			utils.Error(w, "Unable to change your password, internal error")
 			return
 		}
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -40,16 +40,16 @@ func LoadUserInfoHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid targetUserUid, not a valid number")
+			utils.Error(w, "Invalid targetUserUid, not a valid number")
 			return
 		}
 
 		userInfo, err := s.User.GetUserInfo(uint(targetUserUid))
 		if err != nil {
-			utils.ResponseError(w, "User not found")
+			utils.Error(w, "User not found")
 			return
 		}
-		utils.ResponseSuccess(w, userInfo)
+		utils.Success(w, userInfo)
 	}
 }
 
@@ -58,12 +58,12 @@ func LoadUserPermissionHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid target user uid, not a valid number")
+			utils.Error(w, "Invalid target user uid, not a valid number")
 			return
 		}
 
 		result := s.User.GetUserPermission(uint(targetUserUid))
-		utils.ResponseSuccess(w, result)
+		utils.Success(w, result)
 	}
 }
 
@@ -72,37 +72,37 @@ func ManageUserPermissionHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.GetUserUidFromToken(r)
 		if actionUserUid < 1 {
-			utils.ResponseError(w, "Unable to get an user uid from token")
+			utils.Error(w, "Unable to get an user uid from token")
 			return
 		}
 		targetUserUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(userUid), not a valid number")
+			utils.Error(w, "Invalid parameter(userUid), not a valid number")
 			return
 		}
 		writePost, err := strconv.ParseBool(r.FormValue("writePost"))
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(writePost), not a valid boolean")
+			utils.Error(w, "Invalid parameter(writePost), not a valid boolean")
 			return
 		}
 		writeComment, err := strconv.ParseBool(r.FormValue("writeComment"))
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(writeComment), not a valid boolean")
+			utils.Error(w, "Invalid parameter(writeComment), not a valid boolean")
 			return
 		}
 		sendChat, err := strconv.ParseBool(r.FormValue("sendChatMessage"))
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(sendChatMessage), not a valid boolean")
+			utils.Error(w, "Invalid parameter(sendChatMessage), not a valid boolean")
 			return
 		}
 		sendReport, err := strconv.ParseBool(r.FormValue("sendReport"))
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(sendReport), not a valid boolean")
+			utils.Error(w, "Invalid parameter(sendReport), not a valid boolean")
 			return
 		}
 		login, err := strconv.ParseBool(r.FormValue("login"))
 		if err != nil {
-			utils.ResponseError(w, "Invalid parameter(login), not a valid boolean")
+			utils.Error(w, "Invalid parameter(login), not a valid boolean")
 			return
 		}
 		response := r.FormValue("response")
@@ -120,7 +120,7 @@ func ManageUserPermissionHandler(s *services.Service) http.HandlerFunc {
 		}
 
 		s.User.ChangeUserPermission(actionUserUid, &param)
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
 
@@ -130,24 +130,24 @@ func ReportUserHandler(s *services.Service) http.HandlerFunc {
 		content := r.FormValue("content")
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid userUid, not a valid number")
+			utils.Error(w, "Invalid userUid, not a valid number")
 			return
 		}
 		targetUserUid, err := strconv.ParseUint(r.FormValue("targetUserUid"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid targetUserUid, not a valid number")
+			utils.Error(w, "Invalid targetUserUid, not a valid number")
 			return
 		}
 		checkedBlackList, err := strconv.ParseUint(r.FormValue("checkedBlackList"), 10, 32)
 		if err != nil {
-			utils.ResponseError(w, "Invalid checkedBlackList, not a valid number")
+			utils.Error(w, "Invalid checkedBlackList, not a valid number")
 			return
 		}
 		result := s.User.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, content)
 		if !result {
-			utils.ResponseError(w, "You have no permission to report other user")
+			utils.Error(w, "You have no permission to report other user")
 			return
 		}
-		utils.ResponseSuccess(w, nil)
+		utils.Success(w, nil)
 	}
 }
