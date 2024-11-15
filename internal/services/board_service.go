@@ -13,9 +13,11 @@ type BoardService interface {
 	GetBoardUid(id string) uint
 	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) *models.BoardConfig
+	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	LikeThisPost(param *models.BoardViewLikeParameter)
 	LoadListItem(param *models.BoardListParameter) (*models.BoardListResult, error)
 	LoadViewItem(param *models.BoardViewParameter) (*models.BoardViewResult, error)
+	MovePost(param *models.BoardMovePostParameter)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
 }
 
@@ -69,6 +71,15 @@ func (s *TsboardBoardService) GetMaxUid() uint {
 // 게시판 설정값 가져오기
 func (s *TsboardBoardService) GetBoardConfig(boardUid uint) *models.BoardConfig {
 	return s.repos.Board.GetBoardConfig(boardUid)
+}
+
+// 게시글 이동할 대상 게시판 목록 가져오기
+func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error) {
+	if isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid); !isAdmin {
+		return nil, fmt.Errorf("unauthorized access")
+	}
+	boards := s.repos.BoardView.GetAllBoards()
+	return boards, nil
 }
 
 // 글 작성자에게 차단당했는지 확인
@@ -189,6 +200,14 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 	result.WriterPosts, _ = s.repos.BoardView.GetWriterLatestPost(post.Writer.UserUid, param.Limit)
 	result.WriterComments, _ = s.repos.BoardView.GetWriterLatestComment(post.Writer.UserUid, param.Limit)
 	return result, nil
+}
+
+// 게시글 이동하기
+func (s *TsboardBoardService) MovePost(param *models.BoardMovePostParameter) {
+	if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
+		return
+	}
+	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
 }
 
 // 게시글 삭제하기

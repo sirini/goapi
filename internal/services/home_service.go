@@ -7,7 +7,7 @@ import (
 
 type HomeService interface {
 	AddVisitorLog(userUid uint)
-	GetSidebarLinks() ([]*models.HomeSidebarGroupResult, error)
+	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
 	GetLatestPosts(param *models.HomePostParameter) ([]*models.BoardHomePostItem, error)
 }
 
@@ -26,8 +26,8 @@ func (s *TsboardHomeService) AddVisitorLog(userUid uint) {
 }
 
 // 사이드바 그룹/게시판들 목록 가져오기
-func (s *TsboardHomeService) GetSidebarLinks() ([]*models.HomeSidebarGroupResult, error) {
-	return s.repos.Home.LoadGroupBoardLinks()
+func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
+	return s.repos.Home.GetGroupBoardLinks()
 }
 
 // 지정된 게시글 번호 이하의 최근글들 가져오기
@@ -38,7 +38,7 @@ func (s *TsboardHomeService) GetLatestPosts(param *models.HomePostParameter) ([]
 	)
 
 	if len(param.Keyword) < 2 {
-		posts, err = s.repos.Home.LoadLatestPosts(param)
+		posts, err = s.repos.Home.GetLatestPosts(param)
 	} else {
 		switch param.Option {
 		case models.SEARCH_TAG:

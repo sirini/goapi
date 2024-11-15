@@ -297,3 +297,15 @@ type BoardViewLikeParameter struct {
 	BoardViewCommonParameter
 	Liked bool
 }
+
+// 게시글 이동에 필요한 파라미터 정의
+type BoardMovePostParameter struct {
+	BoardViewCommonParameter
+	TargetBoardUid uint
+}
+
+// 게시글 이동에 필요한 게시판 목록 타입 정의
+type BoardItem struct {
+	Pair
+	Info string `json:"info"`
+}

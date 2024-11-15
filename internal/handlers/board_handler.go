@@ -162,6 +162,57 @@ func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 게시글 이동 대상 목록 가져오는 핸들러
+func LoadListForMoveHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+
+		boards, err := s.Board.GetBoardList(uint(boardUid), actionUserUid)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, boards)
+	}
+}
+
+// 게시글 이동하기 핸들러
+func MovePostHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		targetBoardUid, err := strconv.ParseUint(r.FormValue("targetBoardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid target board uid, not a valid number")
+			return
+		}
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		s.Board.MovePost(&models.BoardMovePostParameter{
+			BoardViewCommonParameter: models.BoardViewCommonParameter{
+				BoardUid: uint(boardUid),
+				PostUid:  uint(postUid),
+				UserUid:  actionUserUid,
+			},
+			TargetBoardUid: uint(targetBoardUid),
+		})
+		utils.Success(w, nil)
+	}
+}
+
 // 게시글 삭제하기 핸들러
 func RemovePostHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

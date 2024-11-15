@@ -12,6 +12,7 @@ import (
 
 type BoardViewRepository interface {
 	CheckBannedByWriter(postUid uint, viewerUid uint) bool
+	GetAllBoards() []models.BoardItem
 	GetAttachments(postUid uint) ([]models.BoardAttachment, error)
 	GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error)
 	GetBasicBoardConfig(boardUid uint) models.BoardBasicConfig
@@ -36,6 +37,7 @@ type BoardViewRepository interface {
 	RemoveThumbnails(fileUid uint) []string
 	UpdateLikePost(param *models.BoardViewLikeParameter)
 	UpdatePostHit(postUid uint)
+	UpdatePostBoardUid(targetBoardUid uint, postUid uint)
 }
 
 type TsboardBoardViewRepository struct {
@@ -61,6 +63,24 @@ func (r *TsboardBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid
 	query = fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_BLOCK)
 	r.db.QueryRow(query, writerUid, viewerUid).Scan(&blackUid)
 	return blackUid > 0
+}
+
+// 게시판 목록들 가져오기 (게시글 이동 시 필요)
+func (r *TsboardBoardViewRepository) GetAllBoards() []models.BoardItem {
+	var items []models.BoardItem
+	query := fmt.Sprintf("SELECT uid, name, info FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.BoardItem{}
+		rows.Scan(&item.Uid, &item.Name, &item.Info)
+		items = append(items, item)
+	}
+	return items
 }
 
 // 게시글에 첨부된 파일 목록들 가져오기
@@ -419,4 +439,11 @@ func (r *TsboardBoardViewRepository) UpdateLikePost(param *models.BoardViewLikeP
 func (r *TsboardBoardViewRepository) UpdatePostHit(postUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET hit = hit + 1 WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
 	r.db.Exec(query, postUid)
+}
+
+// 게시글의 소속 게시판 변경하기
+func (r *TsboardBoardViewRepository) UpdatePostBoardUid(targetBoardUid uint, postUid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET board_uid = ?, modified = ? WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST)
+	r.db.Exec(query, targetBoardUid, time.Now().UnixMilli(), postUid)
 }
