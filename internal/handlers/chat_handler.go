@@ -87,7 +87,7 @@ func SaveChatHandler(s *services.Service) http.HandlerFunc {
 		message = utils.Escape(message)
 		targetUserUid := uint(targetUserUid64)
 
-		if isPerm := s.Auth.CheckUserPermission(actionUserUid, models.ACTION_SEND_CHAT); !isPerm {
+		if isPerm := s.Auth.CheckUserPermission(actionUserUid, models.USER_ACTION_SEND_CHAT); !isPerm {
 			utils.Error(w, "You don't have permission to send a chat message")
 			return
 		}

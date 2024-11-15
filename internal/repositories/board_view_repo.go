@@ -15,8 +15,9 @@ type BoardViewRepository interface {
 	GetAttachments(postUid uint) ([]models.BoardAttachment, error)
 	GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error)
 	GetBasicBoardConfig(boardUid uint) models.BoardBasicConfig
+	GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult
 	GetExif(fileUid uint) *models.BoardExif
-	GetNeededPoint(boardUid uint, action models.BoardAction) int
+	GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int)
 	GetPrevPostUid(boardUid uint, postUid uint) uint
 	GetNextPostUid(boardUid uint, postUid uint) uint
 	GetPost(postUid uint, actionUserUid uint) (*models.BoardListItem, error)
@@ -126,6 +127,15 @@ func (r *TsboardBoardViewRepository) GetBasicBoardConfig(boardUid uint) models.B
 	return result
 }
 
+// 첨부파일 다운로드에 필요한 정보 가져오기
+func (r *TsboardBoardViewRepository) GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult {
+	var result models.BoardViewDownloadResult
+	query := fmt.Sprintf("SELECT name, path FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_FILE)
+	r.db.QueryRow(query, fileUid).Scan(&result.Name, &result.Path)
+	return result
+}
+
 // EXIF 정보 가져오기
 func (r *TsboardBoardViewRepository) GetExif(fileUid uint) *models.BoardExif {
 	exif := &models.BoardExif{}
@@ -144,12 +154,13 @@ func (r *TsboardBoardViewRepository) GetImageDescription(fileUid uint) string {
 }
 
 // Action에 필요한 포인트 양 확인하기
-func (r *TsboardBoardViewRepository) GetNeededPoint(boardUid uint, action models.BoardAction) int {
-	var point int
-	query := fmt.Sprintf("SELECT point_%s FROM %s%s WHERE uid = ? LIMIT 1",
-		action.String(), configs.Env.Prefix, models.TABLE_BOARD)
-	r.db.QueryRow(query, boardUid).Scan(&point)
-	return point
+func (r *TsboardBoardViewRepository) GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int) {
+	var level, point int
+	act := action.String()
+	query := fmt.Sprintf("SELECT level_%s, point_%s FROM %s%s WHERE uid = ? LIMIT 1",
+		act, act, configs.Env.Prefix, models.TABLE_BOARD)
+	r.db.QueryRow(query, boardUid).Scan(&level, &point)
+	return level, point
 }
 
 // 현재 게시글의 이전 게시글 번호 가져오기

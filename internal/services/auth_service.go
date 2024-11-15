@@ -116,19 +116,19 @@ func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.R
 	isDupId := s.repos.User.IsEmailDuplicated(id)
 	var target uint
 	if isDupId {
-		return nil, fmt.Errorf("Email(%s) is already in use", id)
+		return nil, fmt.Errorf("email(%s) is already in use", id)
 	}
 
 	name = utils.Escape(name)
 	isDupName := s.repos.User.IsNameDuplicated(name)
 	if isDupName {
-		return nil, fmt.Errorf("Name(%s) is already in use", name)
+		return nil, fmt.Errorf("name(%s) is already in use", name)
 	}
 
 	if configs.Env.GmailAppPassword == "" {
 		target = s.repos.User.InsertNewUser(id, pw, name)
 		if target < 1 {
-			return nil, fmt.Errorf("Failed to add a new user")
+			return nil, fmt.Errorf("failed to add a new user")
 		}
 	} else {
 		code := uuid.New().String()[:6]

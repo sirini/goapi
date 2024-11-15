@@ -29,20 +29,20 @@ type UserAction uint8
 
 // 액션 고유 값들
 const (
-	ACTION_WRITE_POST UserAction = iota
-	ACTION_WRITE_COMMENT
-	ACTION_SEND_CHAT
-	ACTION_SEND_REPORT
+	USER_ACTION_WRITE_POST UserAction = iota
+	USER_ACTION_WRITE_COMMENT
+	USER_ACTION_SEND_CHAT
+	USER_ACTION_SEND_REPORT
 )
 
 // 액션 이름 반환
 func (a UserAction) String() string {
 	switch a {
-	case ACTION_WRITE_COMMENT:
+	case USER_ACTION_WRITE_COMMENT:
 		return "write_comment"
-	case ACTION_SEND_CHAT:
+	case USER_ACTION_SEND_CHAT:
 		return "send_chat"
-	case ACTION_SEND_REPORT:
+	case USER_ACTION_SEND_REPORT:
 		return "send_report"
 	default:
 		return "write_post"

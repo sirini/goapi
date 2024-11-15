@@ -9,6 +9,7 @@ import (
 )
 
 type BoardService interface {
+	Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error)
 	GetBoardUid(id string) uint
 	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) *models.BoardConfig
@@ -24,6 +25,34 @@ type TsboardBoardService struct {
 // 리포지토리 묶음 주입받기
 func NewTsboardBoardService(repos *repositories.Repository) *TsboardBoardService {
 	return &TsboardBoardService{repos: repos}
+}
+
+// 다운로드에 필요한 정보 반환
+func (s *TsboardBoardService) Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error) {
+	var result models.BoardViewDownloadResult
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_DOWNLOAD)
+	if userLv < needLv {
+		return result, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return result, fmt.Errorf("not enough point")
+	}
+
+	result = s.repos.BoardView.GetDownloadInfo(fileUid)
+	fileSize := utils.GetFileSize(result.Path)
+	if fileSize < 1 {
+		return result, fmt.Errorf("file not found")
+	}
+
+	s.repos.User.UpdateUserPoint(userUid, uint(userPt+needPt))
+	s.repos.User.UpdatePointHistory(&models.UpdatePointParameter{
+		UserUid:  userUid,
+		BoardUid: boardUid,
+		Action:   models.POINT_ACTION_VIEW,
+		Point:    needPt,
+	})
+	return result, nil
 }
 
 // 게시판 고유 번호 가져오기
@@ -108,17 +137,17 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 		return nil, fmt.Errorf("you have been blocked by writer")
 	}
 
-	amountPoint := s.repos.BoardView.GetNeededPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
-	if amountPoint < 0 && point < utils.Abs(amountPoint) {
+	_, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
+	if needPt < 0 && point < utils.Abs(needPt) {
 		return nil, fmt.Errorf("not enough point")
 	}
 
-	s.repos.User.UpdateUserPoint(param.UserUid, uint(point+amountPoint))
+	s.repos.User.UpdateUserPoint(param.UserUid, uint(point+needPt))
 	s.repos.User.UpdatePointHistory(&models.UpdatePointParameter{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_VIEW,
-		Point:    amountPoint,
+		Point:    needPt,
 	})
 
 	post, err := s.repos.BoardView.GetPost(param.PostUid, param.UserUid)

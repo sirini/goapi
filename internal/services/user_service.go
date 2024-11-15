@@ -118,7 +118,7 @@ func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermiss
 
 // 사용자가 특정 유저를 신고하기
 func (s *TsboardUserService) ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool {
-	isAllowedAction := s.repos.Auth.CheckPermissionForAction(actionUserUid, models.ACTION_SEND_REPORT)
+	isAllowedAction := s.repos.Auth.CheckPermissionForAction(actionUserUid, models.USER_ACTION_SEND_REPORT)
 	if !isAllowedAction {
 		return false
 	}

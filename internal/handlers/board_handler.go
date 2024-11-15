@@ -9,6 +9,67 @@ import (
 	"github.com/sirini/goapi/pkg/utils"
 )
 
+// 첨부파일 다운로드 핸들러
+func DownloadHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+
+		fileUid, err := strconv.ParseUint(r.FormValue("fileUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		result, err := s.Board.Download(uint(boardUid), uint(fileUid), actionUserUid)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, result)
+	}
+}
+
+// 게시글 좋아하기 핸들러
+func LikePostHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		liked, err := strconv.ParseUint(r.FormValue("liked"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid liked value, not a valid number")
+			return
+		}
+
+		parameter := &models.BoardViewLikeParameter{
+			BoardViewCommonParameter: models.BoardViewCommonParameter{
+				BoardUid: uint(boardUid),
+				PostUid:  uint(postUid),
+				UserUid:  actionUserUid,
+			},
+			Liked: liked > 0,
+		}
+
+		s.Board.LikeThisPost(parameter)
+		utils.Success(w, nil)
+	}
+}
+
 // 게시글 목록 가져오기 핸들러
 func LoadBoardListHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -103,41 +164,5 @@ func LoadBoardViewHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		utils.Success(w, result)
-	}
-}
-
-// 게시글 좋아하기 핸들러
-func LikePostHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		actionUserUid := utils.GetUserUidFromToken(r)
-		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid board uid, not a valid number")
-			return
-		}
-
-		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid post uid, not a valid number")
-			return
-		}
-
-		liked, err := strconv.ParseUint(r.FormValue("liked"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid liked value, not a valid number")
-			return
-		}
-
-		parameter := &models.BoardViewLikeParameter{
-			BoardViewCommonParameter: models.BoardViewCommonParameter{
-				BoardUid: uint(boardUid),
-				PostUid:  uint(postUid),
-				UserUid:  actionUserUid,
-			},
-			Liked: liked > 0,
-		}
-
-		s.Board.LikeThisPost(parameter)
-		utils.Success(w, nil)
 	}
 }

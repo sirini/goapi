@@ -266,6 +266,12 @@ type BoardViewCommonParameter struct {
 	UserUid  uint
 }
 
+// 첨부파일 다운로드 결과 정의
+type BoardViewDownloadResult struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
 // 게시글 보기에 필요한 파라미터 정의
 type BoardViewParameter struct {
 	BoardViewCommonParameter
