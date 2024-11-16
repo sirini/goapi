@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -124,6 +125,17 @@ func DownloadHandler(s *services.Service) http.HandlerFunc {
 			utils.Error(w, err.Error())
 			return
 		}
+		utils.Success(w, result)
+	}
+}
+
+// 에디터에서 게시판 설정, 카테고리 목록, 관리자 여부 가져오기
+func GetEditorConfigHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		id := r.FormValue("id")
+		boardUid := s.Board.GetBoardUid(id)
+		result := s.Board.GetEditorConfig(boardUid, actionUserUid)
 		utils.Success(w, result)
 	}
 }
@@ -297,5 +309,45 @@ func RemovePostHandler(s *services.Service) http.HandlerFunc {
 
 		s.Board.RemovePost(uint(boardUid), uint(postUid), actionUserUid)
 		utils.Success(w, nil)
+	}
+}
+
+// 게시글 내용에 이미지 삽입하는 핸들러
+func UploadInsertImageHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		fileSizeLimit, _ := strconv.ParseInt(configs.Env.FileSizeLimit, 10, 32)
+		err = r.ParseMultipartForm(fileSizeLimit)
+		if err != nil {
+			utils.Error(w, "Failed to parse form")
+			return
+		}
+		images := r.MultipartForm.File["images"]
+		if len(images) < 1 {
+			utils.Error(w, "No files uploaded")
+			return
+		}
+
+		var totalFileSize int64
+		for _, fileHeader := range images {
+			totalFileSize += fileHeader.Size
+		}
+
+		if totalFileSize > fileSizeLimit {
+			utils.Error(w, "Uploaded files exceed size limitation")
+			return
+		}
+
+		uploadedImages, err := s.Board.UploadInsertImage(uint(boardUid), actionUserUid, images)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, uploadedImages)
 	}
 }

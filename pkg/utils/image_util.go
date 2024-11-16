@@ -90,18 +90,34 @@ func ResizeImage(inputPath string, outputPath string, width int) error {
 	return nil
 }
 
-// 이미지 저장하고 경로 반환
-func SaveProfileImage(inputPath string) string {
+// 프로필 이미지 저장하고 경로 반환
+func SaveProfileImage(inputPath string) (string, error) {
+	result := ""
 	savePath, err := MakeSavePath(models.UPLOAD_PROFILE)
 	if err != nil {
-		return ""
+		return result, err
 	}
 
-	outputPath := fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
-	err = ResizeImage("."+inputPath, outputPath, configs.Env.Number(configs.SIZE_PROFILE))
+	result = fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
+	err = ResizeImage(inputPath, result, configs.Env.Number(configs.SIZE_PROFILE))
 	if err != nil {
-		return ""
+		return result, err
+	}
+	return result, nil
+}
+
+// 본문 삽입용 이미지 저장하고 경로 반환
+func SaveInsertImage(inputPath string) (string, error) {
+	result := ""
+	savePath, err := MakeSavePath(models.UPLOAD_IMAGE)
+	if err != nil {
+		return result, err
 	}
 
-	return outputPath[1:]
+	result = fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
+	err = ResizeImage(inputPath, result, configs.Env.Number(configs.SIZE_CONTENT_INSERT))
+	if err != nil {
+		return result, err
+	}
+	return result, nil
 }

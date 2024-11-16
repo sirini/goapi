@@ -2,6 +2,9 @@ package services
 
 import (
 	"fmt"
+	"mime/multipart"
+	"os"
+	"sync"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -14,6 +17,7 @@ type BoardService interface {
 	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
+	GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult
 	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
 	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
 	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
@@ -22,6 +26,7 @@ type BoardService interface {
 	LikeThisPost(param models.BoardViewLikeParameter)
 	MovePost(param models.BoardMovePostParameter)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
+	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
 }
 
 type TsboardBoardService struct {
@@ -83,6 +88,14 @@ func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]model
 	}
 	boards := s.repos.BoardView.GetAllBoards()
 	return boards, nil
+}
+
+// 게시판 설정 및 카테고리, 관리자 여부 반환
+func (s *TsboardBoardService) GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult {
+	return models.EditorConfigResult{
+		Config:  s.repos.Board.GetBoardConfig(boardUid),
+		IsAdmin: s.repos.Auth.CheckPermissionByUid(userUid, boardUid),
+	}
 }
 
 // 갤러리에 사진 목록들 가져오기
@@ -206,24 +219,21 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 
 // 게시글 가져오기
 func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error) {
-	config := s.repos.Board.GetBoardConfig(param.BoardUid)
-	level, point := s.repos.User.GetUserLevelPoint(param.UserUid)
 	result := models.BoardViewResult{}
-
-	if config.Level.View > level {
-		return result, fmt.Errorf("level restriction")
-	}
-
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
 		return result, fmt.Errorf("you have been blocked by writer")
 	}
 
-	_, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
-	if needPt < 0 && point < utils.Abs(needPt) {
+	userLv, userPt := s.repos.User.GetUserLevelPoint(param.UserUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return result, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return result, fmt.Errorf("not enough point")
 	}
 
-	s.repos.User.UpdateUserPoint(param.UserUid, uint(point+needPt))
+	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
 	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
@@ -241,10 +251,11 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 		}
 	}
 
+	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	result.Config = config
 	result.Post = post
 
-	if config.Level.Download <= level {
+	if config.Level.Download <= userLv {
 		files, err := s.repos.BoardView.GetAttachments(param.PostUid)
 		if err != nil {
 			return result, fmt.Errorf("unable to get attachments")
@@ -305,6 +316,77 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 	removes := s.repos.BoardView.RemoveAttachments(postUid)
 
 	for _, path := range removes {
-		utils.RemoveFile(path)
+		_ = os.Remove("." + path)
 	}
+}
+
+// 게시글에 삽입할 이미지 파일 업로드 처리하기
+func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error) {
+	imagePaths := make([]string, 0)
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_WRITE)
+	if userLv < needLv {
+		return imagePaths, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return imagePaths, fmt.Errorf("not enough point")
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	tempPaths := make([]string, 0)
+	errors := make([]error, 0)
+
+	for _, header := range images {
+		wg.Add(1)
+		go func(header *multipart.FileHeader) {
+			defer wg.Done()
+
+			file, err := header.Open()
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+				return
+			}
+			defer file.Close()
+
+			tempPath, err := utils.SaveUploadedFile(file, header.Filename)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+				return
+			}
+			imagePath, err := utils.SaveInsertImage(tempPath)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			tempPaths = append(tempPaths, tempPath)
+			imagePaths = append(imagePaths, imagePath[1:])
+			mu.Unlock()
+
+		}(header)
+	}
+
+	wg.Wait()
+
+	if len(errors) > 0 {
+		for _, tempPath := range tempPaths {
+			os.Remove(tempPath)
+		}
+		return imagePaths, errors[0]
+	}
+
+	s.repos.BoardEdit.InsertImagePath(boardUid, userUid, imagePaths)
+
+	for _, tempPath := range tempPaths {
+		os.Remove(tempPath)
+	}
+	return imagePaths, nil
 }

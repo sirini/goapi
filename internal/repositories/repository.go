@@ -6,6 +6,7 @@ import "database/sql"
 type Repository struct {
 	Auth      AuthRepository
 	Board     BoardRepository
+	BoardEdit BoardEditRepository
 	BoardView BoardViewRepository
 	Chat      ChatRepository
 	Home      HomeRepository
@@ -19,6 +20,7 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{
 		Auth:      NewTsboardAuthRepository(db),
 		Board:     board,
+		BoardEdit: NewTsboardBoardEditRepository(db, board),
 		BoardView: NewTsboardBoardViewRepository(db, board),
 		Chat:      NewTsboardChatRepository(db),
 		Home:      NewTsboardHomeRepository(db, board),

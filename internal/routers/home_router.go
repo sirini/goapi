@@ -7,7 +7,7 @@ import (
 	"github.com/sirini/goapi/internal/services"
 )
 
-// TSBOARD : GOAPI 버전 확인 라우터 셋업
+// 홈화면에서 사용하는 라우터들 등록하기
 func SetupHomeRouter(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("GET /goapi/home/tsboard", handlers.ShowVersionHandler)
 	mux.HandleFunc("GET /goapi/home/visit", handlers.CountingVisitorHandler(s))

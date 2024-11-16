@@ -34,28 +34,24 @@ func MakeSavePath(target models.UploadCategory) (string, error) {
 	return finalPath, nil
 }
 
-// 파일 삭제하기
-func RemoveFile(path string) bool {
-	err := os.Remove("." + path)
-	return err == nil
-}
-
-// 업로드 된 파일 저장하고 경로 반환
-func SaveUploadedFile(target models.UploadCategory, file multipart.File, filename string) string {
-	dirPath, err := MakeSavePath(target)
+// 업로드 된 파일을 임시 폴더에 저장하고 경로 반환
+func SaveUploadedFile(file multipart.File, filename string) (string, error) {
+	result := ""
+	tempDir := fmt.Sprintf("./upload/%s", models.UPLOAD_TEMP)
+	err := os.MkdirAll(tempDir, os.ModePerm)
 	if err != nil {
-		return ""
+		return result, err
 	}
 
-	savePath := fmt.Sprintf("%s/%s", dirPath, filename)
-	dest, err := os.Create(savePath)
+	result = fmt.Sprintf("%s/%s", tempDir, filename)
+	dest, err := os.Create(result)
 	if err != nil {
-		return ""
+		return result, err
 	}
 	defer dest.Close()
 
 	if _, err := io.Copy(dest, file); err != nil {
-		return ""
+		return result, err
 	}
-	return savePath[1:]
+	return result, nil
 }
