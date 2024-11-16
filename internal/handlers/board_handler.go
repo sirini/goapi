@@ -13,7 +13,7 @@ import (
 func BoardListHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
-		boardId := r.FormValue("id")
+		id := r.FormValue("id")
 		keyword := r.FormValue("keyword")
 		page, err := strconv.ParseUint(r.FormValue("page"), 10, 32)
 		if err != nil {
@@ -41,7 +41,7 @@ func BoardListHandler(s *services.Service) http.HandlerFunc {
 		if parameter.SinceUid < 1 {
 			parameter.SinceUid = s.Board.GetMaxUid() + 1
 		}
-		parameter.BoardUid = s.Board.GetBoardUid(boardId)
+		parameter.BoardUid = s.Board.GetBoardUid(id)
 		config := s.Board.GetBoardConfig(parameter.BoardUid)
 
 		parameter.Bunch = config.RowCount
@@ -132,7 +132,7 @@ func DownloadHandler(s *services.Service) http.HandlerFunc {
 func GalleryListHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
-		boardId := r.FormValue("id")
+		id := r.FormValue("id")
 		keyword := r.FormValue("keyword")
 		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
 		if err != nil {
@@ -160,7 +160,7 @@ func GalleryListHandler(s *services.Service) http.HandlerFunc {
 		if parameter.SinceUid < 1 {
 			parameter.SinceUid = s.Board.GetMaxUid() + 1
 		}
-		parameter.BoardUid = s.Board.GetBoardUid(boardId)
+		parameter.BoardUid = s.Board.GetBoardUid(id)
 		config := s.Board.GetBoardConfig(parameter.BoardUid)
 
 		parameter.Bunch = config.RowCount
@@ -171,6 +171,26 @@ func GalleryListHandler(s *services.Service) http.HandlerFunc {
 		parameter.Direction = models.Paging(paging)
 
 		result := s.Board.GetGalleryList(parameter)
+		utils.Success(w, result)
+	}
+}
+
+// 갤러리 사진 열람하기 핸들러
+func GalleryLoadPhotoHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.FindUserUidFromHeader(r)
+		id := r.FormValue("id")
+		postUid, err := strconv.ParseUint(r.FormValue("no"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+		boardUid := s.Board.GetBoardUid(id)
+		result, err := s.Board.GetGalleryPhotos(boardUid, uint(postUid), actionUserUid)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
 		utils.Success(w, result)
 	}
 }

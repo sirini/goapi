@@ -321,9 +321,15 @@ type GalleryGridItem struct {
 	Images  []BoardAttachedImage `json:"images"`
 }
 
+// 갤러리 사진 보기 반환 타입 정의
+type GalleryPhotoResult struct {
+	Config BoardConfig          `json:"config"`
+	Images []BoardAttachedImage `json:"images"`
+}
+
 // 갤러리 리스트 반환 타입 정의
 type GalleryListResult struct {
-	TotalPostCount uint              `json:"totalPostCount"`
 	Config         BoardConfig       `json:"config"`
 	Images         []GalleryGridItem `json:"images"`
+	TotalPostCount uint              `json:"totalPostCount"`
 }

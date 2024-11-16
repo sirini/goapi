@@ -16,6 +16,7 @@ type BoardService interface {
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
 	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
+	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
@@ -135,6 +136,33 @@ func (s *TsboardBoardService) GetGalleryList(param models.BoardListParameter) mo
 	}
 }
 
+// 게시글 번호에 해당하는 첨부 사진들 가져오기 (GetPost() 후 호출됨)
+func (s *TsboardBoardService) GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error) {
+	result := models.GalleryPhotoResult{}
+	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
+		return result, fmt.Errorf("you have been blocked by writer")
+	}
+
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return result, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return result, fmt.Errorf("not enough point")
+	}
+
+	images, err := s.repos.BoardView.GetAttachedImages(postUid)
+	if err != nil {
+		return result, fmt.Errorf("unable to get attached images")
+	}
+	result = models.GalleryPhotoResult{
+		Config: s.repos.Board.GetBoardConfig(boardUid),
+		Images: images,
+	}
+	return result, nil
+}
+
 // 게시판 목록글들 가져오기
 func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
 	var (
@@ -183,7 +211,7 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	result := models.BoardViewResult{}
 
 	if config.Level.View > level {
-		return result, fmt.Errorf("level restriction, your level is %d but needs %d", level, config.Level.View)
+		return result, fmt.Errorf("level restriction")
 	}
 
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {

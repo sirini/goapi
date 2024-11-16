@@ -91,14 +91,14 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
-		boardId := r.FormValue("id")
+		id := r.FormValue("id")
 		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
 		if err != nil || bunch < 1 || bunch > 100 {
 			utils.Error(w, "Invalid limit, not a valid number")
 			return
 		}
 
-		boardUid := s.Board.GetBoardUid(boardId)
+		boardUid := s.Board.GetBoardUid(id)
 		if boardUid < 1 {
 			utils.Error(w, "Invalid board id, unable to find board")
 			return
