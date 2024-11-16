@@ -12,24 +12,24 @@ import (
 type BoardRepository interface {
 	CheckLikedPost(postUid uint, userUid uint) bool
 	CheckLikedComment(commentUid uint, userUid uint) bool
-	FindPostsByTitleContent(param *models.BoardListParameter) ([]*models.BoardListItem, error)
-	FindPostsByNameCategory(param *models.BoardListParameter) ([]*models.BoardListItem, error)
-	FindPostsByHashtag(param *models.BoardListParameter) ([]*models.BoardListItem, error)
-	GetBoardConfig(boardUid uint) *models.BoardConfig
+	FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error)
+	FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error)
+	FindPostsByHashtag(param models.BoardListParameter) ([]models.BoardListItem, error)
+	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardUidById(id string) uint
 	GetBoardCategories(boardUid uint) []models.Pair
 	GetCategoryByUid(categoryUid uint) models.Pair
 	GetCoverImage(postUid uint) string
 	GetCountByTable(table models.Table, postUid uint) uint
 	GetGroupAdminUid(boardUid uint) uint
-	GetNoticePosts(boardUid uint, actionUserUid uint) ([]*models.BoardListItem, error)
-	GetNormalPosts(param *models.BoardListParameter) ([]*models.BoardListItem, error)
+	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
+	GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error)
 	GetMaxUid() uint
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
 	GetUidByTable(table models.Table, name string) uint
 	GetWriterInfo(userUid uint) models.BoardWriter
-	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]*models.BoardListItem, error)
+	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error)
 }
 
 type TsboardBoardRepository struct {
@@ -69,7 +69,7 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 }
 
 // 게시글 제목 혹은 내용으로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByTitleContent(param *models.BoardListParameter) ([]*models.BoardListItem, error) {
+func (r *TsboardBoardRepository) FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	keyword := "%" + param.Keyword + "%"
 	arrow, order := param.Direction.Query()
@@ -85,7 +85,7 @@ func (r *TsboardBoardRepository) FindPostsByTitleContent(param *models.BoardList
 }
 
 // 게시글 작성자 혹은 분류명으로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByNameCategory(param *models.BoardListParameter) ([]*models.BoardListItem, error) {
+func (r *TsboardBoardRepository) FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	arrow, order := param.Direction.Query()
 	table := models.TABLE_USER
@@ -105,7 +105,7 @@ func (r *TsboardBoardRepository) FindPostsByNameCategory(param *models.BoardList
 }
 
 // 게시글 태그로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByHashtag(param *models.BoardListParameter) ([]*models.BoardListItem, error) {
+func (r *TsboardBoardRepository) FindPostsByHashtag(param models.BoardListParameter) ([]models.BoardListItem, error) {
 	arrow, order := param.Direction.Query()
 	tagUidStr, tagCount := r.GetTagUids(param.Keyword)
 	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, 
@@ -124,8 +124,8 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param *models.BoardListParam
 }
 
 // 게시판 설정값 가져오기
-func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) *models.BoardConfig {
-	config := &models.BoardConfig{}
+func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfig {
+	config := models.BoardConfig{}
 	query := fmt.Sprintf(`SELECT admin_uid, type, name, info, row_count, width, use_category,
 												level_list, level_view, level_write, level_comment, level_download,
 												point_view, point_write, point_comment, point_download 
@@ -208,7 +208,7 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 }
 
 // 게시판 공지글만 가져오기
-func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]*models.BoardListItem, error) {
+func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
 	rows, err := r.db.Query(query, boardUid, models.CONTENT_NOTICE)
@@ -220,7 +220,7 @@ func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uin
 }
 
 // 비밀글을 포함한 일반 게시글들 가져오기
-func (r *TsboardBoardRepository) GetNormalPosts(param *models.BoardListParameter) ([]*models.BoardListItem, error) {
+func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error) {
 	arrow, order := param.Direction.Query()
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status IN (?, ?) AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
@@ -286,10 +286,10 @@ func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter 
 }
 
 // 게시글 목록 만들어서 반환
-func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]*models.BoardListItem, error) {
-	var items []*models.BoardListItem
+func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error) {
+	var items []models.BoardListItem
 	for rows.Next() {
-		item := &models.BoardListItem{}
+		item := models.BoardListItem{}
 		var writerUid uint
 		err := rows.Scan(&item.Uid, &writerUid, &item.Category.Uid, &item.Title, &item.Content,
 			&item.Submitted, &item.Modified, &item.Hit, &item.Status)

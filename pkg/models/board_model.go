@@ -150,11 +150,11 @@ type BoardListParameter struct {
 
 // 게시글 목록보기 리턴 값 정의
 type BoardListResult struct {
-	TotalPostCount uint             `json:"totalPostCount"`
-	Config         *BoardConfig     `json:"config"`
-	Posts          []*BoardListItem `json:"posts"`
-	BlackList      []uint           `json:"blackList"`
-	IsAdmin        bool             `json:"isAdmin"`
+	TotalPostCount uint            `json:"totalPostCount"`
+	Config         BoardConfig     `json:"config"`
+	Posts          []BoardListItem `json:"posts"`
+	BlackList      []uint          `json:"blackList"`
+	IsAdmin        bool            `json:"isAdmin"`
 }
 
 // 사용자의 포인트 변경하기에 필요한 파라미터 정의
@@ -214,7 +214,7 @@ type BoardThumbnail struct {
 type BoardAttachedImage struct {
 	File        BoardFile      `json:"file"`
 	Thumbnail   BoardThumbnail `json:"thumbnail"`
-	Exif        *BoardExif     `json:"exif"`
+	Exif        BoardExif      `json:"exif"`
 	Description string         `json:"description"`
 }
 
@@ -281,15 +281,15 @@ type BoardViewParameter struct {
 
 // 게시글 보기에 반환 타입 정의
 type BoardViewResult struct {
-	Config         *BoardConfig                `json:"config"`
-	Post           *BoardListItem              `json:"post"`
-	Images         []BoardAttachedImage        `json:"images"`
-	Files          []BoardAttachment           `json:"files"`
-	Tags           []Pair                      `json:"tags"`
-	PrevPostUid    uint                        `json:"prevPostUid"`
-	NextPostUid    uint                        `json:"nextPostUid"`
-	WriterPosts    []*BoardWriterLatestPost    `json:"writerPosts"`
-	WriterComments []*BoardWriterLatestComment `json:"writerComments"`
+	Config         BoardConfig                `json:"config"`
+	Post           BoardListItem              `json:"post"`
+	Images         []BoardAttachedImage       `json:"images"`
+	Files          []BoardAttachment          `json:"files"`
+	Tags           []Pair                     `json:"tags"`
+	PrevPostUid    uint                       `json:"prevPostUid"`
+	NextPostUid    uint                       `json:"nextPostUid"`
+	WriterPosts    []BoardWriterLatestPost    `json:"writerPosts"`
+	WriterComments []BoardWriterLatestComment `json:"writerComments"`
 }
 
 // 게시글 좋아하기에 필요한 파라미터 정의
@@ -308,4 +308,14 @@ type BoardMovePostParameter struct {
 type BoardItem struct {
 	Pair
 	Info string `json:"info"`
+}
+
+// 갤러리 그리드형 반환타입 정의
+type GalleryGridItem struct {
+	Uid     uint                 `json:"uid"`
+	Writer  BoardWriter          `json:"writer"`
+	Like    uint                 `json:"like"`
+	Liked   bool                 `json:"liked"`
+	Comment uint                 `json:"comment"`
+	Images  []BoardAttachedImage `json:"images"`
 }

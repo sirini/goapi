@@ -17,17 +17,17 @@ type BoardViewRepository interface {
 	GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error)
 	GetBasicBoardConfig(boardUid uint) models.BoardBasicConfig
 	GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult
-	GetExif(fileUid uint) *models.BoardExif
+	GetExif(fileUid uint) models.BoardExif
 	GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int)
 	GetPrevPostUid(boardUid uint, postUid uint) uint
 	GetNextPostUid(boardUid uint, postUid uint) uint
-	GetPost(postUid uint, actionUserUid uint) (*models.BoardListItem, error)
+	GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error)
 	GetTags(postUid uint) []models.Pair
 	GetTagName(hashtagUid uint) string
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
-	GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error)
-	GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error)
-	InsertLikePost(param *models.BoardViewLikeParameter)
+	GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error)
+	GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error)
+	InsertLikePost(param models.BoardViewLikeParameter)
 	IsLikedPost(postUid uint, actionUserUid uint) bool
 	IsWriter(table models.Table, postUid uint, userUid uint) bool
 	RemoveAttachments(postUid uint) []string
@@ -35,7 +35,7 @@ type BoardViewRepository interface {
 	RemovePost(postUid uint)
 	RemovePostTags(postUid uint)
 	RemoveThumbnails(fileUid uint) []string
-	UpdateLikePost(param *models.BoardViewLikeParameter)
+	UpdateLikePost(param models.BoardViewLikeParameter)
 	UpdatePostHit(postUid uint)
 	UpdatePostBoardUid(targetBoardUid uint, postUid uint)
 }
@@ -165,8 +165,8 @@ func (r *TsboardBoardViewRepository) GetDownloadInfo(fileUid uint) models.BoardV
 }
 
 // EXIF 정보 가져오기
-func (r *TsboardBoardViewRepository) GetExif(fileUid uint) *models.BoardExif {
-	exif := &models.BoardExif{}
+func (r *TsboardBoardViewRepository) GetExif(fileUid uint) models.BoardExif {
+	exif := models.BoardExif{}
 	query := fmt.Sprintf(`SELECT make, model, aperture, iso, focal_length, exposure, width, height, date 
 												FROM %s%s WHERE file_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_EXIF)
 	r.db.QueryRow(query, fileUid).Scan(&exif.Make, &exif.Model, &exif.Aperture, &exif.ISO, &exif.FocalLength, &exif.Exposure, &exif.Width, &exif.Height, &exif.Date)
@@ -210,14 +210,14 @@ func (r *TsboardBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint)
 }
 
 // 게시글 보기 시 게시글 내용 가져오기
-func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (*models.BoardListItem, error) {
-	item := &models.BoardListItem{}
+func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
+	item := models.BoardListItem{}
 	var writerUid uint
 	query := fmt.Sprintf("SELECT %s FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
 	err := r.db.QueryRow(query, postUid, models.CONTENT_REMOVED).Scan(&item.Uid, &writerUid, &item.Category.Uid, &item.Title, &item.Content, &item.Submitted, &item.Modified, &item.Hit, &item.Status)
 	if err != nil {
-		return nil, err
+		return item, err
 	}
 
 	item.Writer = r.board.GetWriterInfo(writerUid)
@@ -268,7 +268,7 @@ func (r *TsboardBoardViewRepository) GetThumbnailImage(fileUid uint) models.Boar
 }
 
 // 게시글 작성자의 최근 댓글들 가져오기
-func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]*models.BoardWriterLatestComment, error) {
+func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, post_uid, content, submitted 
 												FROM %s%s WHERE user_uid = ? AND status != ? 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT)
@@ -278,9 +278,9 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 	}
 	defer rows.Close()
 
-	var items []*models.BoardWriterLatestComment
+	var items []models.BoardWriterLatestComment
 	for rows.Next() {
-		item := &models.BoardWriterLatestComment{}
+		item := models.BoardWriterLatestComment{}
 		var uid, boardUid uint
 		err = rows.Scan(&uid, &boardUid, &item.PostUid, &item.Content, &item.Submitted)
 		if err != nil {
@@ -294,7 +294,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 }
 
 // 게시글 작성자의 최근 포스트들 가져오기
-func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]*models.BoardWriterLatestPost, error) {
+func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, title, submitted FROM %s%s 
 												WHERE user_uid = ? AND status != ? 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_POST)
@@ -304,9 +304,9 @@ func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit u
 	}
 	defer rows.Close()
 
-	var items []*models.BoardWriterLatestPost
+	var items []models.BoardWriterLatestPost
 	for rows.Next() {
-		item := &models.BoardWriterLatestPost{}
+		item := models.BoardWriterLatestPost{}
 		var boardUid uint
 		err = rows.Scan(&item.PostUid, &boardUid, &item.Title, &item.Submitted)
 		if err != nil {
@@ -338,7 +338,7 @@ func (r *TsboardBoardViewRepository) IsWriter(table models.Table, targetUid uint
 }
 
 // 게시글에 대한 좋아요를 추가하기
-func (r *TsboardBoardViewRepository) InsertLikePost(param *models.BoardViewLikeParameter) {
+func (r *TsboardBoardViewRepository) InsertLikePost(param models.BoardViewLikeParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST_LIKE)
 	r.db.Exec(query, param.BoardUid, param.PostUid, param.UserUid, param.Liked, time.Now().UnixMilli())
@@ -429,7 +429,7 @@ func (r *TsboardBoardViewRepository) RemoveThumbnails(fileUid uint) []string {
 }
 
 // 게시글에 대한 좋아요를 변경하기
-func (r *TsboardBoardViewRepository) UpdateLikePost(param *models.BoardViewLikeParameter) {
+func (r *TsboardBoardViewRepository) UpdateLikePost(param models.BoardViewLikeParameter) {
 	query := fmt.Sprintf(`UPDATE %s%s SET liked = ?, timestamp = ? 
 												WHERE post_uid = ? AND user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST_LIKE)
 	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.PostUid, param.UserUid)

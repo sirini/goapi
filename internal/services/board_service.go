@@ -12,12 +12,12 @@ type BoardService interface {
 	Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error)
 	GetBoardUid(id string) uint
 	GetMaxUid() uint
-	GetBoardConfig(boardUid uint) *models.BoardConfig
+	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
-	LikeThisPost(param *models.BoardViewLikeParameter)
-	LoadListItem(param *models.BoardListParameter) (*models.BoardListResult, error)
-	LoadViewItem(param *models.BoardViewParameter) (*models.BoardViewResult, error)
-	MovePost(param *models.BoardMovePostParameter)
+	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
+	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
+	LikeThisPost(param models.BoardViewLikeParameter)
+	MovePost(param models.BoardMovePostParameter)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
 }
 
@@ -69,7 +69,7 @@ func (s *TsboardBoardService) GetMaxUid() uint {
 }
 
 // 게시판 설정값 가져오기
-func (s *TsboardBoardService) GetBoardConfig(boardUid uint) *models.BoardConfig {
+func (s *TsboardBoardService) GetBoardConfig(boardUid uint) models.BoardConfig {
 	return s.repos.Board.GetBoardConfig(boardUid)
 }
 
@@ -82,30 +82,16 @@ func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]model
 	return boards, nil
 }
 
-// 글 작성자에게 차단당했는지 확인
-func (s *TsboardBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
-	return s.repos.BoardView.CheckBannedByWriter(postUid, viewerUid)
-}
-
-// 게시글에 좋아요 클릭
-func (s *TsboardBoardService) LikeThisPost(param *models.BoardViewLikeParameter) {
-	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
-		s.repos.BoardView.UpdateLikePost(param)
-	} else {
-		s.repos.BoardView.InsertLikePost(param)
-	}
-}
-
 // 게시판 목록글들 가져오기
-func (s *TsboardBoardService) LoadListItem(param *models.BoardListParameter) (*models.BoardListResult, error) {
+func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
 	var (
-		items []*models.BoardListItem
+		items []models.BoardListItem
 		err   error
 	)
 
 	notices, err := s.repos.Board.GetNoticePosts(param.BoardUid, param.UserUid)
 	if err != nil {
-		return nil, err
+		return models.BoardListResult{}, err
 	}
 	param.NoticeCount = uint(len(notices))
 
@@ -123,10 +109,10 @@ func (s *TsboardBoardService) LoadListItem(param *models.BoardListParameter) (*m
 		}
 	}
 	if err != nil {
-		return nil, err
+		return models.BoardListResult{}, err
 	}
 
-	result := &models.BoardListResult{
+	result := models.BoardListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
 		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
 		Posts:          items,
@@ -137,21 +123,22 @@ func (s *TsboardBoardService) LoadListItem(param *models.BoardListParameter) (*m
 }
 
 // 게시글 가져오기
-func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*models.BoardViewResult, error) {
+func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error) {
 	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	level, point := s.repos.User.GetUserLevelPoint(param.UserUid)
+	result := models.BoardViewResult{}
 
 	if config.Level.View > level {
-		return nil, fmt.Errorf("level restriction, your level is %d but needs %d", level, config.Level.View)
+		return result, fmt.Errorf("level restriction, your level is %d but needs %d", level, config.Level.View)
 	}
 
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
-		return nil, fmt.Errorf("you have been blocked by writer")
+		return result, fmt.Errorf("you have been blocked by writer")
 	}
 
 	_, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
 	if needPt < 0 && point < utils.Abs(needPt) {
-		return nil, fmt.Errorf("not enough point")
+		return result, fmt.Errorf("not enough point")
 	}
 
 	s.repos.User.UpdateUserPoint(param.UserUid, uint(point+needPt))
@@ -164,29 +151,28 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 
 	post, err := s.repos.BoardView.GetPost(param.PostUid, param.UserUid)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	if post.Status == models.CONTENT_SECRET {
 		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
-			return nil, fmt.Errorf("you don't have permission to open this post")
+			return result, fmt.Errorf("you don't have permission to open this post")
 		}
 	}
 
-	result := &models.BoardViewResult{}
 	result.Config = config
 	result.Post = post
 
 	if config.Level.Download <= level {
 		files, err := s.repos.BoardView.GetAttachments(param.PostUid)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get attachments")
+			return result, fmt.Errorf("unable to get attachments")
 		}
 		result.Files = files
 	}
 
 	images, err := s.repos.BoardView.GetAttachedImages(param.PostUid)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get attached images")
+		return result, fmt.Errorf("unable to get attached images")
 	}
 	result.Images = images
 
@@ -202,8 +188,22 @@ func (s *TsboardBoardService) LoadViewItem(param *models.BoardViewParameter) (*m
 	return result, nil
 }
 
+// 글 작성자에게 차단당했는지 확인
+func (s *TsboardBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
+	return s.repos.BoardView.CheckBannedByWriter(postUid, viewerUid)
+}
+
+// 게시글에 좋아요 클릭
+func (s *TsboardBoardService) LikeThisPost(param models.BoardViewLikeParameter) {
+	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
+		s.repos.BoardView.UpdateLikePost(param)
+	} else {
+		s.repos.BoardView.InsertLikePost(param)
+	}
+}
+
 // 게시글 이동하기
-func (s *TsboardBoardService) MovePost(param *models.BoardMovePostParameter) {
+func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
 		return
 	}
