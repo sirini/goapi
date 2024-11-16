@@ -15,6 +15,7 @@ type BoardService interface {
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
+	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
@@ -122,6 +123,16 @@ func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// 갤러리 리스트 반환하기
+func (s *TsboardBoardService) GetGalleryList(param models.BoardListParameter) models.GalleryListResult {
+	images, _ := s.GetGalleryGridItem(param)
+	return models.GalleryListResult{
+		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
+		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
+		Images:         images,
+	}
 }
 
 // 게시판 목록글들 가져오기

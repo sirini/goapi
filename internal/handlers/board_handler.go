@@ -170,11 +170,7 @@ func GalleryListHandler(s *services.Service) http.HandlerFunc {
 		parameter.Page = uint(page)
 		parameter.Direction = models.Paging(paging)
 
-		result, err := s.Board.GetGalleryGridItem(parameter)
-		if err != nil {
-			utils.Error(w, err.Error())
-			return
-		}
+		result := s.Board.GetGalleryList(parameter)
 		utils.Success(w, result)
 	}
 }
