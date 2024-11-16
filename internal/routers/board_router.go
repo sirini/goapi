@@ -12,6 +12,7 @@ import (
 func SetupBoardRouter(mux *http.ServeMux, s *services.Service) {
 	mux.HandleFunc("GET /goapi/board/list", handlers.BoardListHandler(s))
 	mux.HandleFunc("GET /goapi/board/view", handlers.BoardViewHandler(s))
+	mux.HandleFunc("GET /goapi/board/photo/list", handlers.GalleryListHandler(s))
 }
 
 // 로그인이 필요한 게시판 라우터들 등록하기

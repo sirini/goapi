@@ -14,6 +14,7 @@ type BoardService interface {
 	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
+	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
@@ -49,7 +50,7 @@ func (s *TsboardBoardService) Download(boardUid uint, fileUid uint, userUid uint
 	}
 
 	s.repos.User.UpdateUserPoint(userUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(&models.UpdatePointParameter{
+	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
 		UserUid:  userUid,
 		BoardUid: boardUid,
 		Action:   models.POINT_ACTION_VIEW,
@@ -82,6 +83,47 @@ func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]model
 	return boards, nil
 }
 
+// 갤러리에 사진 목록들 가져오기
+func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error) {
+	var (
+		posts []models.BoardListItem
+		err   error
+	)
+	items := []models.GalleryGridItem{}
+
+	if len(param.Keyword) < 2 {
+		posts, err = s.repos.Board.GetNormalPosts(param)
+	} else {
+		switch param.Option {
+		case models.SEARCH_TAG:
+			posts, err = s.repos.Board.FindPostsByHashtag(param)
+		case models.SEARCH_CATEGORY:
+		case models.SEARCH_WRITER:
+			posts, err = s.repos.Board.FindPostsByNameCategory(param)
+		default:
+			posts, err = s.repos.Board.FindPostsByTitleContent(param)
+		}
+	}
+	if err != nil {
+		return items, err
+	}
+
+	for _, post := range posts {
+		images, _ := s.repos.BoardView.GetAttachedImages(post.Uid)
+		item := models.GalleryGridItem{
+			Uid:     post.Uid,
+			Like:    post.Like,
+			Liked:   post.Liked,
+			Writer:  post.Writer,
+			Comment: post.Comment,
+			Title:   post.Title,
+			Images:  images,
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 // 게시판 목록글들 가져오기
 func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
 	var (
@@ -93,6 +135,7 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 	if err != nil {
 		return models.BoardListResult{}, err
 	}
+	result := models.BoardListResult{}
 	param.NoticeCount = uint(len(notices))
 
 	if len(param.Keyword) < 2 {
@@ -109,10 +152,10 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 		}
 	}
 	if err != nil {
-		return models.BoardListResult{}, err
+		return result, err
 	}
 
-	result := models.BoardListResult{
+	result = models.BoardListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
 		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
 		Posts:          items,
@@ -142,7 +185,7 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	}
 
 	s.repos.User.UpdateUserPoint(param.UserUid, uint(point+needPt))
-	s.repos.User.UpdatePointHistory(&models.UpdatePointParameter{
+	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_VIEW,

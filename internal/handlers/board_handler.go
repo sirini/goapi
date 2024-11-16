@@ -53,7 +53,7 @@ func BoardListHandler(s *services.Service) http.HandlerFunc {
 
 		result, err := s.Board.GetListItem(parameter)
 		if err != nil {
-			utils.Error(w, "Failed to load a list of content")
+			utils.Error(w, err.Error())
 			return
 		}
 		utils.Success(w, result)
@@ -120,6 +120,57 @@ func DownloadHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		result, err := s.Board.Download(uint(boardUid), uint(fileUid), actionUserUid)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, result)
+	}
+}
+
+// 갤러리 리스트 핸들러
+func GalleryListHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.FindUserUidFromHeader(r)
+		boardId := r.FormValue("id")
+		keyword := r.FormValue("keyword")
+		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid since uid, not a valid number")
+			return
+		}
+		option, err := strconv.ParseUint(r.FormValue("option"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid option, not a valid number")
+			return
+		}
+		page, err := strconv.ParseUint(r.FormValue("page"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid page, not a valid number")
+			return
+		}
+		paging, err := strconv.ParseInt(r.FormValue("pagingDirection"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid direction of paging, not a valid number")
+			return
+		}
+
+		parameter := models.BoardListParameter{}
+		parameter.SinceUid = uint(sinceUid64)
+		if parameter.SinceUid < 1 {
+			parameter.SinceUid = s.Board.GetMaxUid() + 1
+		}
+		parameter.BoardUid = s.Board.GetBoardUid(boardId)
+		config := s.Board.GetBoardConfig(parameter.BoardUid)
+
+		parameter.Bunch = config.RowCount
+		parameter.Option = models.Search(option)
+		parameter.Keyword = utils.Escape(keyword)
+		parameter.UserUid = actionUserUid
+		parameter.Page = uint(page)
+		parameter.Direction = models.Paging(paging)
+
+		result, err := s.Board.GetGalleryGridItem(parameter)
 		if err != nil {
 			utils.Error(w, err.Error())
 			return

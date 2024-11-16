@@ -65,7 +65,7 @@ func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter
 // 사용자 권한 변경하기
 func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) {
 	targetUserUid := perm.UserUid
-	permission := &perm.UserPermissionResult
+	permission := perm.UserPermissionResult
 
 	isPermAdded := s.repos.User.IsPermissionAdded(targetUserUid)
 	if isPermAdded {

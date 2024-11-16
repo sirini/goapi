@@ -313,9 +313,10 @@ type BoardItem struct {
 // 갤러리 그리드형 반환타입 정의
 type GalleryGridItem struct {
 	Uid     uint                 `json:"uid"`
-	Writer  BoardWriter          `json:"writer"`
 	Like    uint                 `json:"like"`
 	Liked   bool                 `json:"liked"`
+	Writer  BoardWriter          `json:"writer"`
 	Comment uint                 `json:"comment"`
+	Title   string               `json:"title"`
 	Images  []BoardAttachedImage `json:"images"`
 }

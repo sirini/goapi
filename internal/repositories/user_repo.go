@@ -17,7 +17,7 @@ type UserRepository interface {
 	InsertBlackList(actionUserUid uint, targetUserUid uint)
 	InsertReportUser(actionUserUid uint, targetUserUid uint, report string)
 	InsertNewUser(id string, pw string, name string) uint
-	InsertUserPermission(userUid uint, perm *models.UserPermissionResult)
+	InsertUserPermission(userUid uint, perm models.UserPermissionResult)
 	InsertReportResponse(actionUserUid uint, targetUserUid uint, response string)
 	IsEmailDuplicated(id string) bool
 	IsNameDuplicated(name string) bool
@@ -25,12 +25,12 @@ type UserRepository interface {
 	IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool
 	IsPermissionAdded(userUid uint) bool
 	IsUserReported(userUid uint) bool
-	LoadUserPermission(userUid uint) *models.UserPermissionResult
+	LoadUserPermission(userUid uint) models.UserPermissionResult
 	UpdatePassword(userUid uint, password string)
-	UpdatePointHistory(param *models.UpdatePointParameter)
+	UpdatePointHistory(param models.UpdatePointParameter)
 	UpdateUserInfoString(userUid uint, name string, signature string)
 	UpdateUserProfile(userUid uint, imagePath string)
-	UpdateUserPermission(userUid uint, perm *models.UserPermissionResult)
+	UpdateUserPermission(userUid uint, perm models.UserPermissionResult)
 	UpdateUserPoint(userUid uint, updatedPoint uint)
 	UpdateUserBlocked(userUid uint, isBlocked bool)
 	UpdateReportResponse(userUid uint, response string)
@@ -140,7 +140,7 @@ func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string)
 }
 
 // 사용자 권한 설정값 추가하기
-func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm *models.UserPermissionResult) {
+func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm models.UserPermissionResult) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(user_uid, ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT)
 												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix, models.TABLE_USER_PERM)
@@ -213,8 +213,8 @@ func (r *TsboardUserRepository) IsUserReported(userUid uint) bool {
 }
 
 // 사용자 권한 및 신고 받은 후 조치사항 조회
-func (r *TsboardUserRepository) LoadUserPermission(userUid uint) *models.UserPermissionResult {
-	var result models.UserPermissionResult = models.UserPermissionResult{
+func (r *TsboardUserRepository) LoadUserPermission(userUid uint) models.UserPermissionResult {
+	result := models.UserPermissionResult{
 		WritePost:       true,
 		WriteComment:    true,
 		SendChatMessage: true,
@@ -227,14 +227,14 @@ func (r *TsboardUserRepository) LoadUserPermission(userUid uint) *models.UserPer
 		configs.Env.Prefix, models.TABLE_USER_PERM)
 	err := r.db.QueryRow(query, userUid).Scan(&writePost, &writeComment, &sendChat, &sendReport)
 	if err == sql.ErrNoRows {
-		return &result
+		return result
 	}
 
 	result.WritePost = writePost > 0
 	result.WriteComment = writeComment > 0
 	result.SendChatMessage = sendChat > 0
 	result.SendReport = sendReport > 0
-	return &result
+	return result
 }
 
 // 사용자 비밀번호 변경하기
@@ -245,7 +245,7 @@ func (r *TsboardUserRepository) UpdatePassword(userUid uint, pw string) {
 }
 
 // 사용자의 포인트 변경 이력 업데이트
-func (r *TsboardUserRepository) UpdatePointHistory(param *models.UpdatePointParameter) {
+func (r *TsboardUserRepository) UpdatePointHistory(param models.UpdatePointParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (user_uid, board_uid, action, point) 
 												VALUES (?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POINT_HISTORY)
 	r.db.Exec(query, param.UserUid, param.BoardUid, param.Action.String(), param.Point)
@@ -266,7 +266,7 @@ func (r *TsboardUserRepository) UpdateUserProfile(userUid uint, imagePath string
 }
 
 // 사용자 권한 정보 변경하기
-func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm *models.UserPermissionResult) {
+func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm models.UserPermissionResult) {
 	query := fmt.Sprintf(`UPDATE %s%s SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
 												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER_PERM)
 	writePost := utils.ToUint(perm.WritePost)
