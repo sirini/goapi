@@ -70,7 +70,7 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 		if sinceUid < 1 {
 			sinceUid = s.Board.GetMaxUid()
 		}
-		parameter := &models.HomePostParameter{
+		parameter := models.HomePostParameter{
 			SinceUid: sinceUid,
 			Bunch:    uint(bunch),
 			Option:   models.Search(option),
@@ -104,7 +104,7 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		parameter := &models.HomePostParameter{
+		parameter := models.HomePostParameter{
 			SinceUid: s.Board.GetMaxUid() + 1,
 			Bunch:    uint(bunch),
 			Option:   models.SEARCH_NONE,

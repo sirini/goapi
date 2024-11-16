@@ -119,7 +119,7 @@ func ManageUserPermissionHandler(s *services.Service) http.HandlerFunc {
 			Response: response,
 		}
 
-		s.User.ChangeUserPermission(actionUserUid, &param)
+		s.User.ChangeUserPermission(actionUserUid, param)
 		utils.Success(w, nil)
 	}
 }

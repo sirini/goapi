@@ -7,8 +7,8 @@ import (
 )
 
 type ChatService interface {
-	GetChattingList(userUid uint, limit uint) ([]*models.ChatItem, error)
-	GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error)
+	GetChattingList(userUid uint, limit uint) ([]models.ChatItem, error)
+	GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error)
 	SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint
 }
 
@@ -22,12 +22,12 @@ func NewTsboardChatService(repos *repositories.Repository) *TsboardChatService {
 }
 
 // 쪽지 목록들 가져오기
-func (s *TsboardChatService) GetChattingList(userUid uint, limit uint) ([]*models.ChatItem, error) {
+func (s *TsboardChatService) GetChattingList(userUid uint, limit uint) ([]models.ChatItem, error) {
 	return s.repos.Chat.LoadChatList(userUid, limit)
 }
 
 // 상대방과의 대화내용 가져오기
-func (s *TsboardChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error) {
+func (s *TsboardChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
 	return s.repos.Chat.LoadChatHistory(actionUserUid, targetUserUid, limit)
 }
 
@@ -37,7 +37,7 @@ func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid u
 		return 0
 	}
 	insertId := s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, utils.Escape(message))
-	noti := models.NewNotiParameter{
+	parameter := models.NewNotiParameter{
 		ActionUserUid: actionUserUid,
 		TargetUserUid: targetUserUid,
 		NotiType:      models.NOTI_CHAT_MESSAGE,
@@ -45,10 +45,10 @@ func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid u
 		CommentUid:    0,
 	}
 	if insertId > 0 {
-		if isDup := s.repos.Noti.IsNotiAdded(&noti); isDup {
+		if isDup := s.repos.Noti.IsNotiAdded(parameter); isDup {
 			return insertId
 		}
-		s.repos.Noti.InsertNewNotification(&noti)
+		s.repos.Noti.InsertNewNotification(parameter)
 	}
 	return insertId
 }

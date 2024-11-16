@@ -10,9 +10,9 @@ import (
 )
 
 type NotiRepository interface {
-	InsertNewNotification(param *models.NewNotiParameter)
-	IsNotiAdded(param *models.NewNotiParameter) bool
-	LoadNotification(userUid uint, limit uint) ([]*models.NotificationItem, error)
+	InsertNewNotification(param models.NewNotiParameter)
+	IsNotiAdded(param models.NewNotiParameter) bool
+	LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error)
 	UpdateAllChecked(userUid uint, limit uint)
 }
 
@@ -26,7 +26,7 @@ func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
 }
 
 // 새 알림 추가하기
-func (r *TsboardNotiRepository) InsertNewNotification(param *models.NewNotiParameter) {
+func (r *TsboardNotiRepository) InsertNewNotification(param models.NewNotiParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(to_uid, from_uid, type, post_uid, comment_uid, checked, timestamp)
 												VALUES (?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_NOTI)
@@ -34,7 +34,7 @@ func (r *TsboardNotiRepository) InsertNewNotification(param *models.NewNotiParam
 }
 
 // 중복 알림인지 확인
-func (r *TsboardNotiRepository) IsNotiAdded(param *models.NewNotiParameter) bool {
+func (r *TsboardNotiRepository) IsNotiAdded(param models.NewNotiParameter) bool {
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
 												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
 	var uid uint
@@ -43,7 +43,7 @@ func (r *TsboardNotiRepository) IsNotiAdded(param *models.NewNotiParameter) bool
 }
 
 // 나에게 온 알림들 가져오기
-func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]*models.NotificationItem, error) {
+func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error) {
 	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
 												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_NOTI)
@@ -53,9 +53,9 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]*m
 	}
 	defer rows.Close()
 
-	var NotiItems []*models.NotificationItem
+	var items []models.NotificationItem
 	for rows.Next() {
-		item := &models.NotificationItem{}
+		item := models.NotificationItem{}
 		var checked uint8
 		err = rows.Scan(&item.Uid, &item.FromUser.UserUid, &item.Type, &item.PostUid, &checked, &item.Timestamp)
 		if err != nil {
@@ -76,13 +76,13 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]*m
 		query = fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1",
 			configs.Env.Prefix, models.TABLE_USER)
 		r.db.QueryRow(query, item.FromUser.UserUid).Scan(&item.FromUser.Name, &item.FromUser.Profile)
-		NotiItems = append(NotiItems, item)
+		items = append(items, item)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
-	return NotiItems, nil
+	return items, nil
 }
 
 // 모든 알람 확인하기

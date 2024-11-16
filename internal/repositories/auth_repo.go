@@ -11,13 +11,13 @@ import (
 )
 
 type AuthRepository interface {
-	CheckVerificationCode(param *models.VerifyParameter) bool
+	CheckVerificationCode(param models.VerifyParameter) bool
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.UserAction) bool
 	ClearRefreshToken(userUid uint)
-	FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error)
-	FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult
-	FindMyInfoByUid(userUid uint) *models.MyInfoResult
+	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
+	FindMyInfoByIDPW(id string, pw string) models.MyInfoResult
+	FindMyInfoByUid(userUid uint) models.MyInfoResult
 	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
 	FindUserUidById(id string) uint
 	SaveVerificationCode(id string, code string) uint
@@ -35,7 +35,7 @@ func NewTsboardAuthRepository(db *sql.DB) *TsboardAuthRepository {
 }
 
 // 인증 코드가 유효한지 확인
-func (r *TsboardAuthRepository) CheckVerificationCode(param *models.VerifyParameter) bool {
+func (r *TsboardAuthRepository) CheckVerificationCode(param models.VerifyParameter) bool {
 	var code string
 	var timestamp uint64
 
@@ -103,7 +103,7 @@ func (r *TsboardAuthRepository) ClearRefreshToken(userUid uint) {
 }
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
-func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInfoResult, error) {
+func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfoResult, error) {
 	query := fmt.Sprintf(`SELECT name, profile, level, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
 
@@ -112,16 +112,16 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (*models.UserInf
 	err := r.db.QueryRow(query, userUid).Scan(
 		&info.Name, &info.Profile, &info.Level, &info.Signature, &info.Signup, &info.Signin, &blocked)
 	if err != nil {
-		return nil, err
+		return info, err
 	}
 
 	info.Blocked = blocked > 0
 	info.Admin = r.CheckPermissionByUid(userUid, NO_BOARD_UID)
-	return &info, nil
+	return info, nil
 }
 
 // 아이디와 (sha256으로 해시된)비밀번호로 내정보 가져오기
-func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.MyInfoResult {
+func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup 
 												FROM %s%s WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_USER)
@@ -129,28 +129,28 @@ func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) *models.M
 	var info models.MyInfoResult
 	err := r.db.QueryRow(query, id, pw).Scan(&info.Uid, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup)
 	if err == sql.ErrNoRows {
-		return &info
+		return info
 	}
 
 	info.Id = id
 	info.Blocked = false
 	info.Signin = uint64(time.Now().UnixMilli())
 	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
-	return &info
+	return info
 }
 
 // 사용자 고유 번호로 내정보 가져오기
-func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) *models.MyInfoResult {
+func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResult {
 	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
 
 	var info models.MyInfoResult
 	err := r.db.QueryRow(query, userUid).Scan(&info.Uid, &info.Id, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup, &info.Signin, &info.Blocked)
 	if err == sql.ErrNoRows {
-		return &info
+		return info
 	}
 	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
-	return &info
+	return info
 }
 
 // 인증용 고유번호로 아이디와 코드 가져오기

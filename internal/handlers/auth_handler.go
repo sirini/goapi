@@ -170,7 +170,7 @@ func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		result := s.Auth.VerifyEmail(&models.VerifyParameter{
+		result := s.Auth.VerifyEmail(models.VerifyParameter{
 			Target:   uint(target),
 			Code:     code,
 			Id:       id,
@@ -231,7 +231,7 @@ func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
 			Profile:        file,
 			ProfileHandler: handler,
 		}
-		s.User.ChangeUserInfo(&param, userInfo)
+		s.User.ChangeUserInfo(param, userInfo)
 		utils.Success(w, nil)
 	}
 }

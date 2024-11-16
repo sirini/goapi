@@ -11,8 +11,8 @@ import (
 
 type ChatRepository interface {
 	InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint
-	LoadChatList(userUid uint, limit uint) ([]*models.ChatItem, error)
-	LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error)
+	LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error)
+	LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error)
 }
 
 type TsboardChatRepository struct {
@@ -37,7 +37,7 @@ func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid 
 }
 
 // 쪽지 목록들 반환
-func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]*models.ChatItem, error) {
+func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error) {
 	query := fmt.Sprintf(`SELECT MAX(c.uid) AS latest_uid, c.from_uid, MAX(c.message) AS latest_message, 
 												MAX(c.timestamp) AS latest_timestamp, u.name, u.profile 
 												FROM %s%s AS c JOIN %suser AS u ON c.from_uid = u.uid WHERE c.to_uid = ? 
@@ -50,9 +50,9 @@ func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]*model
 	}
 	defer rows.Close()
 
-	var chatItems []*models.ChatItem
+	var chatItems []models.ChatItem
 	for rows.Next() {
-		item := &models.ChatItem{}
+		item := models.ChatItem{}
 		err = rows.Scan(&item.Uid, &item.Sender.UserUid, &item.Message, &item.Timestamp, &item.Sender.Name, &item.Sender.Profile)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning row: %w", err)
@@ -67,7 +67,7 @@ func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]*model
 }
 
 // 상대방과의 대화 내용 가져오기
-func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]*models.ChatHistory, error) {
+func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
 	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %s%s 
 												WHERE to_uid IN (?, ?) AND from_uid IN (?, ?) 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_CHAT)
@@ -77,9 +77,9 @@ func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUi
 	}
 	defer rows.Close()
 
-	var chatHistories []*models.ChatHistory
+	var chatHistories []models.ChatHistory
 	for rows.Next() {
-		history := &models.ChatHistory{}
+		history := models.ChatHistory{}
 		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp); err != nil {
 			return nil, err
 		}

@@ -7,17 +7,17 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
-	"github.com/sirini/goapi/pkg/utils"
 )
 
 type HomeRepository interface {
-	FindLatestPostsByTitleContent(param *models.HomePostParameter) ([]*models.HomePostItem, error)
-	FindLatestPostsByUserUidCatUid(param *models.HomePostParameter) ([]*models.HomePostItem, error)
-	FindLatestPostsByTag(param *models.HomePostParameter) ([]*models.HomePostItem, error)
-	GetBoardBasicSettings(boardUid uint) *models.BoardBasicSettingResult
+	AppendItem(rows *sql.Rows) ([]models.HomePostItem, error)
+	FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error)
+	FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error)
+	FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error)
+	GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult
 	GetBoardLinks(groupUid uint) ([]models.HomeSidebarBoardResult, error)
 	GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error)
-	GetLatestPosts(param *models.HomePostParameter) ([]*models.HomePostItem, error)
+	GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error)
 	InsertVisitorLog(userUid uint)
 }
 
@@ -34,8 +34,27 @@ func NewTsboardHomeRepository(db *sql.DB, board BoardRepository) *TsboardHomeRep
 	}
 }
 
+// 홈화면에 보여줄 게시글 레코드들을 패킹해서 반환
+func (r *TsboardHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostItem, error) {
+	var items []models.HomePostItem
+	for rows.Next() {
+		item := models.HomePostItem{}
+		err := rows.Scan(&item.Uid, &item.BoardUid, &item.UserUid, &item.CategoryUid,
+			&item.Title, &item.Content, &item.Submitted, &item.Modified, &item.Hit, &item.Status)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // 홈화면에서 게시글 제목 혹은 내용 일부를 검색해서 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -51,11 +70,11 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param *models.Home
 		return nil, err
 	}
 	defer rows.Close()
-	return utils.AppendItem(rows)
+	return r.AppendItem(rows)
 }
 
 // 홈화면에서 사용자 고유 번호 혹은 게시글 카테고리 번호로 검색해서 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -76,11 +95,11 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param *models.Hom
 		return nil, err
 	}
 	defer rows.Close()
-	return utils.AppendItem(rows)
+	return r.AppendItem(rows)
 }
 
 // 홈화면에서 태그 이름에 해당하는 최근 게시글들만 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByTag(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+func (r *TsboardHomeRepository) FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND p.board_uid = %d", param.BoardUid)
@@ -98,13 +117,13 @@ func (r *TsboardHomeRepository) FindLatestPostsByTag(param *models.HomePostParam
 		return nil, err
 	}
 	defer rows.Close()
-	return utils.AppendItem(rows)
+	return r.AppendItem(rows)
 }
 
 // 게시판 기본 설정값 가져오기
-func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) *models.BoardBasicSettingResult {
+func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult {
 	var useCategory uint
-	settings := &models.BoardBasicSettingResult{}
+	settings := models.BoardBasicSettingResult{}
 
 	query := fmt.Sprintf("SELECT id, type, use_category FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD)
@@ -167,7 +186,7 @@ func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupR
 }
 
 // 홈화면 최근 게시글들 가져오기
-func (r *TsboardHomeRepository) GetLatestPosts(param *models.HomePostParameter) ([]*models.HomePostItem, error) {
+func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -182,7 +201,7 @@ func (r *TsboardHomeRepository) GetLatestPosts(param *models.HomePostParameter) 
 		return nil, err
 	}
 	defer rows.Close()
-	return utils.AppendItem(rows)
+	return r.AppendItem(rows)
 }
 
 // 방문자 기록하기

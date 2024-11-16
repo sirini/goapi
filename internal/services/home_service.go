@@ -8,7 +8,7 @@ import (
 type HomeService interface {
 	AddVisitorLog(userUid uint)
 	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
-	GetLatestPosts(param *models.HomePostParameter) ([]*models.BoardHomePostItem, error)
+	GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error)
 }
 
 type TsboardHomeService struct {
@@ -31,9 +31,10 @@ func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult,
 }
 
 // 지정된 게시글 번호 이하의 최근글들 가져오기
-func (s *TsboardHomeService) GetLatestPosts(param *models.HomePostParameter) ([]*models.BoardHomePostItem, error) {
+func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error) {
+	var items []models.BoardHomePostItem
 	var (
-		posts []*models.HomePostItem
+		posts []models.HomePostItem
 		err   error
 	)
 
@@ -54,14 +55,13 @@ func (s *TsboardHomeService) GetLatestPosts(param *models.HomePostParameter) ([]
 		return nil, err
 	}
 
-	var items []*models.BoardHomePostItem
 	for _, post := range posts {
 		settings := s.repos.Home.GetBoardBasicSettings(post.BoardUid)
 		if len(settings.Id) < 2 {
 			continue
 		}
 
-		item := &models.BoardHomePostItem{}
+		item := models.BoardHomePostItem{}
 		item.Uid = post.Uid
 		item.Title = post.Title
 		item.Content = post.Content

@@ -16,7 +16,7 @@ type OAuthService interface {
 	GenerateTokens(userUid uint) (string, string)
 	SaveRefreshToken(userUid uint, token string)
 	GetUserUid(id string) uint
-	GetUserInfo(userUid uint) *models.MyInfoResult
+	GetUserInfo(userUid uint) models.MyInfoResult
 }
 
 type TsboardOAuthService struct {
@@ -36,7 +36,7 @@ func (s *TsboardOAuthService) SaveProfileImage(userUid uint, profile string) {
 	}
 	newSavePath := fmt.Sprintf("%s/%s.avif", dirPath, uuid.New().String())
 	utils.DownloadImage(profile, newSavePath, configs.Env.Number(configs.SIZE_PROFILE))
-	s.repos.User.UpdateUserProfile(userUid, newSavePath)
+	s.repos.User.UpdateUserProfile(userUid, newSavePath[1:])
 }
 
 // OAuth 로그인 시 미가입 상태이면 바로 등록해주기 (프로필도 있으면 함께)
@@ -69,6 +69,6 @@ func (s *TsboardOAuthService) GetUserUid(id string) uint {
 }
 
 // 회원 정보 가져오기
-func (s *TsboardOAuthService) GetUserInfo(userUid uint) *models.MyInfoResult {
+func (s *TsboardOAuthService) GetUserInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
 }

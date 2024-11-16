@@ -17,7 +17,7 @@ import (
 )
 
 // 상태 검사 및 토큰 교환 후 토큰 반환
-func exchangeToken(w http.ResponseWriter, r *http.Request, cfg *oauth2.Config) (*oauth2.Token, error) {
+func exchangeToken(w http.ResponseWriter, r *http.Request, cfg oauth2.Config) (*oauth2.Token, error) {
 	cookie, err := r.Cookie("tsboard_oauth_state")
 	if err != nil || cookie.Value != r.FormValue("state") {
 		http.Redirect(w, r, configs.Env.URL, http.StatusTemporaryRedirect)
@@ -64,7 +64,7 @@ func finishOAuthLogin(s *services.Service, w http.ResponseWriter, r *http.Reques
 // /////////////////////////////////////
 // 구글 OAuth 로그인을 위해 리다이렉트
 // /////////////////////////////////////
-func GoogleOAuthRequestHandler(s *services.Service, cfg *oauth2.Config) http.HandlerFunc {
+func GoogleOAuthRequestHandler(s *services.Service, cfg oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		state := uuid.New().String()[:10]
 		utils.SaveCookie(w, "tsboard_oauth_state", state, 1)
@@ -75,7 +75,7 @@ func GoogleOAuthRequestHandler(s *services.Service, cfg *oauth2.Config) http.Han
 }
 
 // 구글 OAuth 콜백 핸들러
-func GoogleOAuthCallbackHandler(s *services.Service, cfg *oauth2.Config) http.HandlerFunc {
+func GoogleOAuthCallbackHandler(s *services.Service, cfg oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if configs.Env.OAuthGoogleID == "" {
 			http.Redirect(w, r, configs.Env.URL, http.StatusTemporaryRedirect)
@@ -132,7 +132,7 @@ func NaverOAuthRequestHandler(s *services.Service) http.HandlerFunc {
 }
 
 // 네이버 OAuth 콜백 핸들러
-func NaverOAuthCallbackHandler(s *services.Service, cfg *oauth2.Config) http.HandlerFunc {
+func NaverOAuthCallbackHandler(s *services.Service, cfg oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if configs.Env.OAuthNaverID == "" {
 			http.Redirect(w, r, configs.Env.URL, http.StatusTemporaryRedirect)
@@ -214,7 +214,7 @@ func NaverOAuthCallbackHandler(s *services.Service, cfg *oauth2.Config) http.Han
 // //////////////////////////////////////
 // 카카오 OAuth 로그인을 위해 리다이렉트
 // //////////////////////////////////////
-func KakaoOAuthRequestHandler(s *services.Service, cfg *oauth2.Config) http.HandlerFunc {
+func KakaoOAuthRequestHandler(s *services.Service, cfg oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		state := uuid.New().String()[:10]
 		utils.SaveCookie(w, "tsboard_oauth_state", state, 1)
@@ -225,7 +225,7 @@ func KakaoOAuthRequestHandler(s *services.Service, cfg *oauth2.Config) http.Hand
 }
 
 // 카카오 OAuth 콜백 핸들러
-func KakaoOAuthCallbackHandler(s *services.Service, cfg *oauth2.Config) http.HandlerFunc {
+func KakaoOAuthCallbackHandler(s *services.Service, cfg oauth2.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if configs.Env.OAuthKakaoID == "" {
 			http.Redirect(w, r, configs.Env.URL, http.StatusTemporaryRedirect)

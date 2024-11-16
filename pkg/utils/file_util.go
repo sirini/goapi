@@ -19,7 +19,7 @@ func GetFileSize(path string) uint {
 	return uint(info.Size())
 }
 
-// 파일 저장 경로 만들기
+// 파일 저장 경로 만들기 (맨 앞 `.` 은 DB에 넣을 때 빼줘야함)
 func MakeSavePath(target models.UploadCategory) (string, error) {
 	today := time.Now()
 	year := today.Format("2006")

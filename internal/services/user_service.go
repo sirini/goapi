@@ -8,11 +8,11 @@ import (
 
 type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
-	ChangeUserInfo(info *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult)
-	ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult)
-	GetUserInfo(userUid uint) (*models.UserInfoResult, error)
+	ChangeUserInfo(info models.UpdateUserInfoParameter, oldInfo models.UserInfoResult)
+	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult)
+	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
-	GetUserPermission(userUid uint) *models.UserPermissionReportResult
+	GetUserPermission(userUid uint) models.UserPermissionReportResult
 	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
 }
 
@@ -44,7 +44,7 @@ func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, new
 }
 
 // 사용자 정보 변경하기
-func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParameter, oldInfo *models.UserInfoResult) {
+func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter, oldInfo models.UserInfoResult) {
 	if len(param.Password) == 64 {
 		s.repos.User.UpdatePassword(param.UserUid, param.Password)
 	}
@@ -63,7 +63,7 @@ func (s *TsboardUserService) ChangeUserInfo(param *models.UpdateUserInfoParamete
 }
 
 // 사용자 권한 변경하기
-func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm *models.UserPermissionReportResult) {
+func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) {
 	targetUserUid := perm.UserUid
 	permission := &perm.UserPermissionResult
 
@@ -87,7 +87,7 @@ func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm *mode
 }
 
 // 사용자의 공개 정보 조회
-func (s *TsboardUserService) GetUserInfo(userUid uint) (*models.UserInfoResult, error) {
+func (s *TsboardUserService) GetUserInfo(userUid uint) (models.UserInfoResult, error) {
 	return s.repos.Auth.FindUserInfoByUid(userUid)
 }
 
@@ -97,7 +97,7 @@ func (s *TsboardUserService) GetUserLevelPoint(userUid uint) (int, int) {
 }
 
 // 사용자의 권한 조회
-func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermissionReportResult {
+func (s *TsboardUserService) GetUserPermission(userUid uint) models.UserPermissionReportResult {
 	var result models.UserPermissionReportResult
 	permission := s.repos.User.LoadUserPermission(userUid)
 	isBlocked := s.repos.User.IsBlocked(userUid)
@@ -111,7 +111,7 @@ func (s *TsboardUserService) GetUserPermission(userUid uint) *models.UserPermiss
 	result.UserUid = userUid
 	result.Response = response
 
-	return &result
+	return result
 }
 
 // 사용자가 특정 유저를 신고하기

@@ -28,14 +28,14 @@ func SetupLoggedInAuthRouter(mux *http.ServeMux, s *services.Service) {
 
 // OAuth 사용자 로그인 관련 라우터 셋업
 func SetupOAuthRouter(mux *http.ServeMux, s *services.Service) {
-	cfgGoogle := &oauth2.Config{
+	cfgGoogle := oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/goapi/auth/google/callback", configs.Env.URL),
 		ClientID:     configs.Env.OAuthGoogleID,
 		ClientSecret: configs.Env.OAuthGoogleSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
-	cfgNaver := &oauth2.Config{
+	cfgNaver := oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.URL),
 		ClientID:     configs.Env.OAuthNaverID,
 		ClientSecret: configs.Env.OAuthNaverSecret,
@@ -45,7 +45,7 @@ func SetupOAuthRouter(mux *http.ServeMux, s *services.Service) {
 			TokenURL: "https://nid.naver.com/oauth2.0/token",
 		},
 	}
-	cfgKakao := &oauth2.Config{
+	cfgKakao := oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/goapi/auth/kakao/callback", configs.Env.URL),
 		ClientID:     configs.Env.OAuthKakaoID,
 		ClientSecret: configs.Env.OAuthKakaoSecret,

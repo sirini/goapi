@@ -7,8 +7,8 @@ import (
 
 type NotiService interface {
 	CheckedAllNoti(userUid uint, limit uint)
-	GetUserNoti(userUid uint, limit uint) ([]*models.NotificationItem, error)
-	SaveNewNoti(param *models.NewNotiParameter)
+	GetUserNoti(userUid uint, limit uint) ([]models.NotificationItem, error)
+	SaveNewNoti(param models.NewNotiParameter)
 }
 
 type TsboardNotiService struct {
@@ -26,12 +26,12 @@ func (s *TsboardNotiService) CheckedAllNoti(userUid uint, limit uint) {
 }
 
 // 사용자의 알림 내역 가져오기
-func (s *TsboardNotiService) GetUserNoti(userUid uint, limit uint) ([]*models.NotificationItem, error) {
+func (s *TsboardNotiService) GetUserNoti(userUid uint, limit uint) ([]models.NotificationItem, error) {
 	return s.repos.Noti.LoadNotification(userUid, limit)
 }
 
 // 새로운 알림 저장하기
-func (s *TsboardNotiService) SaveNewNoti(param *models.NewNotiParameter) {
+func (s *TsboardNotiService) SaveNewNoti(param models.NewNotiParameter) {
 	isDup := s.repos.Noti.IsNotiAdded(param)
 	if isDup || param.ActionUserUid == param.TargetUserUid {
 		return
