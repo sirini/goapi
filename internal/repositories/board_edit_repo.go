@@ -12,6 +12,7 @@ import (
 type BoardEditRepository interface {
 	GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error)
 	GetMaxImageUid(boardUid uint, actionUserUid uint) uint
+	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetTotalImageCount(boardUid uint, actionUserUid uint) uint
 	InsertImagePath(boardUid uint, userUid uint, paths []string)
 	RemoveInsertedImage(imageUid uint, actionUserUid uint) string
@@ -56,6 +57,25 @@ func (r *TsboardBoardEditRepository) GetMaxImageUid(boardUid uint, actionUserUid
 		configs.Env.Prefix, models.TABLE_IMAGE)
 	r.db.QueryRow(query, boardUid, actionUserUid).Scan(&uid)
 	return uid
+}
+
+// 태그 추천하기 목록 가져오기
+func (r *TsboardBoardEditRepository) GetSuggestionTags(input string, bunch uint) []models.EditorTagItem {
+	items := make([]models.EditorTagItem, 0)
+	query := fmt.Sprintf("SELECT uid, name, used FROM %s%s WHERE name LIKE ? LIMIT ?",
+		configs.Env.Prefix, models.TABLE_HASHTAG)
+	rows, err := r.db.Query(query, "%"+input+"%", bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.EditorTagItem{}
+		rows.Scan(&item.Uid, &item.Name, &item.Count)
+		items = append(items, item)
+	}
+	return items
 }
 
 // 내가 올린 이미지 총 갯수 반환

@@ -362,6 +362,21 @@ func RemovePostHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 해시태그 추천 목록 반환하는 핸들러
+func SuggestionHashtagHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		input := r.FormValue("tag")
+		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid limit, not a valid number")
+			return
+		}
+
+		suggestions := s.Board.GetSuggestionTags(input, uint(bunch))
+		utils.Success(w, suggestions)
+	}
+}
+
 // 게시글 내용에 이미지 삽입하는 핸들러
 func UploadInsertImageHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

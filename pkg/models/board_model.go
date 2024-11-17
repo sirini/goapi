@@ -331,6 +331,12 @@ type EditorInsertImageResult struct {
 	TotalImageCount uint   `json:"totalImageCount"`
 }
 
+// 태그 자동완성 결과 타입 정의
+type EditorTagItem struct {
+	Pair
+	Count uint `json:"count"`
+}
+
 // 갤러리 그리드형 반환타입 정의
 type GalleryGridItem struct {
 	Uid     uint                 `json:"uid"`
