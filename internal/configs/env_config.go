@@ -81,10 +81,10 @@ func LoadConfig() {
 }
 
 // 숫자 형태로 반환이 필요한 항목 정의
-type Size uint8
+type ImageSize uint8
 
 const (
-	SIZE_PROFILE = iota
+	SIZE_PROFILE ImageSize = iota
 	SIZE_CONTENT_INSERT
 	SIZE_THUMBNAIL
 	SIZE_FULL
@@ -92,9 +92,9 @@ const (
 )
 
 // 사이즈 반환하기
-func (c *Config) Number(s Size) int {
+func (s ImageSize) Number() uint {
 	var target string
-	var defaultValue int
+	var defaultValue uint
 
 	switch s {
 	case SIZE_CONTENT_INSERT:
@@ -114,9 +114,9 @@ func (c *Config) Number(s Size) int {
 		defaultValue = 256
 	}
 
-	size, err := strconv.ParseInt(target, 10, 32)
+	size, err := strconv.ParseUint(target, 10, 32)
 	if err != nil {
 		return defaultValue
 	}
-	return int(size)
+	return uint(size)
 }

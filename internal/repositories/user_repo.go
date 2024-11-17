@@ -45,9 +45,6 @@ func NewTsboardUserRepository(db *sql.DB) *TsboardUserRepository {
 	return &TsboardUserRepository{db: db}
 }
 
-const NO_BOARD_UID = 0
-const NOT_FOUND = 0
-
 // 사용자 신고 내용에 대한 응답 가져오기
 func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 	var response string
@@ -122,7 +119,7 @@ func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string)
 	isDupId := r.IsEmailDuplicated(id)
 	isDupName := r.IsNameDuplicated(name)
 	if isDupId || isDupName {
-		return NOT_FOUND
+		return models.FAILED
 	}
 
 	query := fmt.Sprintf(`INSERT INTO %s%s 
@@ -130,11 +127,11 @@ func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string)
 											VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_USER)
 	result, err := r.db.Exec(query, id, name, pw, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
 	if err != nil {
-		return NOT_FOUND
+		return models.FAILED
 	}
 	insertId, err := result.LastInsertId()
 	if err != nil {
-		return NOT_FOUND
+		return models.FAILED
 	}
 	return uint(insertId)
 }

@@ -31,7 +31,7 @@ func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid 
 	result, _ := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
-		return NOT_FOUND
+		return models.FAILED
 	}
 	return uint(insertId)
 }

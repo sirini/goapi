@@ -29,7 +29,11 @@ type BoardService interface {
 	MovePost(param models.BoardMovePostParameter)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
+	SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader)
+	SaveTags(boardUid uint, postUid uint, tags []string)
+	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
+	WritePost(param models.EditorWriteParameter) (uint, error)
 }
 
 type TsboardBoardService struct {
@@ -358,9 +362,52 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 	}
 }
 
+// 첨부파일들을 저장하기
+func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader) {
+	// TODO
+}
+
+// 해시태그들 저장하기
+func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []string) {
+	for _, tag := range tags {
+		hashtagUid := s.repos.BoardEdit.FindTagUidByName(tag)
+		if hashtagUid > 0 {
+			s.repos.BoardEdit.UpdateTag(hashtagUid)
+		} else {
+			hashtagUid = s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
+		}
+		s.repos.BoardEdit.InsertPostHashtag(boardUid, postUid, hashtagUid)
+	}
+}
+
+// 썸네일 이미지 생성 및 저장하기
+func (s *TsboardBoardService) SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail {
+	thumb, err := utils.SaveThumbnailImage(path)
+	if err != nil {
+		return thumb
+	}
+	s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
+		BoardThumbnail: models.BoardThumbnail{
+			Small: thumb.Small[1:],
+			Large: thumb.Large[1:],
+		},
+		FileUid: fileUid,
+		PostUid: postUid,
+	})
+	return thumb
+}
+
 // 게시글에 삽입할 이미지 파일 업로드 처리하기
 func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error) {
 	imagePaths := make([]string, 0)
+	if hasPerm := s.repos.Auth.CheckPermissionForAction(userUid, models.USER_ACTION_WRITE_POST); !hasPerm {
+		return imagePaths, fmt.Errorf("you have no permission to write a new post")
+	}
+
+	if hasPerm := s.repos.BoardEdit.CheckWriterForBlog(boardUid, userUid); !hasPerm {
+		return imagePaths, fmt.Errorf("only blog owner can write a new post")
+	}
+
 	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
 	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_WRITE)
 	if userLv < needLv {
@@ -421,10 +468,33 @@ func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, ima
 		return imagePaths, errors[0]
 	}
 
-	s.repos.BoardEdit.InsertImagePath(boardUid, userUid, imagePaths)
+	s.repos.BoardEdit.InsertImagePaths(boardUid, userUid, imagePaths)
 
 	for _, tempPath := range tempPaths {
 		os.Remove(tempPath)
 	}
 	return imagePaths, nil
+}
+
+// 새 게시글 작성하기
+func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint, error) {
+	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
+		return models.FAILED, fmt.Errorf("you have no permission to write a new post")
+	}
+
+	if hasPerm := s.repos.BoardEdit.CheckWriterForBlog(param.BoardUid, param.UserUid); !hasPerm {
+		return models.FAILED, fmt.Errorf("only blog owner can write a new post")
+	}
+
+	userLv, userPt := s.repos.User.GetUserLevelPoint(param.UserUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_WRITE)
+	if userLv < needLv {
+		return models.FAILED, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return models.FAILED, fmt.Errorf("not enough point")
+	}
+
+	// TODO
+	return models.FAILED, fmt.Errorf("TODO")
 }

@@ -1,5 +1,12 @@
 package models
 
+import "mime/multipart"
+
+// 기본값들 정의
+const FAILED = 0
+const EXIF_APERTURE_FACTOR = 100
+const EXIF_EXPOSURE_FACTOR = 1000000
+
 // 게시판 타입 정의
 type Board uint8
 
@@ -316,6 +323,28 @@ type EditorConfigResult struct {
 	IsAdmin bool        `json:"isAdmin"`
 }
 
+// EXIF 저장할 때 필요한 파라미터 정의
+type EditorSaveExifParameter struct {
+	BoardExif
+	FileUid uint
+	PostUid uint
+}
+
+// 첨부파일 저장할 때 필요한 파라미터 정의
+type EditorSaveFileParameter struct {
+	BoardUid uint
+	PostUid  uint
+	Name     string
+	Path     string
+}
+
+// 썸네일 이미지 저장할 때 필요한 파라미터 정의
+type EditorSaveThumbnailParameter struct {
+	BoardThumbnail
+	FileUid uint
+	PostUid uint
+}
+
 // 게시글에 삽입한 이미지 목록 가져오는 파라미터 정의
 type EditorInsertImageParameter struct {
 	BoardUid uint
@@ -335,6 +364,19 @@ type EditorInsertImageResult struct {
 type EditorTagItem struct {
 	Pair
 	Count uint `json:"count"`
+}
+
+// 게시글 작성 시 필요한 파라미터 정의
+type EditorWriteParameter struct {
+	BoardUid    uint
+	UserUid     uint
+	CategoryUid uint
+	Title       string
+	Content     string
+	Files       []*multipart.FileHeader
+	Tags        []string
+	IsNotice    bool
+	IsSecret    bool
 }
 
 // 갤러리 그리드형 반환타입 정의

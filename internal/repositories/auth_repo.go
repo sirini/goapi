@@ -116,7 +116,7 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfo
 	}
 
 	info.Blocked = blocked > 0
-	info.Admin = r.CheckPermissionByUid(userUid, NO_BOARD_UID)
+	info.Admin = r.CheckPermissionByUid(userUid, models.FAILED)
 	return info, nil
 }
 
@@ -135,7 +135,7 @@ func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) models.My
 	info.Id = id
 	info.Blocked = false
 	info.Signin = uint64(time.Now().UnixMilli())
-	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
+	info.Admin = r.CheckPermissionByUid(info.Uid, models.FAILED)
 	return info
 }
 
@@ -149,7 +149,7 @@ func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResul
 	if err == sql.ErrNoRows {
 		return info
 	}
-	info.Admin = r.CheckPermissionByUid(info.Uid, NO_BOARD_UID)
+	info.Admin = r.CheckPermissionByUid(info.Uid, models.FAILED)
 	return info
 }
 
@@ -168,7 +168,7 @@ func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	err := r.db.QueryRow(query, id).Scan(&userUid)
 	if err != nil {
-		return NOT_FOUND
+		return models.FAILED
 	}
 	return userUid
 }
@@ -208,7 +208,7 @@ func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uin
 		result, _ := r.db.Exec(query, id, code, now)
 		insertId, err := result.LastInsertId()
 		if err != nil {
-			uid = NOT_FOUND
+			uid = models.FAILED
 		}
 		uid = uint(insertId)
 	} else {
