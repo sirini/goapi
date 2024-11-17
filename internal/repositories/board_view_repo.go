@@ -237,7 +237,7 @@ func (r *TsboardBoardViewRepository) GetTags(postUid uint) []models.Pair {
 	if err != nil {
 		return items
 	}
-	rows.Close()
+	defer rows.Close()
 
 	for rows.Next() {
 		item := models.Pair{}
