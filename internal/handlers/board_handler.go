@@ -260,6 +260,41 @@ func ListForMoveHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 게시글에 내가 삽입한 이미지들 불러오기 핸들러
+func LoadInsertImageHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		lastUid, err := strconv.ParseUint(r.FormValue("lastUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid last uid, not a valid number")
+			return
+		}
+		bunch, err := strconv.ParseUint(r.FormValue("bunch"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid bunch, not a valid number")
+			return
+		}
+
+		parameter := models.EditorInsertImageParameter{
+			BoardUid: uint(boardUid),
+			LastUid:  uint(lastUid),
+			UserUid:  actionUserUid,
+			Bunch:    uint(bunch),
+		}
+		result, err := s.Board.GetInsertedImages(parameter)
+		if err != nil {
+			utils.Error(w, "Unable to load a list of inserted images")
+			return
+		}
+		utils.Success(w, result)
+	}
+}
+
 // 게시글 이동하기 핸들러
 func MovePostHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -288,6 +323,21 @@ func MovePostHandler(s *services.Service) http.HandlerFunc {
 			},
 			TargetBoardUid: uint(targetBoardUid),
 		})
+		utils.Success(w, nil)
+	}
+}
+
+// 게시글에 삽입한 이미지 삭제하기 핸들러
+func RemoveInsertImageHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		imageUid, err := strconv.ParseUint(r.FormValue("imageUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid image uid, not a valid number")
+			return
+		}
+
+		s.Board.RemoveInsertedImage(uint(imageUid), actionUserUid)
 		utils.Success(w, nil)
 	}
 }

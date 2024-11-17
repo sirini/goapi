@@ -310,6 +310,27 @@ type BoardItem struct {
 	Info string `json:"info"`
 }
 
+// 에디터에서 게시판 설정 및 카테고리 불러오기 결과 타입 정의
+type EditorConfigResult struct {
+	Config  BoardConfig `json:"config"`
+	IsAdmin bool        `json:"isAdmin"`
+}
+
+// 게시글에 삽입한 이미지 목록 가져오는 파라미터 정의
+type EditorInsertImageParameter struct {
+	BoardUid uint
+	LastUid  uint
+	UserUid  uint
+	Bunch    uint
+}
+
+// 게시글에 삽입한 이미지 목록 반환 타입 정의
+type EditorInsertImageResult struct {
+	Images          []Pair `json:"images"`
+	MaxImageUid     uint   `json:"maxImageUid"`
+	TotalImageCount uint   `json:"totalImageCount"`
+}
+
 // 갤러리 그리드형 반환타입 정의
 type GalleryGridItem struct {
 	Uid     uint                 `json:"uid"`
@@ -332,10 +353,4 @@ type GalleryListResult struct {
 	Config         BoardConfig       `json:"config"`
 	Images         []GalleryGridItem `json:"images"`
 	TotalPostCount uint              `json:"totalPostCount"`
-}
-
-// 에디터에서 게시판 설정 및 카테고리 불러오기 결과 타입 정의
-type EditorConfigResult struct {
-	Config  BoardConfig `json:"config"`
-	IsAdmin bool        `json:"isAdmin"`
 }

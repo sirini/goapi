@@ -21,10 +21,12 @@ type BoardService interface {
 	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
 	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
 	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
+	GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error)
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
 	MovePost(param models.BoardMovePostParameter)
+	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
 }
@@ -176,6 +178,28 @@ func (s *TsboardBoardService) GetGalleryPhotos(boardUid uint, postUid uint, user
 	return result, nil
 }
 
+// 게시글에 내가 삽입한 이미지 목록들 가져오기
+func (s *TsboardBoardService) GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error) {
+	result := models.EditorInsertImageResult{}
+	userLv, _ := s.repos.User.GetUserLevelPoint(param.UserUid)
+	needLv, _ := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_WRITE)
+	if userLv < needLv {
+		return result, fmt.Errorf("level restriction")
+	}
+
+	images, err := s.repos.BoardEdit.GetInsertedImages(param)
+	if err != nil {
+		return result, err
+	}
+
+	result = models.EditorInsertImageResult{
+		Images:          images,
+		MaxImageUid:     s.repos.BoardEdit.GetMaxImageUid(param.BoardUid, param.UserUid),
+		TotalImageCount: s.repos.BoardEdit.GetTotalImageCount(param.BoardUid, param.UserUid),
+	}
+	return result, nil
+}
+
 // 게시판 목록글들 가져오기
 func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
 	var (
@@ -301,6 +325,14 @@ func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
 		return
 	}
 	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
+}
+
+// 게시글에 삽입한 이미지 삭제하기
+func (s *TsboardBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
+	removePath := s.repos.BoardEdit.RemoveInsertedImage(imageUid, userUid)
+	if len(removePath) > 0 {
+		os.Remove("." + removePath)
+	}
 }
 
 // 게시글 삭제하기
