@@ -367,6 +367,12 @@ type EditorLoadPostResult struct {
 	Tags  []Pair            `json:"tags"`
 }
 
+// 게시글 수정 시 필요한 파라미터 정의
+type EditorModifyParameter struct {
+	EditorWriteParameter
+	PostUid uint
+}
+
 // 게시글 수정 시 첨부된 파일 삭제하기에 필요한 파라미터 정의
 type EditorRemoveAttachedParameter struct {
 	BoardUid uint

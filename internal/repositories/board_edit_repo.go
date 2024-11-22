@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type BoardEditRepository interface {
@@ -26,6 +27,7 @@ type BoardEditRepository interface {
 	InsertPostHashtag(boardUid uint, postUid uint, hashtagUid uint)
 	InsertTag(boardUid uint, postUid uint, tag string) uint
 	RemoveInsertedImage(imageUid uint, actionUserUid uint) string
+	UpdatePost(param models.EditorModifyParameter)
 	UpdateTag(hashtagUid uint)
 }
 
@@ -181,13 +183,7 @@ func (r *TsboardBoardEditRepository) InsertPost(param models.EditorWriteParamete
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST)
-	status := models.CONTENT_NORMAL
-	if param.IsNotice {
-		status = models.CONTENT_NOTICE
-	} else if param.IsSecret {
-		status = models.CONTENT_SECRET
-	}
-
+	status := utils.GetContentStatus(param.IsNotice, param.IsSecret)
 	result, _ := r.db.Exec(
 		query,
 		param.BoardUid,
@@ -242,6 +238,22 @@ func (r *TsboardBoardEditRepository) RemoveInsertedImage(imageUid uint, actionUs
 	query = fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_IMAGE)
 	r.db.Exec(query, imageUid)
 	return path
+}
+
+// 기존 게시글 수정하기
+func (r *TsboardBoardEditRepository) UpdatePost(param models.EditorModifyParameter) {
+	query := fmt.Sprintf(`UPDATE %s%s SET category_uid = ?, title = ?, content = ?, modified = ?, status = ? 
+												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
+	status := utils.GetContentStatus(param.IsNotice, param.IsSecret)
+	r.db.Exec(
+		query,
+		param.CategoryUid,
+		param.Title,
+		param.Content,
+		time.Now().UnixMilli(),
+		status,
+		param.PostUid,
+	)
 }
 
 // 기존 태그 사용 횟수 올리고 태그와 게시글 번호 연결하기

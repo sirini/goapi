@@ -28,6 +28,7 @@ type BoardService interface {
 	LikeThisPost(param models.BoardViewLikeParameter)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	MovePost(param models.BoardMovePostParameter)
+	ModifyPost(param models.EditorModifyParameter) error
 	RemoveAttachedFile(param models.EditorRemoveAttachedParameter)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
@@ -364,6 +365,30 @@ func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
 	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
 }
 
+// 게시글 수정하기
+func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) error {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
+	if !isAdmin && !isAuthor {
+		return fmt.Errorf("only the author can edit this post")
+	}
+
+	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
+		return fmt.Errorf("you have no permission to edit post")
+	}
+
+	if param.IsNotice {
+		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
+			param.IsNotice = false
+		}
+	}
+	s.repos.BoardView.RemovePostTags(param.PostUid)
+	s.repos.BoardEdit.UpdatePost(param)
+	s.SaveTags(param.BoardUid, param.PostUid, param.Tags)
+	go s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
+	return nil
+}
+
 // 게시글 수정 시 첨부했던 파일 삭제하기
 func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParameter) {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
@@ -576,8 +601,14 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
 	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-	postUid := s.repos.BoardEdit.InsertPost(param)
 
+	if param.IsNotice {
+		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
+			param.IsNotice = false
+		}
+	}
+
+	postUid := s.repos.BoardEdit.InsertPost(param)
 	s.SaveTags(param.BoardUid, postUid, param.Tags)
 	go s.SaveAttachments(param.BoardUid, postUid, param.Files)
 

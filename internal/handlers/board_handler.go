@@ -3,7 +3,6 @@ package handlers
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
@@ -352,6 +351,33 @@ func MovePostHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 게시글 수정하기 핸들러
+func ModifyPostHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+
+		parameter, err := utils.CheckWriteParameters(r)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+
+		err = s.Board.ModifyPost(models.EditorModifyParameter{
+			EditorWriteParameter: parameter,
+			PostUid:              uint(postUid),
+		})
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, nil)
+	}
+}
+
 // 게시글에 삽입한 이미지 삭제하기 핸들러
 func RemoveInsertImageHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -475,70 +501,13 @@ func UploadInsertImageHandler(s *services.Service) http.HandlerFunc {
 // 게시글 작성하기 핸들러
 func WritePostHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		actionUserUid := utils.GetUserUidFromToken(r)
-		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		parameter, err := utils.CheckWriteParameters(r)
 		if err != nil {
-			utils.Error(w, "Invalid board uid, not a valid number")
+			utils.Error(w, err.Error())
 			return
-		}
-		categoryUid, err := strconv.ParseUint(r.FormValue("categoryUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid category uid, not a valid number")
-			return
-		}
-		isNotice, err := strconv.ParseBool(r.FormValue("isNotice"))
-		if err != nil {
-			utils.Error(w, "Invalid isNotice, unable to convert boolean type")
-			return
-		}
-		isSecret, err := strconv.ParseBool(r.FormValue("isSecret"))
-		if err != nil {
-			utils.Error(w, "Invalid isSecret, unable to convert boolean type")
-			return
-		}
-		title := utils.Escape(r.FormValue("title"))
-		if len(title) < 2 {
-			utils.Error(w, "Invalid title, too short")
-			return
-		}
-		content := utils.Sanitize(r.FormValue("content"))
-		if len(content) < 2 {
-			utils.Error(w, "Invalid content, too short")
-			return
-		}
-		tags := r.FormValue("tags")
-		tagArr := strings.Split(tags, ",")
-
-		fileSizeLimit, _ := strconv.ParseInt(configs.Env.FileSizeLimit, 10, 32)
-		err = r.ParseMultipartForm(fileSizeLimit)
-		if err != nil {
-			utils.Error(w, "Failed to parse form")
-			return
-		}
-		attachments := r.MultipartForm.File["attachments"]
-		if len(attachments) > 0 {
-			var totalFileSize int64
-			for _, fileHeader := range attachments {
-				totalFileSize += fileHeader.Size
-			}
-
-			if totalFileSize > fileSizeLimit {
-				utils.Error(w, "Uploaded files exceed size limitation")
-				return
-			}
 		}
 
-		postUid, err := s.Board.WritePost(models.EditorWriteParameter{
-			BoardUid:    uint(boardUid),
-			UserUid:     actionUserUid,
-			CategoryUid: uint(categoryUid),
-			Title:       title,
-			Content:     content,
-			Files:       attachments,
-			Tags:        tagArr,
-			IsNotice:    isNotice,
-			IsSecret:    isSecret,
-		})
+		postUid, err := s.Board.WritePost(parameter)
 		if err != nil {
 			utils.Error(w, err.Error())
 		}
