@@ -12,6 +12,7 @@ import (
 type BoardEditRepository interface {
 	CheckWriterForBlog(boardUid uint, actionUserUid uint) bool
 	FindTagUidByName(name string) uint
+	FindAttachedPathByUid(fileUid uint) string
 	GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error)
 	GetMaxImageUid(boardUid uint, actionUserUid uint) uint
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
@@ -46,6 +47,14 @@ func (r *TsboardBoardEditRepository) CheckWriterForBlog(boardUid uint, actionUse
 		configs.Env.Prefix, models.TABLE_BOARD)
 	r.db.QueryRow(query, boardUid).Scan(&adminUid, &boardType)
 	return boardType != uint8(models.BOARD_BLOG) || actionUserUid == adminUid
+}
+
+// 게시글 수정에서 삭제할 파일의 경로 가져오기
+func (r *TsboardBoardEditRepository) FindAttachedPathByUid(fileUid uint) string {
+	var path string
+	query := fmt.Sprintf("SELECT path FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE)
+	r.db.QueryRow(query, fileUid).Scan(&path)
+	return path
 }
 
 // 태그명에 해당하는 고유 번호 반환하기

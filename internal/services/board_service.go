@@ -28,6 +28,7 @@ type BoardService interface {
 	LikeThisPost(param models.BoardViewLikeParameter)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	MovePost(param models.BoardMovePostParameter)
+	RemoveAttachedFile(param models.EditorRemoveAttachedParameter)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
 	SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader)
@@ -337,6 +338,12 @@ func (s *TsboardBoardService) LoadPost(boardUid uint, postUid uint, userUid uint
 	if err != nil {
 		return result, err
 	}
+	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+	if !isAdmin && !isAuthor {
+		return result, fmt.Errorf("you have no permission to edit this post")
+	}
+
 	files, err := s.repos.BoardView.GetAttachments(postUid)
 	if err != nil {
 		return result, err
@@ -355,6 +362,22 @@ func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
 		return
 	}
 	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
+}
+
+// 게시글 수정 시 첨부했던 파일 삭제하기
+func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParameter) {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
+	if !isAdmin && !isAuthor {
+		return
+	}
+
+	filePath := s.repos.BoardEdit.FindAttachedPathByUid(param.FileUid)
+	removes := s.repos.BoardView.RemoveAttachedFile(param.FileUid, filePath)
+
+	for _, target := range removes {
+		os.Remove("." + target)
+	}
 }
 
 // 게시글에 삽입한 이미지 삭제하기

@@ -367,6 +367,14 @@ type EditorLoadPostResult struct {
 	Tags  []Pair            `json:"tags"`
 }
 
+// 게시글 수정 시 첨부된 파일 삭제하기에 필요한 파라미터 정의
+type EditorRemoveAttachedParameter struct {
+	BoardUid uint
+	PostUid  uint
+	FileUid  uint
+	UserUid  uint
+}
+
 // 태그 자동완성 결과 타입 정의
 type EditorTagItem struct {
 	Pair

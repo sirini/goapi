@@ -367,6 +367,36 @@ func RemoveInsertImageHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 기존에 첨부했던 파일을 글 수정에서 삭제하기
+func RemoveAttachedFileHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+		fileUid, err := strconv.ParseUint(r.FormValue("fileUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid file uid, not a valid number")
+			return
+		}
+
+		s.Board.RemoveAttachedFile(models.EditorRemoveAttachedParameter{
+			BoardUid: uint(boardUid),
+			PostUid:  uint(postUid),
+			FileUid:  uint(fileUid),
+			UserUid:  actionUserUid,
+		})
+		utils.Success(w, nil)
+	}
+}
+
 // 게시글 삭제하기 핸들러
 func RemovePostHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
