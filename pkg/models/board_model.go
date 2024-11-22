@@ -360,6 +360,13 @@ type EditorInsertImageResult struct {
 	TotalImageCount uint   `json:"totalImageCount"`
 }
 
+// 게시글 수정 시 가져오는 정보들 반환 타입 정의
+type EditorLoadPostResult struct {
+	Post  BoardListItem     `json:"post"`
+	Files []BoardAttachment `json:"files"`
+	Tags  []Pair            `json:"tags"`
+}
+
 // 태그 자동완성 결과 타입 정의
 type EditorTagItem struct {
 	Pair

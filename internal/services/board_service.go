@@ -26,6 +26,7 @@ type BoardService interface {
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
+	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	MovePost(param models.BoardMovePostParameter)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
@@ -292,14 +293,14 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	if config.Level.Download <= userLv {
 		files, err := s.repos.BoardView.GetAttachments(param.PostUid)
 		if err != nil {
-			return result, fmt.Errorf("unable to get attachments")
+			return result, err
 		}
 		result.Files = files
 	}
 
 	images, err := s.repos.BoardView.GetAttachedImages(param.PostUid)
 	if err != nil {
-		return result, fmt.Errorf("unable to get attached images")
+		return result, err
 	}
 	result.Images = images
 
@@ -327,6 +328,25 @@ func (s *TsboardBoardService) LikeThisPost(param models.BoardViewLikeParameter) 
 	} else {
 		s.repos.BoardView.InsertLikePost(param)
 	}
+}
+
+// 게시글 수정 시 기존 정보들 가져오기
+func (s *TsboardBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error) {
+	result := models.EditorLoadPostResult{}
+	post, err := s.repos.BoardView.GetPost(postUid, userUid)
+	if err != nil {
+		return result, err
+	}
+	files, err := s.repos.BoardView.GetAttachments(postUid)
+	if err != nil {
+		return result, err
+	}
+	tags := s.repos.BoardView.GetTags(postUid)
+
+	result.Post = post
+	result.Files = files
+	result.Tags = tags
+	return result, nil
 }
 
 // 게시글 이동하기

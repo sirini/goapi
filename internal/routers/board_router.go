@@ -23,6 +23,7 @@ func SetupLoggedInBoardRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("GET /goapi/board/move/list", middlewares.AuthMiddleware(handlers.ListForMoveHandler(s)))
 	mux.Handle("PATCH /goapi/board/like/post", middlewares.AuthMiddleware(handlers.LikePostHandler(s)))
 	mux.Handle("GET /goapi/board/load/images", middlewares.AuthMiddleware(handlers.LoadInsertImageHandler(s)))
+	mux.Handle("GET /goapi/board/load/post", middlewares.AuthMiddleware(handlers.LoadPostHandler(s)))
 	mux.Handle("PUT /goapi/board/move/apply", middlewares.AuthMiddleware(handlers.MovePostHandler(s)))
 	mux.Handle("DELETE /goapi/board/remove/post", middlewares.AuthMiddleware(handlers.RemovePostHandler(s)))
 	mux.Handle("DELETE /goapi/board/remove/image", middlewares.AuthMiddleware(handlers.RemoveInsertImageHandler(s)))
