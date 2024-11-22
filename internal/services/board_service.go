@@ -364,12 +364,50 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 
 // 첨부파일들을 저장하기
 func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader) {
-	// TODO
+	for _, file := range files {
+		go func(file *multipart.FileHeader) {
+			savedPath, err := utils.SaveAttachmentFile(file, file.Filename)
+			if err != nil {
+				return
+			}
+			fileUid := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
+				BoardUid: boardUid,
+				PostUid:  postUid,
+				Name:     file.Filename,
+				Path:     savedPath[1:],
+			})
+
+			if utils.IsImage(file.Filename) {
+				thumb, err := utils.SaveThumbnailImage(savedPath)
+				if err != nil {
+					return
+				}
+				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
+					BoardThumbnail: models.BoardThumbnail{
+						Large: thumb.Large[1:],
+						Small: thumb.Small[1:],
+					},
+					FileUid: fileUid,
+					PostUid: postUid,
+				})
+				exif := utils.ExtractExif(savedPath)
+				s.repos.BoardEdit.InsertExif(fileUid, postUid, exif)
+				if imgDesc, err := utils.AskImageDescription(thumb.Small); err == nil {
+					s.repos.BoardEdit.InsertImageDescription(fileUid, postUid, imgDesc)
+				}
+			}
+		}(file)
+	}
 }
 
 // 해시태그들 저장하기
 func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []string) {
 	for _, tag := range tags {
+		tidyTag := utils.Purify(tag)
+		if len(tidyTag) < 2 {
+			continue
+		}
+
 		hashtagUid := s.repos.BoardEdit.FindTagUidByName(tag)
 		if hashtagUid > 0 {
 			s.repos.BoardEdit.UpdateTag(hashtagUid)
@@ -494,7 +532,11 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
+	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
+	postUid := s.repos.BoardEdit.InsertPost(param)
 
-	// TODO
-	return models.FAILED, fmt.Errorf("TODO")
+	s.SaveTags(param.BoardUid, postUid, param.Tags)
+	go s.SaveAttachments(param.BoardUid, postUid, param.Files)
+
+	return postUid, nil
 }

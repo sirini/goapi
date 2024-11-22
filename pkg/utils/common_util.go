@@ -2,22 +2,18 @@ package utils
 
 import (
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/sirini/goapi/pkg/models"
 )
 
-// 참이면 1, 거짓이면 0 반환
-func ToUint(b bool) uint {
-	if b {
-		return 1
-	}
-	return 0
-}
-
 // HTML 문자열을 이스케이프
 func Escape(raw string) string {
-	return template.HTMLEscapeString(raw)
+	safeStr := template.HTMLEscapeString(raw)
+	safeStr = strings.ReplaceAll(safeStr, "&#34;", "&quot;")
+	safeStr = strings.ReplaceAll(safeStr, "&#39;", "&#x27;")
+	return safeStr
 }
 
 // YYYY:mm:dd HH:ii:ss 형태의 시간 문자를 Unix timestamp로 변경

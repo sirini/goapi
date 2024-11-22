@@ -19,6 +19,7 @@ type BoardEditRepository interface {
 	InsertExif(fileUid uint, postUid uint, exif models.BoardExif)
 	InsertFile(param models.EditorSaveFileParameter) uint
 	InsertFileThumbnail(param models.EditorSaveThumbnailParameter)
+	InsertImageDescription(fileUid uint, postUid uint, description string)
 	InsertImagePaths(boardUid uint, userUid uint, paths []string)
 	InsertPost(param models.EditorWriteParameter) uint
 	InsertPostHashtag(boardUid uint, postUid uint, hashtagUid uint)
@@ -141,6 +142,13 @@ func (r *TsboardBoardEditRepository) InsertFileThumbnail(param models.EditorSave
 	query := fmt.Sprintf("INSERT INTO %s%s (file_uid, post_uid, path, full_path) VALUES (?, ?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_FILE_THUMB)
 	r.db.Exec(query, param.FileUid, param.PostUid, param.Small, param.Large)
+}
+
+// 이미지 설명글 저장하기 (OpenAI API 사용 시에만 가능)
+func (r *TsboardBoardEditRepository) InsertImageDescription(fileUid uint, postUid uint, description string) {
+	query := fmt.Sprintf("INSERT INTO %s%s (file_uid, post_uid, description) VALUES (?, ?, ?)",
+		configs.Env.Prefix, models.TABLE_IMAGE_DESC)
+	r.db.Exec(query, fileUid, postUid, description)
 }
 
 // 게시글에 삽입한 이미지 정보들을 한 번에 저장하기

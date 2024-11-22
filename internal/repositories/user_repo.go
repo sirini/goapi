@@ -7,7 +7,6 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
-	"github.com/sirini/goapi/pkg/utils"
 )
 
 type UserRepository interface {
@@ -141,11 +140,7 @@ func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm models.U
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(user_uid, ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT)
 												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix, models.TABLE_USER_PERM)
-	writePost := utils.ToUint(perm.WritePost)
-	writeComment := utils.ToUint(perm.WriteComment)
-	sendChat := utils.ToUint(perm.SendChatMessage)
-	sendReport := utils.ToUint(perm.SendReport)
-	r.db.Exec(query, userUid, writePost, writeComment, sendChat, sendReport)
+	r.db.Exec(query, userUid, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport)
 }
 
 // 신고받은 사용자에게 조치 결과 추가하기
@@ -266,11 +261,7 @@ func (r *TsboardUserRepository) UpdateUserProfile(userUid uint, imagePath string
 func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm models.UserPermissionResult) {
 	query := fmt.Sprintf(`UPDATE %s%s SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
 												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER_PERM)
-	writePost := utils.ToUint(perm.WritePost)
-	writeComment := utils.ToUint(perm.WriteComment)
-	sendChat := utils.ToUint(perm.SendChatMessage)
-	sendReport := utils.ToUint(perm.SendReport)
-	r.db.Exec(query, writePost, writeComment, sendChat, sendReport, userUid)
+	r.db.Exec(query, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport, userUid)
 }
 
 // 사용자 포인트 변경하기
@@ -283,7 +274,7 @@ func (r *TsboardUserRepository) UpdateUserPoint(userUid uint, updatedPoint uint)
 func (r *TsboardUserRepository) UpdateUserBlocked(userUid uint, isBlocked bool) {
 	query := fmt.Sprintf("UPDATE %s%s SET blocked = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	r.db.Exec(query, utils.ToUint(isBlocked), userUid)
+	r.db.Exec(query, isBlocked, userUid)
 }
 
 // 신고받은 사용자에게 조치 결과 업데이트 해주기
