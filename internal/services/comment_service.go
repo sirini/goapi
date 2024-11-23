@@ -8,6 +8,7 @@ import (
 )
 
 type CommentService interface {
+	LikeComment(param models.CommentLikeParameter)
 	LoadComments(param models.CommentListParameter) (models.CommentListResult, error)
 }
 
@@ -18,6 +19,26 @@ type TsboardCommentService struct {
 // 리포지토리 묶음 주입받기
 func NewTsboardCommentService(repos *repositories.Repository) *TsboardCommentService {
 	return &TsboardCommentService{repos: repos}
+}
+
+// 댓글에 좋아요 클릭하기
+func (s *TsboardCommentService) LikeComment(param models.CommentLikeParameter) {
+	if isLiked := s.repos.Comment.IsLikedComment(param.CommentUid, param.UserUid); !isLiked {
+		s.repos.Comment.InsertLikeComment(param)
+
+		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
+		if param.UserUid != targetUserUid {
+			s.repos.Noti.InsertNewNotification(models.NewNotiParameter{
+				ActionUserUid: param.UserUid,
+				TargetUserUid: targetUserUid,
+				NotiType:      models.NOTI_LIKE_COMMENT,
+				PostUid:       postUid,
+				CommentUid:    param.CommentUid,
+			})
+		}
+	} else {
+		s.repos.Comment.UpdateLikeComment(param)
+	}
 }
 
 // 댓글 목록 가져오기

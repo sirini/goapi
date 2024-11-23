@@ -57,3 +57,33 @@ func CommentListHandler(s *services.Service) http.HandlerFunc {
 		utils.Success(w, result)
 	}
 }
+
+// 댓글에 좋아요 누르기
+func LikeCommentHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		commentUid, err := strconv.ParseUint(r.FormValue("commentUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid comment uid, not a valid number")
+			return
+		}
+		liked, err := strconv.ParseBool(r.FormValue("liked"))
+		if err != nil {
+			utils.Error(w, "Invalid liked, not a boolean type")
+			return
+		}
+
+		s.Comment.LikeComment(models.CommentLikeParameter{
+			BoardUid:   uint(boardUid),
+			CommentUid: uint(commentUid),
+			UserUid:    actionUserUid,
+			Liked:      liked,
+		})
+		utils.Success(w, nil)
+	}
+}

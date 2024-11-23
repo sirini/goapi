@@ -32,3 +32,11 @@ type CommentListResult struct {
 	TotalCommentCount uint          `json:"totalCommentCount"`
 	Comments          []CommentItem `json:"comments"`
 }
+
+// 댓글에 좋아요 처리에 필요한 파라미터 정의
+type CommentLikeParameter struct {
+	BoardUid   uint
+	CommentUid uint
+	UserUid    uint
+	Liked      bool
+}
