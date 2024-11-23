@@ -20,8 +20,10 @@ type AuthRepository interface {
 	FindMyInfoByUid(userUid uint) models.MyInfoResult
 	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
 	FindUserUidById(id string) uint
+	InsertVerificationCode(id string, code string) uint
 	SaveVerificationCode(id string, code string) uint
 	SaveRefreshToken(userUid uint, refreshToken string)
+	UpdateVerificationCode(id string, code string, uid uint)
 	UpdateUserSignin(userUid uint)
 }
 
@@ -194,29 +196,37 @@ func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken stri
 	}
 }
 
+// 인증코드 추가하기
+func (r *TsboardAuthRepository) InsertVerificationCode(id string, code string) uint {
+	query := fmt.Sprintf("INSERT INTO %s%s (email, code, timestamp) VALUES (?, ?, ?)",
+		configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	result, _ := r.db.Exec(query, id, code, time.Now().UnixMilli())
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return models.FAILED
+	}
+	return uint(insertId)
+}
+
 // (회원가입 시) 인증 코드 보관해놓기
 func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE email = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
 	err := r.db.QueryRow(query, id).Scan(&uid)
-	now := time.Now().UnixMilli()
 
 	if err == sql.ErrNoRows {
-		query = fmt.Sprintf("INSERT INTO %s%s (email, code, timestamp) VALUES (?, ?, ?)",
-			configs.Env.Prefix, models.TABLE_USER_VERIFY)
-		result, _ := r.db.Exec(query, id, code, now)
-		insertId, err := result.LastInsertId()
-		if err != nil {
-			uid = models.FAILED
-		}
-		uid = uint(insertId)
-	} else {
-		query = fmt.Sprintf("UPDATE %s%s SET code = ?, timestamp = ? WHERE uid = ? LIMIT 1",
-			configs.Env.Prefix, models.TABLE_USER_VERIFY)
-		r.db.Exec(query, code, now, uid)
+		return r.InsertVerificationCode(id, code)
 	}
+	r.UpdateVerificationCode(id, code, uid)
 	return uid
+}
+
+// 인증코드 업데이트하기
+func (r *TsboardAuthRepository) UpdateVerificationCode(id string, code string, uid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET code = ?, timestamp = ? WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	r.db.Exec(query, code, time.Now().UnixMilli(), uid)
 }
 
 // 로그인 시간 업데이트
