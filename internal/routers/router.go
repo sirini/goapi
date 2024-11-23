@@ -13,6 +13,7 @@ func SetupRoutes(mux *http.ServeMux, s *services.Service) {
 	SetupAuthRouter(mux, s)
 	SetupOAuthRouter(mux, s)
 	SetupBoardRouter(mux, s)
+	SetupCommentRouter(mux, s)
 
 	SetupLoggedInUserRouter(mux, s)
 	SetupLoggedInAuthRouter(mux, s)

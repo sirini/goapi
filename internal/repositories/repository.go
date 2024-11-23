@@ -9,6 +9,7 @@ type Repository struct {
 	BoardEdit BoardEditRepository
 	BoardView BoardViewRepository
 	Chat      ChatRepository
+	Comment   CommentRepository
 	Home      HomeRepository
 	Noti      NotiRepository
 	User      UserRepository
@@ -23,6 +24,7 @@ func NewRepository(db *sql.DB) *Repository {
 		BoardEdit: NewTsboardBoardEditRepository(db, board),
 		BoardView: NewTsboardBoardViewRepository(db, board),
 		Chat:      NewTsboardChatRepository(db),
+		Comment:   NewTsboardCommentRepository(db, board),
 		Home:      NewTsboardHomeRepository(db, board),
 		Noti:      NewTsboardNotiRepository(db),
 		User:      NewTsboardUserRepository(db),
