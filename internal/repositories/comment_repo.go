@@ -16,9 +16,11 @@ type CommentRepository interface {
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
 	GetMaxUid() uint
+	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
 	InsertComment(param models.CommentWriteParameter) (uint, error)
 	InsertLikeComment(param models.CommentLikeParameter)
+	RemoveComment(commentUid uint)
 	UpdateComment(commentUid uint, content string)
 	UpdateLikeComment(param models.CommentLikeParameter)
 	UpdateReplyUid(commentUid uint, replyUid uint)
@@ -106,6 +108,24 @@ func (r *TsboardCommentRepository) GetMaxUid() uint {
 	return uid
 }
 
+// 이 댓글에 답글이 하나라도 있는지 확인하기
+func (r *TsboardCommentRepository) HasReplyComment(commentUid uint) bool {
+	var replyUid uint
+	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	r.db.QueryRow(query, commentUid).Scan(&replyUid)
+
+	if replyUid != commentUid {
+		return false
+	}
+
+	var uid uint
+	query = fmt.Sprintf("SELECT uid FROM %s%s WHERE reply_uid = ? AND uid != ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	r.db.QueryRow(query, commentUid, commentUid).Scan(&uid)
+	return uid > 0
+}
+
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
 func (r *TsboardCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
 	var uid uint
@@ -143,6 +163,13 @@ func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikePar
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 	r.db.Exec(query, param.BoardUid, param.CommentUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+}
+
+// 댓글을 삭제 상태로 변경하기
+func (r *TsboardCommentRepository) RemoveComment(commentUid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	r.db.Exec(query, models.CONTENT_REMOVED, commentUid)
 }
 
 // 기존 댓글 수정하기

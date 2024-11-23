@@ -12,6 +12,7 @@ type CommentService interface {
 	Like(param models.CommentLikeParameter)
 	LoadList(param models.CommentListParameter) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParameter) error
+	Remove(commentUid uint, boardUid uint, userUid uint) error
 	Reply(param models.CommentReplyParameter) (uint, error)
 	Write(param models.CommentWriteParameter) (uint, error)
 }
@@ -89,6 +90,22 @@ func (s *TsboardCommentService) Modify(param models.CommentModifyParameter) erro
 		return fmt.Errorf("you have no permission to edit this comment")
 	}
 	s.repos.Comment.UpdateComment(param.CommentUid, param.Content)
+	return nil
+}
+
+// 댓글 삭제하기
+func (s *TsboardCommentService) Remove(commentUid uint, boardUid uint, userUid uint) error {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, commentUid, userUid)
+	if !isAdmin && !isAuthor {
+		return fmt.Errorf("you have no permission to remove this comment")
+	}
+
+	if hasReply := s.repos.Comment.HasReplyComment(commentUid); hasReply {
+		s.repos.Comment.UpdateComment(commentUid, "")
+	} else {
+		s.repos.Comment.RemoveComment(commentUid)
+	}
 	return nil
 }
 

@@ -114,6 +114,30 @@ func ModifyCommentHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 댓글 삭제하기 핸들러
+func RemoveCommentHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		commentUid, err := strconv.ParseUint(r.FormValue("removeTargetUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid comment uid, not a valid number")
+			return
+		}
+
+		err = s.Comment.Remove(uint(commentUid), uint(boardUid), actionUserUid)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, nil)
+	}
+}
+
 // 기존 댓글에 답글 작성하기 핸들러
 func ReplyCommentHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
