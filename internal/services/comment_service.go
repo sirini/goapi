@@ -11,6 +11,7 @@ import (
 type CommentService interface {
 	LikeComment(param models.CommentLikeParameter)
 	LoadComments(param models.CommentListParameter) (models.CommentListResult, error)
+	ReplyComment(param models.CommentReplyParameter) (uint, error)
 	WriteComment(param models.CommentWriteParameter) (uint, error)
 }
 
@@ -21,6 +22,36 @@ type TsboardCommentService struct {
 // 리포지토리 묶음 주입받기
 func NewTsboardCommentService(repos *repositories.Repository) *TsboardCommentService {
 	return &TsboardCommentService{repos: repos}
+}
+
+// 새 댓글 및 답글 달기 시 공통으로 진행하는 검사 및 포인트 업데이트 처리
+func (s *TsboardCommentService) CommonCommentPrepare(param models.CommentWriteParameter) error {
+	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_COMMENT); !hasPerm {
+		return fmt.Errorf("you have no permission to write a comment")
+	}
+	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
+		return fmt.Errorf("you have been blocked by writer")
+	}
+	if status := s.repos.Comment.GetPostStatus(param.PostUid); status == models.CONTENT_REMOVED {
+		return fmt.Errorf("leaving a comment on a removed post is not allowed")
+	}
+
+	userLv, userPt := s.repos.User.GetUserLevelPoint(param.UserUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_COMMENT)
+	if userLv < needLv {
+		return fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return fmt.Errorf("not enough point")
+	}
+	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
+	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
+		UserUid:  param.UserUid,
+		BoardUid: param.BoardUid,
+		Action:   models.POINT_ACTION_COMMENT,
+		Point:    needPt,
+	})
+	return nil
 }
 
 // 댓글에 좋아요 클릭하기
@@ -77,6 +108,16 @@ func (s *TsboardCommentService) LoadComments(param models.CommentListParameter) 
 	}
 	result.Comments = comments
 	return result, nil
+}
+
+// 새로운 답글 작성하기
+func (s *TsboardCommentService) ReplyComment(param models.CommentReplyParameter) (uint, error) {
+	insertId, err := s.WriteComment(param.CommentWriteParameter)
+	if err != nil {
+		return models.FAILED, err
+	}
+	s.repos.Comment.UpdateReplyUid(insertId, param.ReplyTargetUid)
+	return insertId, nil
 }
 
 // 새로운 댓글 작성하기

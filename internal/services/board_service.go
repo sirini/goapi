@@ -587,7 +587,6 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a new post")
 	}
-
 	if hasPerm := s.repos.BoardEdit.CheckWriterForBlog(param.BoardUid, param.UserUid); !hasPerm {
 		return models.FAILED, fmt.Errorf("only blog owner can write a new post")
 	}
