@@ -18,4 +18,5 @@ func SetupLoggedInCommentRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("PATCH /goapi/board/like/comment", middlewares.AuthMiddleware(handlers.LikeCommentHandler(s)))
 	mux.Handle("POST /goapi/board/new/comment", middlewares.AuthMiddleware(handlers.WriteCommentHandler(s)))
 	mux.Handle("POST /goapi/board/reply/comment", middlewares.AuthMiddleware(handlers.ReplyCommentHandler(s)))
+	mux.Handle("PATCH /goapi/board/modify/comment", middlewares.AuthMiddleware(handlers.ModifyCommentHandler(s)))
 }

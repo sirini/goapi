@@ -29,7 +29,7 @@ type BoardViewRepository interface {
 	GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error)
 	InsertLikePost(param models.BoardViewLikeParameter)
 	IsLikedPost(postUid uint, actionUserUid uint) bool
-	IsWriter(table models.Table, postUid uint, userUid uint) bool
+	IsWriter(table models.Table, targetUid uint, userUid uint) bool
 	RemoveAttachments(postUid uint) []string
 	RemoveAttachedFile(fileUid uint, filePath string) []string
 	RemovePost(postUid uint)

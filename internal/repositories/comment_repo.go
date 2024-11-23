@@ -19,6 +19,7 @@ type CommentRepository interface {
 	IsLikedComment(commentUid uint, userUid uint) bool
 	InsertComment(param models.CommentWriteParameter) (uint, error)
 	InsertLikeComment(param models.CommentLikeParameter)
+	UpdateComment(commentUid uint, content string)
 	UpdateLikeComment(param models.CommentLikeParameter)
 	UpdateReplyUid(commentUid uint, replyUid uint)
 }
@@ -142,6 +143,13 @@ func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikePar
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 	r.db.Exec(query, param.BoardUid, param.CommentUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+}
+
+// 기존 댓글 수정하기
+func (r *TsboardCommentRepository) UpdateComment(commentUid uint, content string) {
+	query := fmt.Sprintf("UPDATE %s%s SET content = ?, modified = ? WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	r.db.Exec(query, content, time.Now().UnixMilli(), commentUid)
 }
 
 // 이 댓글에 대한 좋아요 변경하기

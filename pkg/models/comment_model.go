@@ -41,6 +41,12 @@ type CommentLikeParameter struct {
 	Liked      bool
 }
 
+// 댓글 수정하기에 필요한 파라미터 정의
+type CommentModifyParameter struct {
+	CommentWriteParameter
+	CommentUid uint
+}
+
 // 답글 작성하기에 필요한 파라미터 정의
 type CommentReplyParameter struct {
 	CommentWriteParameter

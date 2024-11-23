@@ -41,7 +41,7 @@ func CommentListHandler(s *services.Service) http.HandlerFunc {
 		}
 
 		boardUid := s.Board.GetBoardUid(id)
-		result, err := s.Comment.LoadComments(models.CommentListParameter{
+		result, err := s.Comment.LoadList(models.CommentListParameter{
 			BoardUid:  boardUid,
 			PostUid:   uint(postUid),
 			UserUid:   actionUserUid,
@@ -78,12 +78,38 @@ func LikeCommentHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		s.Comment.LikeComment(models.CommentLikeParameter{
+		s.Comment.Like(models.CommentLikeParameter{
 			BoardUid:   uint(boardUid),
 			CommentUid: uint(commentUid),
 			UserUid:    actionUserUid,
 			Liked:      liked,
 		})
+		utils.Success(w, nil)
+	}
+}
+
+// 기존 댓글 내용 수정하기 핸들러
+func ModifyCommentHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		parameter, err := utils.CheckCommentParameters(r)
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		commentUid, err := strconv.ParseUint(r.FormValue("modifyTargetUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid modify target uid, not a valid number")
+			return
+		}
+
+		err = s.Comment.Modify(models.CommentModifyParameter{
+			CommentWriteParameter: parameter,
+			CommentUid:            uint(commentUid),
+		})
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
 		utils.Success(w, nil)
 	}
 }
@@ -102,7 +128,7 @@ func ReplyCommentHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		insertId, err := s.Comment.ReplyComment(models.CommentReplyParameter{
+		insertId, err := s.Comment.Reply(models.CommentReplyParameter{
 			CommentWriteParameter: parameter,
 			ReplyTargetUid:        uint(replyTargetUid),
 		})
@@ -123,7 +149,7 @@ func WriteCommentHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 
-		insertId, err := s.Comment.WriteComment(parameter)
+		insertId, err := s.Comment.Write(parameter)
 		if err != nil {
 			utils.Error(w, err.Error())
 			return
