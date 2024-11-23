@@ -10,8 +10,8 @@ import (
 )
 
 type NotiRepository interface {
-	InsertNewNotification(param models.NewNotiParameter)
-	IsNotiAdded(param models.NewNotiParameter) bool
+	InsertNotification(param models.InsertNotificationParameter)
+	IsNotiAdded(param models.InsertNotificationParameter) bool
 	LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error)
 	UpdateAllChecked(userUid uint, limit uint)
 }
@@ -26,7 +26,7 @@ func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
 }
 
 // 새 알림 추가하기
-func (r *TsboardNotiRepository) InsertNewNotification(param models.NewNotiParameter) {
+func (r *TsboardNotiRepository) InsertNotification(param models.InsertNotificationParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(to_uid, from_uid, type, post_uid, comment_uid, checked, timestamp)
 												VALUES (?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_NOTI)
@@ -34,7 +34,7 @@ func (r *TsboardNotiRepository) InsertNewNotification(param models.NewNotiParame
 }
 
 // 중복 알림인지 확인
-func (r *TsboardNotiRepository) IsNotiAdded(param models.NewNotiParameter) bool {
+func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParameter) bool {
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
 												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
 	var uid uint

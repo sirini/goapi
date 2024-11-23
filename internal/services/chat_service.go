@@ -37,7 +37,7 @@ func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid u
 		return 0
 	}
 	insertId := s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, utils.Escape(message))
-	parameter := models.NewNotiParameter{
+	parameter := models.InsertNotificationParameter{
 		ActionUserUid: actionUserUid,
 		TargetUserUid: targetUserUid,
 		NotiType:      models.NOTI_CHAT_MESSAGE,
@@ -48,7 +48,7 @@ func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid u
 		if isDup := s.repos.Noti.IsNotiAdded(parameter); isDup {
 			return insertId
 		}
-		s.repos.Noti.InsertNewNotification(parameter)
+		s.repos.Noti.InsertNotification(parameter)
 	}
 	return insertId
 }

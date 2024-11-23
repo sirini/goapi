@@ -58,7 +58,7 @@ func CommentListHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
-// 댓글에 좋아요 누르기
+// 댓글에 좋아요 누르기 핸들러
 func LikeCommentHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.GetUserUidFromToken(r)
@@ -85,5 +85,35 @@ func LikeCommentHandler(s *services.Service) http.HandlerFunc {
 			Liked:      liked,
 		})
 		utils.Success(w, nil)
+	}
+}
+
+// 새 댓글 작성하기 핸들러
+func WriteCommentHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		actionUserUid := utils.GetUserUidFromToken(r)
+		boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid board uid, not a valid number")
+			return
+		}
+		postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+		if err != nil {
+			utils.Error(w, "Invalid post uid, not a valid number")
+			return
+		}
+		content := utils.Sanitize(r.FormValue("content"))
+
+		insertId, err := s.Comment.WriteComment(models.CommentWriteParameter{
+			BoardUid: uint(boardUid),
+			PostUid:  uint(postUid),
+			UserUid:  actionUserUid,
+			Content:  content,
+		})
+		if err != nil {
+			utils.Error(w, err.Error())
+			return
+		}
+		utils.Success(w, insertId)
 	}
 }

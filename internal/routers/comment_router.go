@@ -16,4 +16,5 @@ func SetupCommentRouter(mux *http.ServeMux, s *services.Service) {
 // 댓글 관련 중에서 로그인이 필요한 라우터들 등록하기
 func SetupLoggedInCommentRouter(mux *http.ServeMux, s *services.Service) {
 	mux.Handle("PATCH /goapi/board/like/comment", middlewares.AuthMiddleware(handlers.LikeCommentHandler(s)))
+	mux.Handle("POST /goapi/board/new/comment", middlewares.AuthMiddleware(handlers.WriteCommentHandler(s)))
 }

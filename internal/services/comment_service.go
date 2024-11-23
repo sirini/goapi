@@ -5,11 +5,13 @@ import (
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type CommentService interface {
 	LikeComment(param models.CommentLikeParameter)
 	LoadComments(param models.CommentListParameter) (models.CommentListResult, error)
+	WriteComment(param models.CommentWriteParameter) (uint, error)
 }
 
 type TsboardCommentService struct {
@@ -28,7 +30,7 @@ func (s *TsboardCommentService) LikeComment(param models.CommentLikeParameter) {
 
 		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
 		if param.UserUid != targetUserUid {
-			s.repos.Noti.InsertNewNotification(models.NewNotiParameter{
+			s.repos.Noti.InsertNotification(models.InsertNotificationParameter{
 				ActionUserUid: param.UserUid,
 				TargetUserUid: targetUserUid,
 				NotiType:      models.NOTI_LIKE_COMMENT,
@@ -75,4 +77,51 @@ func (s *TsboardCommentService) LoadComments(param models.CommentListParameter) 
 	}
 	result.Comments = comments
 	return result, nil
+}
+
+// 새로운 댓글 작성하기
+func (s *TsboardCommentService) WriteComment(param models.CommentWriteParameter) (uint, error) {
+	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_COMMENT); !hasPerm {
+		return models.FAILED, fmt.Errorf("you have no permission to write a comment")
+	}
+	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
+		return models.FAILED, fmt.Errorf("you have been blocked by writer")
+	}
+	if status := s.repos.Comment.GetPostStatus(param.PostUid); status == models.CONTENT_REMOVED {
+		return models.FAILED, fmt.Errorf("leaving a comment on a removed post is not allowed")
+	}
+
+	userLv, userPt := s.repos.User.GetUserLevelPoint(param.UserUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_COMMENT)
+	if userLv < needLv {
+		return models.FAILED, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return models.FAILED, fmt.Errorf("not enough point")
+	}
+	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
+	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
+		UserUid:  param.UserUid,
+		BoardUid: param.BoardUid,
+		Action:   models.POINT_ACTION_COMMENT,
+		Point:    needPt,
+	})
+
+	insertId, err := s.repos.Comment.InsertComment(param)
+	if err != nil {
+		return models.FAILED, err
+	}
+	s.repos.Comment.UpdateReplyUid(insertId, insertId)
+
+	targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
+	if param.UserUid != targetUserUid {
+		s.repos.Noti.InsertNotification(models.InsertNotificationParameter{
+			ActionUserUid: param.UserUid,
+			TargetUserUid: targetUserUid,
+			NotiType:      models.NOTI_LEAVE_COMMENT,
+			PostUid:       param.PostUid,
+			CommentUid:    insertId,
+		})
+	}
+	return insertId, nil
 }

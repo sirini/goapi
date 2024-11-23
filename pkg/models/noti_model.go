@@ -1,7 +1,7 @@
 package models
 
 // 새 알림 추가 파라미터 정의
-type NewNotiParameter struct {
+type InsertNotificationParameter struct {
 	ActionUserUid uint
 	TargetUserUid uint
 	NotiType      Noti
