@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/sirini/goapi/internal/configs"
@@ -21,6 +22,11 @@ func Connect(cfg *configs.Config) *sql.DB {
 	if err = db.Ping(); err != nil {
 		log.Fatal("Database ping failed: ", err)
 	}
+
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(10)
+	db.SetConnMaxIdleTime(60 * time.Second)
+	db.SetConnMaxLifetime(0)
 
 	log.Println("Database connected successfully.")
 	return db
