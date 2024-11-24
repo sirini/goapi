@@ -12,6 +12,7 @@ type Config struct {
 	Version           string
 	Port              string
 	URL               string
+	Title             string
 	ProfileSize       string
 	ContentInsertSize string
 	ThumbnailSize     string
@@ -56,6 +57,7 @@ func LoadConfig() {
 		Version:           getEnv("GOAPI_VERSION", "1.0.0-beta1"),
 		Port:              getEnv("GOAPI_PORT", "3003"),
 		URL:               getEnv("GOAPI_URL", "http://localhost:3003"),
+		Title:             getEnv("GOAPI_TITLE", "TSBOARD"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),
 		ContentInsertSize: getEnv("GOAPI_CONTENT_INSERT_SIZE", "640"),
 		ThumbnailSize:     getEnv("GOAPI_THUMBNAIL_SIZE", "512"),

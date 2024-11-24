@@ -18,5 +18,6 @@ func SetupHomeRouter(mux *http.ServeMux, s *services.Service) {
 
 // 검색 엔진 최적화용 라우터들 등록하기
 func SetupSeoRouter(mux *http.ServeMux, s *services.Service) {
+	mux.HandleFunc("GET /goapi/seo/main.html", handlers.LoadMainPageHandler(s))
 	mux.HandleFunc("GET /goapi/seo/sitemap.xml", handlers.LoadSitemapHandler(s))
 }

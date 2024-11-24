@@ -1,5 +1,7 @@
 package models
 
+import "html/template"
+
 // 버전 응답 구조체
 type HomeVisitResult struct {
 	Success         bool   `json:"success"`
@@ -56,4 +58,33 @@ type HomeSitemapURL struct {
 	LastMod    string
 	ChangeFreq string
 	Priority   string
+}
+
+// SEO 메인화면에 출력할 구조체 정의
+type HomeMainPage struct {
+	PageTitle string
+	PageUrl   string
+	Version   string
+	Articles  []HomeMainArticle
+}
+
+// SEO 메인화면에 보여줄 article 구조체 정의
+type HomeMainArticle struct {
+	Cover    string
+	Content  template.HTML
+	Comments []HomeMainComment
+	Date     string
+	Hashtags []Pair
+	Like     uint
+	Name     string
+	Title    string
+	Url      string
+}
+
+// SEO 메인화면에 보여줄 댓글 구조체 정의
+type HomeMainComment struct {
+	Content template.HTML
+	Date    string
+	Like    uint
+	Name    string
 }

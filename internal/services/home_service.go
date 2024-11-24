@@ -2,11 +2,13 @@ package services
 
 import (
 	"fmt"
+	"html/template"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type HomeService interface {
@@ -14,6 +16,7 @@ type HomeService interface {
 	GetBoardIDsForSitemap() []models.HomeSitemapURL
 	GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error)
 	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
+	LoadMainPage(bunch uint) ([]models.HomeMainArticle, error)
 }
 
 type TsboardHomeService struct {
@@ -106,4 +109,58 @@ func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]m
 // 사이드바 그룹/게시판들 목록 가져오기
 func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
 	return s.repos.Home.GetGroupBoardLinks()
+}
+
+// SEO 메인 페이지 가져오기
+func (s *TsboardHomeService) LoadMainPage(bunch uint) ([]models.HomeMainArticle, error) {
+	var articles []models.HomeMainArticle
+	posts, err := s.GetLatestPosts(models.HomePostParameter{
+		SinceUid: s.repos.Board.GetMaxUid() + 1,
+		Bunch:    bunch,
+		Option:   models.SEARCH_NONE,
+		Keyword:  "",
+		UserUid:  0,
+		BoardUid: 0,
+	})
+
+	if err != nil {
+		return articles, err
+	}
+
+	for _, post := range posts {
+		article := models.HomeMainArticle{}
+		article.Cover = fmt.Sprintf("%s%s", configs.Env.URL, post.Cover)
+		article.Content = template.HTML(utils.Unescape(post.Content))
+		article.Date = utils.ConvTimestamp(post.Submitted)
+		article.Like = post.Like
+		article.Name = post.Writer.Name
+		article.Title = utils.Unescape(post.Title)
+		article.Url = fmt.Sprintf("%s/%s/%s/%d", configs.Env.URL, post.Type.String(), post.Id, post.Uid)
+		article.Hashtags = s.repos.BoardView.GetTags(post.Uid)
+
+		comments, err := s.repos.Comment.GetComments(models.CommentListParameter{
+			BoardUid:  0,
+			PostUid:   post.Uid,
+			UserUid:   0,
+			Page:      1,
+			Bunch:     bunch,
+			SinceUid:  s.repos.Comment.GetMaxUid() + 1,
+			Direction: models.PAGE_NEXT,
+		})
+		if err != nil {
+			continue
+		}
+
+		for _, comment := range comments {
+			item := models.HomeMainComment{
+				Content: template.HTML(comment.Content),
+				Date:    utils.ConvTimestamp(comment.Submitted),
+				Like:    comment.Like,
+				Name:    comment.Writer.Name,
+			}
+			article.Comments = append(article.Comments, item)
+		}
+		articles = append(articles, article)
+	}
+	return articles, nil
 }

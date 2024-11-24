@@ -2,9 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
-	"text/template"
+	texttemplate "text/template"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
@@ -91,6 +92,36 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
+// 검색엔진을 위한 메인 페이지 가져오는 핸들러
+func LoadMainPageHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		main := models.HomeMainPage{}
+		main.Version = configs.Env.Version
+		main.PageTitle = configs.Env.Title
+		main.PageUrl = configs.Env.URL
+
+		articles, err := s.Home.LoadMainPage(50)
+		if err != nil {
+			http.Error(w, "Failed to load posts from server", http.StatusInternalServerError)
+			return
+		}
+		main.Articles = articles
+
+		w.Header().Set("Content-Type", "text/html")
+		tmpl, err := template.New("main").Parse(templates.MainPageBody)
+		if err != nil {
+			http.Error(w, "Error loading template", http.StatusInternalServerError)
+			return
+		}
+
+		err = tmpl.Execute(w, main)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
 func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +178,7 @@ func LoadSitemapHandler(s *services.Service) http.HandlerFunc {
 		urls = append(urls, boards...)
 
 		w.Header().Set("Content-Type", "application/xml")
-		tmpl, err := template.New("sitemap").Parse(templates.SitemapBody)
+		tmpl, err := texttemplate.New("sitemap").Parse(templates.SitemapBody)
 		if err != nil {
 			http.Error(w, "Error parsing template", http.StatusInternalServerError)
 			return

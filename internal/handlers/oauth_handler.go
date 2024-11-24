@@ -53,7 +53,7 @@ func finishOAuthLogin(s *services.Service, w http.ResponseWriter, r *http.Reques
 	user := s.OAuth.GetUserInfo(userUid)
 	user.Token = auth
 	user.Refresh = refresh
-	myinfo, err := utils.ConvertJsonString(user)
+	myinfo, err := utils.ConvJsonString(user)
 	if err != nil {
 		return
 	}

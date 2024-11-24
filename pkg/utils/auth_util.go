@@ -17,7 +17,7 @@ import (
 )
 
 // 구조체를 JSON 형식의 문자열로 변환
-func ConvertJsonString(value interface{}) (string, error) {
+func ConvJsonString(value interface{}) (string, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return "", err

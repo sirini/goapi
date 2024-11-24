@@ -18,6 +18,19 @@ const (
 	BOARD_SHOP
 )
 
+func (b Board) String() string {
+	switch b {
+	case BOARD_GALLERY:
+		return "gallery"
+	case BOARD_BLOG:
+		return "blog"
+	case BOARD_SHOP:
+		return "shop"
+	default:
+		return "board"
+	}
+}
+
 // 게시글 상태 정의
 type Status int8
 

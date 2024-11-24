@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"html"
 	"html/template"
 	"strings"
 	"time"
@@ -16,6 +17,14 @@ func Escape(raw string) string {
 	return safeStr
 }
 
+// HTML 문자열 이스케이프 해제
+func Unescape(escaped string) string {
+	originStr := html.UnescapeString(escaped)
+	originStr = strings.ReplaceAll(originStr, "&quot;", "\"")
+	originStr = strings.ReplaceAll(originStr, "&#x27;", "'")
+	return originStr
+}
+
 // YYYY:mm:dd HH:ii:ss 형태의 시간 문자를 Unix timestamp로 변경
 func ConvUnixMilli(timeStr string) uint64 {
 	layout := "2006:01:02 15:04:05"
@@ -24,4 +33,10 @@ func ConvUnixMilli(timeStr string) uint64 {
 		return models.FAILED
 	}
 	return uint64(t.UnixMilli())
+}
+
+// Unix timestamp 형식의 숫자를 YYYY:mm:dd HH:ii:ss 형태로 변경
+func ConvTimestamp(timestamp uint64) string {
+	t := time.UnixMilli(int64(timestamp))
+	return t.Format("2006:01:02 15:04:05")
 }
