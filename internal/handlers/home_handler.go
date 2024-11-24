@@ -166,12 +166,6 @@ func LoadSitemapHandler(s *services.Service) http.HandlerFunc {
 				ChangeFreq: "daily",
 				Priority:   "1.0",
 			},
-			{
-				Loc:        fmt.Sprintf("%s/goapi/seo/about.html", configs.Env.URL),
-				LastMod:    time.Now().Format("2006-01-02"),
-				ChangeFreq: "weekly",
-				Priority:   "0.2",
-			},
 		}
 
 		boards := s.Home.GetBoardIDsForSitemap()
