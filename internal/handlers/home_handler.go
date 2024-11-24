@@ -1,16 +1,20 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"text/template"
+	"time"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/templates"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
-// 메세지 출력 테스트
+// 메세지 출력 테스트용 핸들러
 func ShowVersionHandler(w http.ResponseWriter, r *http.Request) {
 	utils.Success(w, &models.HomeVisitResult{
 		Success:         true,
@@ -21,7 +25,7 @@ func ShowVersionHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// 방문자 조회수 올리기
+// 방문자 조회수 올리기 핸들러
 func CountingVisitorHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
@@ -33,7 +37,7 @@ func CountingVisitorHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
-// 홈화면의 사이드바에 사용할 게시판 링크들 가져오기
+// 홈화면의 사이드바에 사용할 게시판 링크들 가져오기 핸들러
 func LoadSidebarLinkHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		links, err := s.Home.GetSidebarLinks()
@@ -45,7 +49,7 @@ func LoadSidebarLinkHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
-// 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원)
+// 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
 func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
@@ -87,7 +91,7 @@ func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
 	}
 }
 
-// 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기
+// 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
 func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		actionUserUid := utils.FindUserUidFromHeader(r)
@@ -118,5 +122,41 @@ func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
 			return
 		}
 		utils.Success(w, result)
+	}
+}
+
+// 사이트맵 xml 내용 반환하기 핸들러
+func LoadSitemapHandler(s *services.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		urls := []models.HomeSitemapURL{
+			{
+				Loc:        fmt.Sprintf("%s/goapi/seo/main.html", configs.Env.URL),
+				LastMod:    time.Now().Format("2006-01-02"),
+				ChangeFreq: "daily",
+				Priority:   "1.0",
+			},
+			{
+				Loc:        fmt.Sprintf("%s/goapi/seo/about.html", configs.Env.URL),
+				LastMod:    time.Now().Format("2006-01-02"),
+				ChangeFreq: "weekly",
+				Priority:   "0.2",
+			},
+		}
+
+		boards := s.Home.GetBoardIDsForSitemap()
+		urls = append(urls, boards...)
+
+		w.Header().Set("Content-Type", "application/xml")
+		tmpl, err := template.New("sitemap").Parse(templates.SitemapBody)
+		if err != nil {
+			http.Error(w, "Error parsing template", http.StatusInternalServerError)
+			return
+		}
+
+		err = tmpl.Execute(w, urls)
+		if err != nil {
+			http.Error(w, "Error executing template", http.StatusInternalServerError)
+			return
+		}
 	}
 }

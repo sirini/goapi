@@ -49,3 +49,11 @@ type HomePostItem struct {
 	UserUid     uint `json:"userUid"`
 	CategoryUid uint `json:"categoryUid"`
 }
+
+// 사이트맵 구조체 정의
+type HomeSitemapURL struct {
+	Loc        string
+	LastMod    string
+	ChangeFreq string
+	Priority   string
+}

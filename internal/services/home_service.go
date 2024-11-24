@@ -1,14 +1,19 @@
 package services
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 )
 
 type HomeService interface {
 	AddVisitorLog(userUid uint)
-	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
+	GetBoardIDsForSitemap() []models.HomeSitemapURL
 	GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error)
+	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
 }
 
 type TsboardHomeService struct {
@@ -25,9 +30,21 @@ func (s *TsboardHomeService) AddVisitorLog(userUid uint) {
 	s.repos.Home.InsertVisitorLog(userUid)
 }
 
-// 사이드바 그룹/게시판들 목록 가져오기
-func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
-	return s.repos.Home.GetGroupBoardLinks()
+// 사이트맵에서 보여줄 게시판 경로 목록 반환하기
+func (s *TsboardHomeService) GetBoardIDsForSitemap() []models.HomeSitemapURL {
+	items := make([]models.HomeSitemapURL, 0)
+	ids := s.repos.Home.GetBoardIDs()
+
+	for _, id := range ids {
+		item := models.HomeSitemapURL{
+			Loc:        fmt.Sprintf("%s/board/%s/page/1", configs.Env.URL, id),
+			LastMod:    time.Now().Format("2006-01-02"),
+			ChangeFreq: "daily",
+			Priority:   "0.5",
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // 지정된 게시글 번호 이하의 최근글들 가져오기
@@ -84,4 +101,9 @@ func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]m
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// 사이드바 그룹/게시판들 목록 가져오기
+func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
+	return s.repos.Home.GetGroupBoardLinks()
 }

@@ -1,6 +1,6 @@
 package templates
 
-var WelcomeBody = `
+const WelcomeBody = `
 <!DOCTYPE html>
 <html lang="en">
 <head>

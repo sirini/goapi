@@ -15,6 +15,7 @@ type HomeRepository interface {
 	FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error)
 	FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error)
 	GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult
+	GetBoardIDs() []string
 	GetBoardLinks(groupUid uint) ([]models.HomeSidebarBoardResult, error)
 	GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error)
 	GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error)
@@ -130,6 +131,24 @@ func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.Boar
 	r.db.QueryRow(query, boardUid).Scan(&settings.Id, &settings.Type, &useCategory)
 	settings.UseCategory = useCategory > 0
 	return settings
+}
+
+// 전체 게시판들의 ID만 가져오기
+func (r *TsboardHomeRepository) GetBoardIDs() []string {
+	var result []string
+	query := fmt.Sprintf("SELECT id FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id string
+		rows.Scan(&id)
+		result = append(result, id)
+	}
+	return result
 }
 
 // 홈화면에서 게시판 목록들 가져오기

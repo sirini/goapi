@@ -1,6 +1,6 @@
 package templates
 
-var VerificationBody string = `
+const VerificationBody string = `
 <!DOCTYPE html>
 <html lang="en">
 <head>

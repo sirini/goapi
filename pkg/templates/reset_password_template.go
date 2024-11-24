@@ -1,7 +1,7 @@
 package templates
 
-var ResetPasswordTitle string = "[{{Host}}] Reset Your Password"
-var ResetPasswordBody string = `
+const ResetPasswordTitle string = "[{{Host}}] Reset Your Password"
+const ResetPasswordBody string = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
