@@ -24,6 +24,7 @@ type Config struct {
 	DBName            string
 	Prefix            string
 	DBPort            string
+	DBSocket          string
 	JWTSecretKey      string
 	GmailID           string
 	GmailAppPassword  string
@@ -69,6 +70,7 @@ func LoadConfig() {
 		DBName:            getEnv("DB_NAME", "tsboard"),
 		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
+		DBSocket:          getEnv("DB_UNIX_SOCKET", "unix(/var/run/mysqld/mysqld.sock)"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),
 		GmailAppPassword:  getEnv("GMAIL_APP_PASSWORD", ""),
