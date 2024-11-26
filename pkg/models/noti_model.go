@@ -15,7 +15,7 @@ type NotificationItem struct {
 	FromUser  UserBasicInfo `json:"fromUser"`
 	Type      Noti          `json:"type"`
 	Id        string        `json:"id"`
-	BoardType uint          `json:"boardType"`
+	BoardType Board         `json:"boardType"`
 	PostUid   uint          `json:"postUid"`
 	Checked   bool          `json:"checked"`
 	Timestamp uint64        `json:"timestamp"`

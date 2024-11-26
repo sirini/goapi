@@ -41,7 +41,13 @@ func (r *TsboardCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, 
 	var postUid, userUid uint
 	query := fmt.Sprintf("SELECT post_uid, user_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.QueryRow(query, commentUid).Scan(&postUid, &userUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED, models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(commentUid).Scan(&postUid, &userUid)
 	return postUid, userUid
 }
 
@@ -51,7 +57,13 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 	query := fmt.Sprintf(`SELECT uid, reply_uid, user_uid, content, submitted, modified, status 
 												FROM %s%s WHERE post_uid = ? AND status != ? AND uid %s ?
 												ORDER BY reply_uid ASC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT, arrow)
-	rows, err := r.db.Query(query, param.PostUid, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(param.PostUid, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +90,13 @@ func (r *TsboardCommentRepository) GetLikedCount(commentUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	r.db.QueryRow(query, commentUid, 1).Scan(&count)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(commentUid, 1).Scan(&count)
 	return count
 }
 
@@ -87,7 +105,13 @@ func (r *TsboardCommentRepository) GetPostStatus(postUid uint) models.Status {
 	var status int8
 	query := fmt.Sprintf("SELECT status FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, postUid).Scan(&status)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.Status(status)
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(postUid).Scan(&status)
 	return models.Status(status)
 }
 
@@ -96,7 +120,13 @@ func (r *TsboardCommentRepository) GetPostWriterUid(postUid uint) uint {
 	var userUid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, postUid).Scan(&userUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(postUid).Scan(&userUid)
 	return userUid
 }
 
@@ -104,7 +134,13 @@ func (r *TsboardCommentRepository) GetPostWriterUid(postUid uint) uint {
 func (r *TsboardCommentRepository) GetMaxUid() uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT MAX(uid) FROM %s%s", configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.QueryRow(query).Scan(&uid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow().Scan(&uid)
 	return uid
 }
 
@@ -113,7 +149,12 @@ func (r *TsboardCommentRepository) HasReplyComment(commentUid uint) bool {
 	var replyUid uint
 	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.QueryRow(query, commentUid).Scan(&replyUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmt.Close()
+	stmt.QueryRow(commentUid).Scan(&replyUid)
 
 	if replyUid != commentUid {
 		return false
@@ -122,7 +163,13 @@ func (r *TsboardCommentRepository) HasReplyComment(commentUid uint) bool {
 	var uid uint
 	query = fmt.Sprintf("SELECT uid FROM %s%s WHERE reply_uid = ? AND uid != ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.QueryRow(query, commentUid, commentUid).Scan(&uid)
+	stmtComment, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmtComment.Close()
+	stmtComment.QueryRow(commentUid, commentUid).Scan(&uid)
+
 	return uid > 0
 }
 
@@ -131,7 +178,13 @@ func (r *TsboardCommentRepository) IsLikedComment(commentUid uint, userUid uint)
 	var uid uint
 	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	r.db.QueryRow(query, commentUid, userUid).Scan(&uid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(commentUid, userUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -140,8 +193,13 @@ func (r *TsboardCommentRepository) InsertComment(param models.CommentWriteParame
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(reply_uid, board_uid, post_uid, user_uid, content, submitted, modified, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT)
-	result, err := r.db.Exec(
-		query,
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(
 		0,
 		param.BoardUid,
 		param.PostUid,
@@ -162,33 +220,58 @@ func (r *TsboardCommentRepository) InsertComment(param models.CommentWriteParame
 func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikeParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	r.db.Exec(query, param.BoardUid, param.CommentUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(param.BoardUid, param.CommentUid, param.UserUid, param.Liked, time.Now().UnixMilli())
 }
 
 // 댓글을 삭제 상태로 변경하기
 func (r *TsboardCommentRepository) RemoveComment(commentUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.Exec(query, models.CONTENT_REMOVED, commentUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(models.CONTENT_REMOVED, commentUid)
 }
 
 // 기존 댓글 수정하기
 func (r *TsboardCommentRepository) UpdateComment(commentUid uint, content string) {
 	query := fmt.Sprintf("UPDATE %s%s SET content = ?, modified = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.Exec(query, content, time.Now().UnixMilli(), commentUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(content, time.Now().UnixMilli(), commentUid)
 }
 
 // 이 댓글에 대한 좋아요 변경하기
 func (r *TsboardCommentRepository) UpdateLikeComment(param models.CommentLikeParameter) {
 	query := fmt.Sprintf("UPDATE %s%s SET liked = ?, timestamp = ? WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.CommentUid, param.UserUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(param.Liked, time.Now().UnixMilli(), param.CommentUid, param.UserUid)
 }
 
 // 답글 고유 번호 업데이트
 func (r *TsboardCommentRepository) UpdateReplyUid(commentUid uint, replyUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET reply_uid = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.Exec(query, replyUid, commentUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(replyUid, commentUid)
 }

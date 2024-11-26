@@ -177,7 +177,7 @@ func (s *TsboardBoardService) GetGalleryPhotos(boardUid uint, postUid uint, user
 
 	images, err := s.repos.BoardView.GetAttachedImages(postUid)
 	if err != nil {
-		return result, fmt.Errorf("unable to get attached images")
+		return result, err
 	}
 	result = models.GalleryPhotoResult{
 		Config: s.repos.Board.GetBoardConfig(boardUid),
@@ -422,6 +422,7 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 	}
 
 	s.repos.BoardView.RemovePost(postUid)
+	s.repos.BoardView.RemoveComments(postUid)
 	s.repos.BoardView.RemovePostTags(postUid)
 	removes := s.repos.BoardView.RemoveAttachments(postUid)
 

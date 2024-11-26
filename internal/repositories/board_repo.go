@@ -52,7 +52,13 @@ func (r *TsboardBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool
 	var liked uint8
 	query := fmt.Sprintf("SELECT liked FROM %s%s WHERE post_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST_LIKE)
-	r.db.QueryRow(query, postUid, userUid, 1).Scan(&liked)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(postUid, userUid, 1).Scan(&liked)
 	return liked > 0
 }
 
@@ -64,7 +70,13 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 	var liked uint8
 	query := fmt.Sprintf("SELECT liked FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	r.db.QueryRow(query, commentUid, userUid, 1).Scan(&liked)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(commentUid, userUid, 1).Scan(&liked)
 	return liked > 0
 }
 
@@ -76,7 +88,13 @@ func (r *TsboardBoardRepository) FindPostsByTitleContent(param models.BoardListP
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s LIKE ? AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, keyword, param.SinceUid, param.Bunch-param.NoticeCount)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(param.BoardUid, models.CONTENT_NORMAL, keyword, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +114,13 @@ func (r *TsboardBoardRepository) FindPostsByNameCategory(param models.BoardListP
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s = ? AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, uid, param.SinceUid, param.Bunch-param.NoticeCount)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(param.BoardUid, models.CONTENT_NORMAL, uid, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +139,13 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param models.BoardListParame
 												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?)
 												ORDER BY p.uid %s LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, arrow, tagUidStr, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, param.SinceUid, tagCount, param.Bunch-param.NoticeCount)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(param.BoardUid, models.CONTENT_NORMAL, param.SinceUid, tagCount, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +160,14 @@ func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfi
 												level_list, level_view, level_write, level_comment, level_download,
 												point_view, point_write, point_comment, point_download 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return config
+	}
+	defer stmt.Close()
+
 	var useCategory uint8
-	r.db.QueryRow(query, boardUid).Scan(&config.Admin.Board, &config.Type, &config.Name, &config.Info,
+	stmt.QueryRow(boardUid).Scan(&config.Admin.Board, &config.Type, &config.Name, &config.Info,
 		&config.RowCount, &config.Width, &useCategory, &config.Level.List, &config.Level.View,
 		&config.Level.Write, &config.Level.Comment, &config.Level.Download, &config.Point.View,
 		&config.Point.Write, &config.Point.Comment, &config.Point.Download)
@@ -146,7 +182,13 @@ func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfi
 func (r *TsboardBoardRepository) GetBoardUidById(id string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
-	r.db.QueryRow(query, id).Scan(&uid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(id).Scan(&uid)
 	return uid
 }
 
@@ -154,7 +196,13 @@ func (r *TsboardBoardRepository) GetBoardUidById(id string) uint {
 func (r *TsboardBoardRepository) GetBoardCategories(boardUid uint) []models.Pair {
 	var items []models.Pair
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_BOARD_CAT)
-	rows, err := r.db.Query(query, boardUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return items
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(boardUid)
 	if err != nil {
 		return items
 	}
@@ -176,7 +224,13 @@ func (r *TsboardBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair 
 	cat := models.Pair{}
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD_CAT)
-	r.db.QueryRow(query, categoryUid).Scan(&cat.Uid, &cat.Name)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return cat
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(categoryUid).Scan(&cat.Uid, &cat.Name)
 	return cat
 }
 
@@ -185,7 +239,13 @@ func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 	var path string
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE post_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_FILE_THUMB)
-	r.db.QueryRow(query, postUid).Scan(&path)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return path
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(postUid).Scan(&path)
 	return path
 }
 
@@ -193,7 +253,13 @@ func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 func (r *TsboardBoardRepository) GetCountByTable(table models.Table, postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, table)
-	r.db.QueryRow(query, postUid).Scan(&count)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(postUid).Scan(&count)
 	return count
 }
 
@@ -203,7 +269,13 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 	query := fmt.Sprintf(`SELECT g.admin_uid FROM %s%s AS g JOIN %s%s AS b 
 												ON g.uid = b.group_uid WHERE b.uid = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_GROUP, configs.Env.Prefix, models.TABLE_BOARD)
-	r.db.QueryRow(query, boardUid).Scan(&adminUid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(boardUid).Scan(&adminUid)
 	return adminUid
 }
 
@@ -211,7 +283,13 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
-	rows, err := r.db.Query(query, boardUid, models.CONTENT_NOTICE)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(boardUid, models.CONTENT_NOTICE)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +303,13 @@ func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter)
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status IN (?, ?) AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, arrow, order)
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.SinceUid, param.Bunch-param.NoticeCount)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.SinceUid, param.Bunch-param.NoticeCount)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +321,13 @@ func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter)
 func (r *TsboardBoardRepository) GetMaxUid() uint {
 	var max uint
 	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query).Scan(&max)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow().Scan(&max)
 	return max
 }
 
@@ -245,11 +335,18 @@ func (r *TsboardBoardRepository) GetMaxUid() uint {
 func (r *TsboardBoardRepository) GetTagUids(keyword string) (string, int) {
 	tags := strings.Split(keyword, " ")
 	var strUids []string
+
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_HASHTAG)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return "", 0
+	}
+	defer stmt.Close()
+
 	for _, tag := range tags {
 		var uid uint
-		query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1",
-			configs.Env.Prefix, models.TABLE_HASHTAG)
-		if err := r.db.QueryRow(query, tag).Scan(&uid); err != nil {
+		if err := stmt.QueryRow(tag).Scan(&uid); err != nil {
 			continue
 		}
 		strUids = append(strUids, fmt.Sprintf("'%d'", uid))
@@ -263,7 +360,13 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE board_uid = ? AND status != ?",
 		configs.Env.Prefix, models.TABLE_POST)
-	r.db.QueryRow(query, boardUid, models.CONTENT_REMOVED).Scan(&count)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(boardUid, models.CONTENT_REMOVED).Scan(&count)
 	return count
 }
 
@@ -271,7 +374,13 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, table)
-	r.db.QueryRow(query, name).Scan(&uid)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return models.FAILED
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(name).Scan(&uid)
 	return uid
 }
 
@@ -281,7 +390,13 @@ func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter 
 	writer.UserUid = userUid
 	query := fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	r.db.QueryRow(query, userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return writer
+	}
+	defer stmt.Close()
+
+	stmt.QueryRow(userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
 	return writer
 }
 

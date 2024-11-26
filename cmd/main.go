@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
@@ -32,6 +33,11 @@ func main() {
                                                                                   
 🚀 TSBOARD %v is running on port %v [tsboard.dev]
 	`, configs.Env.Version, configs.Env.Port)
+
+	// 프로파일링
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	port := fmt.Sprintf(":%s", configs.Env.Port)
 	log.Fatal(http.ListenAndServe(port, mux))

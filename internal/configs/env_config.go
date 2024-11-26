@@ -25,6 +25,11 @@ type Config struct {
 	Prefix            string
 	DBPort            string
 	DBSocket          string
+	DBMaxIdle         string
+	DBMaxOpen         string
+	DBTimeout         string
+	DBReadTimeout     string
+	DBWriteTimeout    string
 	JWTSecretKey      string
 	GmailID           string
 	GmailAppPassword  string
@@ -71,6 +76,11 @@ func LoadConfig() {
 		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
 		DBSocket:          getEnv("DB_UNIX_SOCKET", "unix(/var/run/mysqld/mysqld.sock)"),
+		DBMaxIdle:         getEnv("DB_MAX_IDLE", "100"),
+		DBMaxOpen:         getEnv("DB_MAX_OPEN", "50"),
+		DBTimeout:         getEnv("DB_TIMEOUT", "5s"),
+		DBReadTimeout:     getEnv("DB_READ_TIMEOUT", "10s"),
+		DBWriteTimeout:    getEnv("DB_WRITE_TIMEOUT", "10s"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),
 		GmailAppPassword:  getEnv("GMAIL_APP_PASSWORD", ""),

@@ -10,6 +10,9 @@ import (
 )
 
 type NotiRepository interface {
+	FindBoardUidByPostUid(stmt *sql.Stmt, postUid uint) uint
+	GetBoardIdType(stmt *sql.Stmt, boardUint uint) (string, models.Board)
+	GetUserNameProfile(stmt *sql.Stmt, userUid uint) (string, string)
 	InsertNotification(param models.InsertNotificationParameter)
 	IsNotiAdded(param models.InsertNotificationParameter) bool
 	LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error)
@@ -25,20 +28,53 @@ func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
 	return &TsboardNotiRepository{db: db}
 }
 
+// 게시판 고유 번호 가져오기
+func (r *TsboardNotiRepository) FindBoardUidByPostUid(stmt *sql.Stmt, postUid uint) uint {
+	var boardUid uint
+	stmt.QueryRow(postUid).Scan(&boardUid)
+	return boardUid
+}
+
+// 게시판 아이디와 타입 가져오기
+func (r *TsboardNotiRepository) GetBoardIdType(stmt *sql.Stmt, boardUid uint) (string, models.Board) {
+	var id string
+	var boardType models.Board
+	stmt.QueryRow(boardUid).Scan(&id, &boardType)
+	return id, boardType
+}
+
+// 사용자의 이름과 프로필 이미지 가져오기
+func (r *TsboardNotiRepository) GetUserNameProfile(stmt *sql.Stmt, userUid uint) (string, string) {
+	var name, profile string
+	stmt.QueryRow(userUid).Scan(&name, &profile)
+	return name, profile
+}
+
 // 새 알림 추가하기
 func (r *TsboardNotiRepository) InsertNotification(param models.InsertNotificationParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(to_uid, from_uid, type, post_uid, comment_uid, checked, timestamp)
 												VALUES (?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_NOTI)
-	r.db.Exec(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid, param.CommentUid, 0, time.Now().UnixMilli())
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	stmt.Exec(param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid, param.CommentUid, 0, time.Now().UnixMilli())
 }
 
 // 중복 알림인지 확인
 func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParameter) bool {
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
 												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return false
+	}
+	defer stmt.Close()
+
 	var uid uint
-	r.db.QueryRow(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&uid)
+	stmt.QueryRow(param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -47,11 +83,44 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
 												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_NOTI)
-	rows, err := r.db.Query(query, userUid, limit)
+	stmt, err := r.db.Prepare(query)
 	if err != nil {
-		return nil, fmt.Errorf("error executing query: %w", err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(userUid, limit)
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
+
+	// 게시판 고유 번호 가져오는 쿼리 준비
+	query = fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST)
+	stmtPost, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtPost.Close()
+
+	// 게시판 아이디, 타입 가져오는 쿼리 준비
+	query = fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_BOARD)
+	stmtBoard, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtBoard.Close()
+
+	// 사용자 이름과 프로필 가져오는 쿼리 준비
+	query = fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER)
+	stmtUser, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtUser.Close()
 
 	var items []models.NotificationItem
 	for rows.Next() {
@@ -63,19 +132,11 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 		}
 		item.Checked = checked > 0
 
-		var boardUid uint
-		query = fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1",
-			configs.Env.Prefix, models.TABLE_POST)
-		r.db.QueryRow(query, item.PostUid).Scan(&boardUid)
+		boardUid := r.FindBoardUidByPostUid(stmtPost, item.PostUid)
 		if boardUid > 0 {
-			query = fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1",
-				configs.Env.Prefix, models.TABLE_BOARD)
-			r.db.QueryRow(query, boardUid).Scan(&item.Id, &item.BoardType)
+			item.Id, item.BoardType = r.GetBoardIdType(stmtBoard, boardUid)
 		}
-
-		query = fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1",
-			configs.Env.Prefix, models.TABLE_USER)
-		r.db.QueryRow(query, item.FromUser.UserUid).Scan(&item.FromUser.Name, &item.FromUser.Profile)
+		item.FromUser.Name, item.FromUser.Profile = r.GetUserNameProfile(stmtUser, userUid)
 		items = append(items, item)
 	}
 
@@ -89,5 +150,11 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint, limit uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE to_uid = ? LIMIT ?",
 		configs.Env.Prefix, models.TABLE_NOTI)
-	r.db.Exec(query, 1, userUid, limit)
+	stmt, err := r.db.Prepare(query)
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+
+	stmt.Exec(1, userUid, limit)
 }
