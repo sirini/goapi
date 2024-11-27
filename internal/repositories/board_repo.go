@@ -10,7 +10,9 @@ import (
 )
 
 type BoardRepository interface {
+	CheckLikedPostForLoop(stmt *sql.Stmt, postUid uint, userUid uint) bool
 	CheckLikedPost(postUid uint, userUid uint) bool
+	CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool
 	CheckLikedComment(commentUid uint, userUid uint) bool
 	FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error)
 	FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error)
@@ -18,16 +20,21 @@ type BoardRepository interface {
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardUidById(id string) uint
 	GetBoardCategories(boardUid uint) []models.Pair
+	GetCategoryByUidForLoop(stmt *sql.Stmt, categoryUid uint) models.Pair
 	GetCategoryByUid(categoryUid uint) models.Pair
+	GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string
 	GetCoverImage(postUid uint) string
 	GetCountByTable(table models.Table, postUid uint) uint
+	GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetGroupAdminUid(boardUid uint) uint
+	GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error)
 	GetMaxUid() uint
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
 	GetUidByTable(table models.Table, name string) uint
+	GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter
 	GetWriterInfo(userUid uint) models.BoardWriter
 	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error)
 }
@@ -44,12 +51,21 @@ func NewTsboardBoardRepository(db *sql.DB) *TsboardBoardRepository {
 // 게시글 가져오기 시 지정되는 컬럼들
 const POST_COLUMNS = "uid, user_uid, category_uid, title, content, submitted, modified, hit, status"
 
+// 반복문 내에서 사용할 게시글에 좋아요 클릭 여부 확인하기
+func (r *TsboardBoardRepository) CheckLikedPostForLoop(stmt *sql.Stmt, postUid uint, userUid uint) bool {
+	if userUid < 1 {
+		return false
+	}
+	var liked uint8
+	stmt.QueryRow(postUid, userUid, 1).Scan(&liked)
+	return liked > 0
+}
+
 // 게시글에 좋아요를 클릭했었는지 확인하기
 func (r *TsboardBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool {
 	if userUid < 1 {
 		return false
 	}
-	var liked uint8
 	query := fmt.Sprintf("SELECT liked FROM %s%s WHERE post_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST_LIKE)
 	stmt, err := r.db.Prepare(query)
@@ -58,7 +74,13 @@ func (r *TsboardBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(postUid, userUid, 1).Scan(&liked)
+	return r.CheckLikedPostForLoop(stmt, postUid, userUid)
+}
+
+// 반복문에서 사용하는 댓글에 좋아요 클릭했는지 확인
+func (r *TsboardBoardRepository) CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool {
+	var liked uint8
+	stmt.QueryRow(commentUid, userUid, 1).Scan(&liked)
 	return liked > 0
 }
 
@@ -67,7 +89,6 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 	if userUid < 1 {
 		return false
 	}
-	var liked uint8
 	query := fmt.Sprintf("SELECT liked FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 	stmt, err := r.db.Prepare(query)
@@ -76,8 +97,7 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(commentUid, userUid, 1).Scan(&liked)
-	return liked > 0
+	return r.CheckLikedCommentForLoop(stmt, commentUid, userUid)
 }
 
 // 게시글 제목 혹은 내용으로 검색해서 가져오기
@@ -219,6 +239,13 @@ func (r *TsboardBoardRepository) GetBoardCategories(boardUid uint) []models.Pair
 	return items
 }
 
+// 반복문에서 사용할 카테고리 이름 가져오기
+func (r *TsboardBoardRepository) GetCategoryByUidForLoop(stmt *sql.Stmt, categoryUid uint) models.Pair {
+	cat := models.Pair{}
+	stmt.QueryRow(categoryUid).Scan(&cat.Uid, &cat.Name)
+	return cat
+}
+
 // 카테고리 이름 가져오기
 func (r *TsboardBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair {
 	cat := models.Pair{}
@@ -230,23 +257,27 @@ func (r *TsboardBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair 
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(categoryUid).Scan(&cat.Uid, &cat.Name)
-	return cat
+	return r.GetCategoryByUidForLoop(stmt, categoryUid)
 }
 
 // 게시글 대표 커버 썸네일 이미지 가져오기
-func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
+func (r *TsboardBoardRepository) GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string {
 	var path string
+	stmt.QueryRow(postUid).Scan(&path)
+	return path
+}
+
+// 반복문에서 사용하는 썸네일 이미지 가져오기
+func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE post_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_FILE_THUMB)
 	stmt, err := r.db.Prepare(query)
 	if err != nil {
-		return path
+		return ""
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(postUid).Scan(&path)
-	return path
+	return r.GetCoverImageForLoop(stmt, postUid)
 }
 
 // 댓글 혹은 좋아요 개수 가져오기
@@ -259,6 +290,13 @@ func (r *TsboardBoardRepository) GetCountByTable(table models.Table, postUid uin
 	}
 	defer stmt.Close()
 
+	stmt.QueryRow(postUid).Scan(&count)
+	return count
+}
+
+// 반복문에서 사용하는 댓글 개수 가져오기
+func (r *TsboardBoardRepository) GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint {
+	var count uint
 	stmt.QueryRow(postUid).Scan(&count)
 	return count
 }
@@ -277,6 +315,13 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 
 	stmt.QueryRow(boardUid).Scan(&adminUid)
 	return adminUid
+}
+
+// 반복문에서 사용하는 게시글의 좋아요 갯수 가져오기
+func (r *TsboardBoardRepository) GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint {
+	var count uint
+	stmt.QueryRow(postUid, 1).Scan(&count)
+	return count
 }
 
 // 게시판 공지글만 가져오기
@@ -384,10 +429,17 @@ func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) 
 	return uid
 }
 
+// 반복문에서 사용하는 (댓)글 작성자 기본 정보 가져오기
+func (r *TsboardBoardRepository) GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter {
+	writer := models.BoardWriter{}
+	writer.UserUid = userUid
+	stmt.QueryRow(userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
+	return writer
+}
+
 // (댓)글 작성자 기본 정보 가져오기
 func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter {
 	writer := models.BoardWriter{}
-	writer.UserUid = userUid
 	query := fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
 	stmt, err := r.db.Prepare(query)
@@ -396,13 +448,67 @@ func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter 
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
-	return writer
+	return r.GetWriterInfoForLoop(stmt, userUid)
 }
 
 // 게시글 목록 만들어서 반환
 func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error) {
 	var items []models.BoardListItem
+
+	// 카테고리 이름 가져오는 쿼리문 준비
+	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_BOARD_CAT)
+	stmtBoardCat, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtBoardCat.Close()
+
+	// 커버 이미지 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT path FROM %s%s WHERE post_uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_FILE_THUMB)
+	stmtFileThumb, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtFileThumb.Close()
+
+	// 댓글 개수 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ?",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	stmtCommmentCount, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtCommmentCount.Close()
+
+	// 좋아요 개수 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ? AND liked = ?",
+		configs.Env.Prefix, models.TABLE_POST_LIKE)
+	stmtLikeCount, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtLikeCount.Close()
+
+	// 내가 이 게시글에 좋아요를 눌렀는지 확인하는 쿼리문 준비
+	query = fmt.Sprintf("SELECT liked FROM %s%s WHERE post_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST_LIKE)
+	stmtLiked, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtLiked.Close()
+
+	// 게시글 작성자 정보 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER)
+	stmtWriter, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtWriter.Close()
+
 	for rows.Next() {
 		item := models.BoardListItem{}
 		var writerUid uint
@@ -411,12 +517,13 @@ func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows
 		if err != nil {
 			return nil, err
 		}
-		item.Category = r.GetCategoryByUid(item.Category.Uid)
-		item.Cover = r.GetCoverImage(item.Uid)
-		item.Comment = r.GetCountByTable(models.TABLE_COMMENT, item.Uid)
-		item.Like = r.GetCountByTable(models.TABLE_POST_LIKE, item.Uid)
-		item.Liked = r.CheckLikedPost(item.Uid, actionUserUid)
-		item.Writer = r.GetWriterInfo(writerUid)
+
+		item.Category = r.GetCategoryByUidForLoop(stmtBoardCat, item.Category.Uid)
+		item.Cover = r.GetCoverImageForLoop(stmtFileThumb, item.Uid)
+		item.Comment = r.GetCommentCountForLoop(stmtCommmentCount, item.Uid)
+		item.Like = r.GetLikedCountForLoop(stmtLikeCount, item.Uid)
+		item.Liked = r.CheckLikedPostForLoop(stmtLiked, item.Uid, actionUserUid)
+		item.Writer = r.GetWriterInfoForLoop(stmtWriter, writerUid)
 		items = append(items, item)
 	}
 	return items, nil

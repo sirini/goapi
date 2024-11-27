@@ -16,7 +16,7 @@ type HomeRepository interface {
 	FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error)
 	GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult
 	GetBoardIDs() []string
-	GetBoardLinks(groupUid uint) ([]models.HomeSidebarBoardResult, error)
+	GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error)
 	GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error)
 	GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error)
 	InsertVisitorLog(userUid uint)
@@ -182,16 +182,8 @@ func (r *TsboardHomeRepository) GetBoardIDs() []string {
 }
 
 // 홈화면에서 게시판 목록들 가져오기
-func (r *TsboardHomeRepository) GetBoardLinks(groupUid uint) ([]models.HomeSidebarBoardResult, error) {
+func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error) {
 	var boards []models.HomeSidebarBoardResult
-	query := fmt.Sprintf("SELECT id, type, name, info FROM %s%s WHERE group_uid = ?",
-		configs.Env.Prefix, models.TABLE_BOARD)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-
 	rows, err := stmt.Query(groupUid)
 	if err != nil {
 		return nil, err
@@ -227,13 +219,22 @@ func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupR
 	}
 	defer rows.Close()
 
+	// 게시판 링크들을 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT id, type, name, info FROM %s%s WHERE group_uid = ?",
+		configs.Env.Prefix, models.TABLE_BOARD)
+	stmtBoard, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtBoard.Close()
+
 	for rows.Next() {
 		var groupUid uint
 		var groupId string
 		if err := rows.Scan(&groupUid, &groupId); err != nil {
 			return nil, err
 		}
-		boards, err := r.GetBoardLinks(groupUid)
+		boards, err := r.GetBoardLinks(stmtBoard, groupUid)
 		if err != nil {
 			return nil, err
 		}

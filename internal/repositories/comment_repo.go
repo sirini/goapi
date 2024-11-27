@@ -12,6 +12,7 @@ import (
 type CommentRepository interface {
 	FindPostUserUidByUid(commentUid uint) (uint, uint)
 	GetComments(param models.CommentListParameter) ([]models.CommentItem, error)
+	GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint
 	GetLikedCount(commentUid uint) uint
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
@@ -69,6 +70,33 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 	}
 	defer rows.Close()
 
+	// 게시글 작성자 정보 가져오는 쿼리문 준비
+	query = fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER)
+	stmtWriter, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtWriter.Close()
+
+	// 댓글에 대한 좋아요 수 반환하는 쿼리문 준비
+	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
+		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
+	stmtLikedCount, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtLikedCount.Close()
+
+	// 댓글에 좋아요를 클릭했는지 확인하는 쿼리문 준비
+	query = fmt.Sprintf("SELECT liked FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
+	stmtLiked, err := r.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmtLiked.Close()
+
 	items := make([]models.CommentItem, 0)
 	for rows.Next() {
 		item := models.CommentItem{}
@@ -77,17 +105,23 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 			return nil, err
 		}
 		item.PostUid = param.PostUid
-		item.Writer = r.board.GetWriterInfo(item.Writer.UserUid)
-		item.Like = r.GetLikedCount(item.Uid)
-		item.Liked = r.board.CheckLikedComment(item.Uid, param.UserUid)
+		item.Writer = r.board.GetWriterInfoForLoop(stmtWriter, item.Writer.UserUid)
+		item.Like = r.GetLikedCountForLoop(stmtLikedCount, item.Uid)
+		item.Liked = r.board.CheckLikedCommentForLoop(stmtLiked, item.Uid, param.UserUid)
 		items = append(items, item)
 	}
 	return items, nil
 }
 
+// 반복문에서 사용하는 댓글에 대한 좋아요 수 반환
+func (r *TsboardCommentRepository) GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint {
+	var count uint
+	stmt.QueryRow(commentUid, 1).Scan(&count)
+	return count
+}
+
 // 댓글에 대한 좋아요 수 반환
 func (r *TsboardCommentRepository) GetLikedCount(commentUid uint) uint {
-	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 	stmt, err := r.db.Prepare(query)
@@ -96,8 +130,7 @@ func (r *TsboardCommentRepository) GetLikedCount(commentUid uint) uint {
 	}
 	defer stmt.Close()
 
-	stmt.QueryRow(commentUid, 1).Scan(&count)
-	return count
+	return r.GetLikedCountForLoop(stmt, commentUid)
 }
 
 // 게시글 상태 가져오기

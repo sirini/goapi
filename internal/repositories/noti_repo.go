@@ -10,9 +10,9 @@ import (
 )
 
 type NotiRepository interface {
-	FindBoardUidByPostUid(stmt *sql.Stmt, postUid uint) uint
-	GetBoardIdType(stmt *sql.Stmt, boardUint uint) (string, models.Board)
-	GetUserNameProfile(stmt *sql.Stmt, userUid uint) (string, string)
+	FindBoardUidByPostUidForLoop(stmt *sql.Stmt, postUid uint) uint
+	GetBoardIdTypeForLoop(stmt *sql.Stmt, boardUint uint) (string, models.Board)
+	GetUserNameProfileForLoop(stmt *sql.Stmt, userUid uint) (string, string)
 	InsertNotification(param models.InsertNotificationParameter)
 	IsNotiAdded(param models.InsertNotificationParameter) bool
 	LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error)
@@ -29,14 +29,14 @@ func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
 }
 
 // 게시판 고유 번호 가져오기
-func (r *TsboardNotiRepository) FindBoardUidByPostUid(stmt *sql.Stmt, postUid uint) uint {
+func (r *TsboardNotiRepository) FindBoardUidByPostUidForLoop(stmt *sql.Stmt, postUid uint) uint {
 	var boardUid uint
 	stmt.QueryRow(postUid).Scan(&boardUid)
 	return boardUid
 }
 
 // 게시판 아이디와 타입 가져오기
-func (r *TsboardNotiRepository) GetBoardIdType(stmt *sql.Stmt, boardUid uint) (string, models.Board) {
+func (r *TsboardNotiRepository) GetBoardIdTypeForLoop(stmt *sql.Stmt, boardUid uint) (string, models.Board) {
 	var id string
 	var boardType models.Board
 	stmt.QueryRow(boardUid).Scan(&id, &boardType)
@@ -44,7 +44,7 @@ func (r *TsboardNotiRepository) GetBoardIdType(stmt *sql.Stmt, boardUid uint) (s
 }
 
 // 사용자의 이름과 프로필 이미지 가져오기
-func (r *TsboardNotiRepository) GetUserNameProfile(stmt *sql.Stmt, userUid uint) (string, string) {
+func (r *TsboardNotiRepository) GetUserNameProfileForLoop(stmt *sql.Stmt, userUid uint) (string, string) {
 	var name, profile string
 	stmt.QueryRow(userUid).Scan(&name, &profile)
 	return name, profile
@@ -132,11 +132,11 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 		}
 		item.Checked = checked > 0
 
-		boardUid := r.FindBoardUidByPostUid(stmtPost, item.PostUid)
+		boardUid := r.FindBoardUidByPostUidForLoop(stmtPost, item.PostUid)
 		if boardUid > 0 {
-			item.Id, item.BoardType = r.GetBoardIdType(stmtBoard, boardUid)
+			item.Id, item.BoardType = r.GetBoardIdTypeForLoop(stmtBoard, boardUid)
 		}
-		item.FromUser.Name, item.FromUser.Profile = r.GetUserNameProfile(stmtUser, userUid)
+		item.FromUser.Name, item.FromUser.Profile = r.GetUserNameProfileForLoop(stmtUser, userUid)
 		items = append(items, item)
 	}
 
