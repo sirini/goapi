@@ -31,7 +31,7 @@ type HomePostParameter struct {
 
 // 홈 사이드바에 출력할 그룹 목록 형태 정의
 type HomeSidebarGroupResult struct {
-	Group  uint                     `json:"group"`
+	Group  string                   `json:"group"`
 	Boards []HomeSidebarBoardResult `json:"boards"`
 }
 

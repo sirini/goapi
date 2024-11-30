@@ -1,25 +1,17 @@
 package routers
 
 import (
-	"net/http"
-
-	"github.com/sirini/goapi/internal/services"
+	"github.com/gofiber/fiber/v3"
+	"github.com/sirini/goapi/internal/handlers"
 )
 
-// 모든 라우터들을 등록하기
-func SetupRoutes(mux *http.ServeMux, s *services.Service) {
-	SetupSeoRouter(mux, s)
-	SetupHomeRouter(mux, s)
-	SetupUserRouter(mux, s)
-	SetupAuthRouter(mux, s)
-	SetupOAuthRouter(mux, s)
-	SetupBoardRouter(mux, s)
-	SetupCommentRouter(mux, s)
-
-	SetupLoggedInUserRouter(mux, s)
-	SetupLoggedInAuthRouter(mux, s)
-	SetupLoggedInChatRouter(mux, s)
-	SetupLoggedInNotiRouter(mux, s)
-	SetupLoggedInBoardRouter(mux, s)
-	SetupLoggedInCommentRouter(mux, s)
+// 라우터들 등록하기
+func RegisterRouters(api fiber.Router, h *handlers.Handler) {
+	RegisterAuthRouters(api, h)
+	RegisterBoardRouters(api, h)
+	RegisterChatRouters(api, h)
+	RegisterCommentRouters(api, h)
+	RegisterHomeRouters(api, h)
+	RegisterNotiRouters(api, h)
+	RegisterUserRouters(api, h)
 }

@@ -1,16 +1,15 @@
 package routers
 
 import (
-	"net/http"
-
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/middlewares"
-	"github.com/sirini/goapi/internal/services"
 )
 
-// 쪽지 남기기 관련 라우터 셋업
-func SetupLoggedInChatRouter(mux *http.ServeMux, s *services.Service) {
-	mux.Handle("GET /goapi/user/load/chat/list", middlewares.AuthMiddleware(handlers.LoadChatListHandler(s)))
-	mux.Handle("GET /goapi/user/load/chat/history", middlewares.AuthMiddleware(handlers.LoadChatHistoryHandler(s)))
-	mux.Handle("POST /goapi/user/save/chat", middlewares.AuthMiddleware(handlers.SaveChatHandler(s)))
+// 쪽지 관련 라우터들 등록
+func RegisterChatRouters(api fiber.Router, h *handlers.Handler) {
+	chat := api.Group("/chat")
+	chat.Get("/list", h.Chat.LoadChatHistoryHandler, middlewares.JWTMiddleware())
+	chat.Get("/history", h.Chat.LoadChatHistoryHandler, middlewares.JWTMiddleware())
+	chat.Post("/save", h.Chat.SaveChatHandler, middlewares.JWTMiddleware())
 }

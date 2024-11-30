@@ -49,13 +49,8 @@ func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 	var response string
 	query := fmt.Sprintf("SELECT response FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT 1",
 		configs.Env.Prefix, models.TABLE_REPORT)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return response
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&response)
+	r.db.QueryRow(query, userUid).Scan(&response)
 	return response
 }
 
@@ -64,13 +59,8 @@ func (r *TsboardUserRepository) GetUserBlackList(userUid uint) []uint {
 	var blocks []uint
 	query := fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ?",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return blocks
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(userUid)
+	rows, err := r.db.Query(query, userUid)
 	if err != nil {
 		return blocks
 	}
@@ -92,13 +82,8 @@ func (r *TsboardUserRepository) GetUserLevelPoint(userUid uint) (int, int) {
 	var level, point int
 	query := fmt.Sprintf("SELECT level, point FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return 0, 0
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&level, &point)
+	r.db.QueryRow(query, userUid).Scan(&level, &point)
 	return level, point
 }
 
@@ -106,24 +91,15 @@ func (r *TsboardUserRepository) GetUserLevelPoint(userUid uint) (int, int) {
 func (r *TsboardUserRepository) InsertBlackList(actionUserUid uint, targetUserUid uint) {
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	stmtSelect, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmtSelect.Close()
 
 	var uid uint
-	err = stmtSelect.QueryRow(actionUserUid, targetUserUid).Scan(&uid)
+	err := r.db.QueryRow(query, actionUserUid, targetUserUid).Scan(&uid)
 
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf("INSERT INTO %s%s (user_uid, black_uid) VALUES (?, ?)",
 			configs.Env.Prefix, models.TABLE_USER_BLOCK)
-		stmtInsert, err := r.db.Prepare(query)
-		if err != nil {
-			return
-		}
-		defer stmtInsert.Close()
-		stmtInsert.Exec(actionUserUid, targetUserUid)
+
+		r.db.Exec(query, actionUserUid, targetUserUid)
 	}
 }
 
@@ -131,24 +107,15 @@ func (r *TsboardUserRepository) InsertBlackList(actionUserUid uint, targetUserUi
 func (r *TsboardUserRepository) InsertReportUser(actionUserUid uint, targetUserUid uint, report string) {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_REPORT)
-	stmtSelect, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmtSelect.Close()
 
 	var uid uint
-	err = stmtSelect.QueryRow(targetUserUid, actionUserUid).Scan(&uid)
+	err := r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
 
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf(`INSERT INTO %s%s (to_uid, from_uid, request, response, timestamp, solved) 
 												VALUES (?, ?, ?, ? ,? ,?)`, configs.Env.Prefix, models.TABLE_REPORT)
-		stmtInsert, err := r.db.Prepare(query)
-		if err != nil {
-			return
-		}
-		defer stmtInsert.Close()
-		stmtInsert.Exec(targetUserUid, actionUserUid, report, "", time.Now().UnixMilli(), 0)
+
+		r.db.Exec(query, targetUserUid, actionUserUid, report, "", time.Now().UnixMilli(), 0)
 	}
 }
 
@@ -163,13 +130,8 @@ func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string)
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 											(id, name, password, profile, level, point, signature, signup, signin, blocked)
 											VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	result, err := stmt.Exec(id, name, pw, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
+	result, err := r.db.Exec(query, id, name, pw, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
 	if err != nil {
 		return models.FAILED
 	}
@@ -185,38 +147,25 @@ func (r *TsboardUserRepository) InsertUserPermission(userUid uint, perm models.U
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(user_uid, ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT)
 												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix, models.TABLE_USER_PERM)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(userUid, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport)
+
+	r.db.Exec(query, userUid, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport)
 }
 
 // 신고받은 사용자에게 조치 결과 추가하기
 func (r *TsboardUserRepository) InsertReportResponse(actionUserUid uint, targetUserUid uint, response string) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (to_uid, from_uid, request, response, timestamp, solved) 
 												VALUES (?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_REPORT)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(targetUserUid, actionUserUid, "", response, time.Now().UnixMilli(), 1)
+
+	r.db.Exec(query, targetUserUid, actionUserUid, "", response, time.Now().UnixMilli(), 1)
 }
 
 // (회원가입 시) 이메일 주소가 중복되는지 확인
 func (r *TsboardUserRepository) IsEmailDuplicated(id string) bool {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
 	var uid uint
-	stmt.QueryRow(id).Scan(&uid)
+	r.db.QueryRow(query, id).Scan(&uid)
 	return uid > 0
 }
 
@@ -224,14 +173,9 @@ func (r *TsboardUserRepository) IsEmailDuplicated(id string) bool {
 func (r *TsboardUserRepository) IsNameDuplicated(name string) bool {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
 	var uid uint
-	stmt.QueryRow(name).Scan(&uid)
+	r.db.QueryRow(query, name).Scan(&uid)
 	return uid > 0
 }
 
@@ -240,13 +184,8 @@ func (r *TsboardUserRepository) IsBlocked(userUid uint) bool {
 	var blocked uint8
 	query := fmt.Sprintf("SELECT blocked FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&blocked)
+	r.db.QueryRow(query, userUid).Scan(&blocked)
 	return blocked > 0
 }
 
@@ -255,13 +194,8 @@ func (r *TsboardUserRepository) IsBannedByTarget(actionUserUid uint, targetUserU
 	var uid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(targetUserUid, actionUserUid).Scan(&uid)
+	r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -270,13 +204,8 @@ func (r *TsboardUserRepository) IsPermissionAdded(userUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_PERM)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&uid)
+	r.db.QueryRow(query, userUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -285,13 +214,8 @@ func (r *TsboardUserRepository) IsUserReported(userUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_REPORT)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(userUid).Scan(&uid)
+	r.db.QueryRow(query, userUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -308,13 +232,8 @@ func (r *TsboardUserRepository) LoadUserPermission(userUid uint) models.UserPerm
 	query := fmt.Sprintf(`SELECT write_post, write_comment, send_chat, send_report 
 												FROM %s%s WHERE user_uid = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_USER_PERM)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return result
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(userUid).Scan(&writePost, &writeComment, &sendChat, &sendReport)
+	err := r.db.QueryRow(query, userUid).Scan(&writePost, &writeComment, &sendChat, &sendReport)
 	if err == sql.ErrNoRows {
 		return result
 	}
@@ -330,93 +249,60 @@ func (r *TsboardUserRepository) LoadUserPermission(userUid uint) models.UserPerm
 func (r *TsboardUserRepository) UpdatePassword(userUid uint, pw string) {
 	query := fmt.Sprintf("UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(pw, userUid)
+
+	r.db.Exec(query, pw, userUid)
 }
 
 // 사용자의 포인트 변경 이력 업데이트
 func (r *TsboardUserRepository) UpdatePointHistory(param models.UpdatePointParameter) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (user_uid, board_uid, action, point) 
 												VALUES (?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POINT_HISTORY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(param.UserUid, param.BoardUid, param.Action.String(), param.Point)
+
+	r.db.Exec(query, param.UserUid, param.BoardUid, param.Action.String(), param.Point)
 }
 
 // 사용자 이름, 서명 변경하기
 func (r *TsboardUserRepository) UpdateUserInfoString(userUid uint, name string, signature string) {
 	query := fmt.Sprintf("UPDATE %s%s SET name = ?, signature = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(name, signature, userUid)
+
+	r.db.Exec(query, name, signature, userUid)
 }
 
 // 사용자 프로필 이미지 변경하기
 func (r *TsboardUserRepository) UpdateUserProfile(userUid uint, imagePath string) {
 	query := fmt.Sprintf("UPDATE %s%s SET profile = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(imagePath, userUid)
+
+	r.db.Exec(query, imagePath, userUid)
 }
 
 // 사용자 권한 정보 변경하기
 func (r *TsboardUserRepository) UpdateUserPermission(userUid uint, perm models.UserPermissionResult) {
 	query := fmt.Sprintf(`UPDATE %s%s SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
 												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER_PERM)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport, userUid)
+
+	r.db.Exec(query, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport, userUid)
 }
 
 // 사용자 포인트 변경하기
 func (r *TsboardUserRepository) UpdateUserPoint(userUid uint, updatedPoint uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(updatedPoint, userUid)
+	r.db.Exec(query, updatedPoint, userUid)
 }
 
 // 사용자가 로그인 할 수 있는지 여부 업데이트하기
 func (r *TsboardUserRepository) UpdateUserBlocked(userUid uint, isBlocked bool) {
 	query := fmt.Sprintf("UPDATE %s%s SET blocked = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(isBlocked, userUid)
+
+	r.db.Exec(query, isBlocked, userUid)
 }
 
 // 신고받은 사용자에게 조치 결과 업데이트 해주기
 func (r *TsboardUserRepository) UpdateReportResponse(userUid uint, response string) {
 	query := fmt.Sprintf("UPDATE %s%s SET response = ?, solved = ? WHERE to_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_REPORT)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(response, 1, userUid)
+
+	r.db.Exec(query, response, 1, userUid)
 }

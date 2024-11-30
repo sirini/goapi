@@ -2,236 +2,218 @@ package handlers
 
 import (
 	"html"
-	"net/http"
 	"strconv"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
-// (회원가입 시) 이메일 주소가 이미 등록되어 있는지 확인하기
-func CheckEmailHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.FormValue("email")
-		if !utils.IsValidEmail(id) {
-			utils.Error(w, "Invalid email address")
-			return
-		}
+type AuthHandler interface {
+	CheckEmailHandler(c fiber.Ctx) error
+	CheckNameHandler(c fiber.Ctx) error
+	LoadMyInfoHandler(c fiber.Ctx) error
+	LogoutHandler(c fiber.Ctx) error
+	ResetPasswordHandler(c fiber.Ctx) error
+	SigninHandler(c fiber.Ctx) error
+	SignupHandler(c fiber.Ctx) error
+	VerifyCodeHandler(c fiber.Ctx) error
+	UpdateMyInfoHandler(c fiber.Ctx) error
+}
 
-		result := s.Auth.CheckEmailExists(id)
-		if result {
-			utils.Error(w, "Email address is already in use")
-			return
-		}
-		utils.Success(w, nil)
+type TsboardAuthHandler struct {
+	service *services.Service
+}
+
+// services.Service 주입 받기
+func NewTsboardAuthHandler(service *services.Service) *TsboardAuthHandler {
+	return &TsboardAuthHandler{service: service}
+}
+
+// (회원가입 시) 이메일 주소가 이미 등록되어 있는지 확인하기
+func (h *TsboardAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
+	id := c.FormValue("email")
+	if !utils.IsValidEmail(id) {
+		return utils.Err(c, "Invalid email address")
 	}
+
+	result := h.service.Auth.CheckEmailExists(id)
+	if result {
+		return utils.Err(c, "Email address is already in use")
+	}
+	return utils.Ok(c, nil)
 }
 
 // (회원가입 시) 이름이 이미 등록되어 있는지 확인하기
-func CheckNameHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		name := r.FormValue("name")
-		if len(name) < 2 {
-			utils.Error(w, "Invalid name, too short")
-			return
-		}
-
-		result := s.Auth.CheckNameExists(name)
-		if result {
-			utils.Error(w, "Name is already in use")
-			return
-		}
-		utils.Success(w, nil)
+func (h *TsboardAuthHandler) CheckNameHandler(c fiber.Ctx) error {
+	name := c.FormValue("name")
+	if len(name) < 2 {
+		return utils.Err(c, "Invalid name, too short")
 	}
+
+	result := h.service.Auth.CheckNameExists(name)
+	if result {
+		return utils.Err(c, "Name is already in use")
+	}
+	return utils.Ok(c, nil)
 }
 
 // 로그인 한 사용자의 정보 불러오기
-func LoadMyInfoHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid user uid, not a valid number")
-			return
-		}
-
-		myinfo := s.Auth.GetMyInfo(uint(userUid))
-		if myinfo.Uid < 1 {
-			utils.Error(w, "Unable to load your information")
-			return
-		}
-		utils.Success(w, myinfo)
+func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
+	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid user uid, not a valid number")
 	}
+
+	myinfo := h.service.Auth.GetMyInfo(uint(userUid))
+	if myinfo.Uid < 1 {
+		return utils.Err(c, "Unable to load your information")
+	}
+	return utils.Ok(c, myinfo)
 }
 
 // 로그아웃 처리하기
-func LogoutHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userUid := utils.GetUserUidFromToken(r)
-		if userUid < 1 {
-			utils.Error(w, "Unable to get an user uid from token")
-			return
-		}
-		s.Auth.Logout(userUid)
-		utils.Success(w, nil)
+func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
+	userUid := utils.ExtractUserUid(c.Get("Authorization"))
+	if userUid < 1 {
+		return utils.Err(c, "Unable to get an user uid from token")
 	}
+	h.service.Auth.Logout(userUid)
+	return utils.Ok(c, nil)
 }
 
 // 비밀번호 초기화하기
-func ResetPasswordHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.FormValue("email")
-
-		if !utils.IsValidEmail(id) {
-			utils.Error(w, "Failed to reset password, invalid ID(email)")
-			return
-		}
-
-		result := s.Auth.ResetPassword(id, r)
-		if !result {
-			utils.Error(w, "Unable to reset password, internal error")
-			return
-		}
-		utils.Success(w, &models.ResetPasswordResult{
-			Sendmail: configs.Env.GmailAppPassword != "",
-		})
+func (h *TsboardAuthHandler) ResetPasswordHandler(c fiber.Ctx) error {
+	id := c.FormValue("email")
+	if !utils.IsValidEmail(id) {
+		return utils.Err(c, "Failed to reset password, invalid ID(email)")
 	}
+
+	result := h.service.Auth.ResetPassword(id, c.Hostname())
+	if !result {
+		return utils.Err(c, "Unable to reset password, internal error")
+	}
+	return utils.Ok(c, &models.ResetPasswordResult{
+		Sendmail: configs.Env.GmailAppPassword != "",
+	})
 }
 
 // 로그인 하기
-func SigninHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.FormValue("id")
-		pw := r.FormValue("password")
+func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
+	id := c.FormValue("id")
+	pw := c.FormValue("password")
 
-		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.Error(w, "Failed to sign in, invalid ID or password")
-			return
-		}
-
-		user := s.Auth.Signin(id, pw)
-		if user.Uid < 1 {
-			utils.Error(w, "Unable to get an information, invalid ID or password")
-			return
-		}
-		utils.Success(w, user)
+	if len(pw) != 64 || !utils.IsValidEmail(id) {
+		return utils.Err(c, "Failed to sign in, invalid ID or password")
 	}
+
+	user := h.service.Auth.Signin(id, pw)
+	if user.Uid < 1 {
+		return utils.Err(c, "Unable to get an information, invalid ID or password")
+	}
+	return utils.Ok(c, user)
 }
 
 // 회원가입 하기
-func SignupHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.FormValue("email")
-		pw := r.FormValue("password")
-		name := r.FormValue("name")
+func (h *TsboardAuthHandler) SignupHandler(c fiber.Ctx) error {
+	id := c.FormValue("email")
+	pw := c.FormValue("password")
+	name := c.FormValue("name")
 
-		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.Error(w, "Failed to sign up, invalid ID or password")
-			return
-		}
-
-		result, err := s.Auth.Signup(id, pw, name, r)
-		if err != nil {
-			utils.Error(w, err.Error())
-			return
-		}
-		utils.Success(w, result)
+	if len(pw) != 64 || !utils.IsValidEmail(id) {
+		return utils.Err(c, "Failed to sign up, invalid ID or password")
 	}
+
+	result, err := h.service.Auth.Signup(models.SignupParameter{
+		ID:       id,
+		Password: pw,
+		Name:     name,
+		Hostname: c.Hostname(),
+	})
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return utils.Ok(c, result)
 }
 
 // 인증 완료하기
-func VerifyCodeHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		targetStr := r.FormValue("target")
-		code := r.FormValue("code")
-		id := r.FormValue("email")
-		pw := r.FormValue("password")
-		name := r.FormValue("name")
+func (h *TsboardAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
+	targetStr := c.FormValue("target")
+	code := c.FormValue("code")
+	id := c.FormValue("email")
+	pw := c.FormValue("password")
+	name := c.FormValue("name")
 
-		if len(pw) != 64 || !utils.IsValidEmail(id) {
-			utils.Error(w, "Failed to verify, invalid ID or password")
-			return
-		}
-
-		if len(name) < 2 {
-			utils.Error(w, "Invalid name, too short")
-			return
-		}
-
-		if len(code) != 6 {
-			utils.Error(w, "Invalid code, wrong length")
-			return
-		}
-
-		target, err := strconv.ParseUint(targetStr, 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid target, not a valid number")
-			return
-		}
-
-		result := s.Auth.VerifyEmail(models.VerifyParameter{
-			Target:   uint(target),
-			Code:     code,
-			Id:       id,
-			Password: pw,
-			Name:     name,
-		})
-
-		if !result {
-			utils.Error(w, "Failed to verify code")
-			return
-		}
-		utils.Success(w, nil)
+	if len(pw) != 64 || !utils.IsValidEmail(id) {
+		return utils.Err(c, "Failed to verify, invalid ID or password")
 	}
+	if len(name) < 2 {
+		return utils.Err(c, "Invalid name, too short")
+	}
+	if len(code) != 6 {
+		return utils.Err(c, "Invalid code, wrong length")
+	}
+	target, err := strconv.ParseUint(targetStr, 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid target, not a valid number")
+	}
+	result := h.service.Auth.VerifyEmail(models.VerifyParameter{
+		Target:   uint(target),
+		Code:     code,
+		Id:       id,
+		Password: pw,
+		Name:     name,
+	})
+
+	if !result {
+		return utils.Err(c, "Failed to verify code")
+	}
+	return utils.Ok(c, nil)
 }
 
 // 로그인 한 사용자 정보 업데이트
-func UpdateMyInfoHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		name := html.EscapeString(r.FormValue("name"))
-		signature := html.EscapeString(r.FormValue("signature"))
-		password := r.FormValue("password")
+func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
+	name := html.EscapeString(c.FormValue("name"))
+	signature := html.EscapeString(c.FormValue("signature"))
+	password := c.FormValue("password")
 
-		if len(name) < 2 {
-			utils.Error(w, "Invalid name, too short")
-			return
-		}
-
-		userUid64, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid access user uid, not a valid number")
-			return
-		}
-
-		if isDup := s.Auth.CheckNameExists(name); isDup {
-			utils.Error(w, "Duplicated name, please choose another one")
-			return
-		}
-
-		userUid := uint(userUid64)
-		userInfo, err := s.User.GetUserInfo(userUid)
-		if err != nil {
-			utils.Error(w, "Unable to find your information")
-			return
-		}
-
-		userInfo.Name = name
-		userInfo.Signature = signature
-		file, handler, _ := r.FormFile("profile")
-		if file != nil {
-			defer file.Close()
-		}
-
-		param := models.UpdateUserInfoParameter{
-			UserUid:        userUid,
-			Name:           name,
-			Signature:      signature,
-			Password:       password,
-			Profile:        file,
-			ProfileHandler: handler,
-		}
-		s.User.ChangeUserInfo(param, userInfo)
-		utils.Success(w, nil)
+	if len(name) < 2 {
+		return utils.Err(c, "Invalid name, too short")
 	}
+
+	userUid64, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid access user uid, not a valid number")
+	}
+
+	if isDup := h.service.Auth.CheckNameExists(name); isDup {
+		return utils.Err(c, "Duplicated name, please choose another one")
+	}
+
+	userUid := uint(userUid64)
+	userInfo, err := h.service.User.GetUserInfo(userUid)
+	if err != nil {
+		return utils.Err(c, "Unable to find your information")
+	}
+
+	userInfo.Name = name
+	userInfo.Signature = signature
+	header, _ := c.FormFile("profile")
+	file, err := header.Open()
+	if err == nil {
+		defer file.Close()
+	}
+
+	param := models.UpdateUserInfoParameter{
+		UserUid:        userUid,
+		Name:           name,
+		Signature:      signature,
+		Password:       password,
+		Profile:        file,
+		ProfileHandler: header,
+	}
+	h.service.User.ChangeUserInfo(param, userInfo)
+	return utils.Ok(c, nil)
 }

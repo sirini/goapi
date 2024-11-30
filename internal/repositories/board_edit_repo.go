@@ -47,13 +47,8 @@ func (r *TsboardBoardEditRepository) CheckWriterForBlog(boardUid uint, actionUse
 	var boardType uint8
 	query := fmt.Sprintf("SELECT admin_uid, type FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(boardUid).Scan(&adminUid, &boardType)
+	r.db.QueryRow(query, boardUid).Scan(&adminUid, &boardType)
 	return boardType != uint8(models.BOARD_BLOG) || actionUserUid == adminUid
 }
 
@@ -61,13 +56,8 @@ func (r *TsboardBoardEditRepository) CheckWriterForBlog(boardUid uint, actionUse
 func (r *TsboardBoardEditRepository) FindAttachedPathByUid(fileUid uint) string {
 	var path string
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return path
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(fileUid).Scan(&path)
+	r.db.QueryRow(query, fileUid).Scan(&path)
 	return path
 }
 
@@ -75,13 +65,8 @@ func (r *TsboardBoardEditRepository) FindAttachedPathByUid(fileUid uint) string 
 func (r *TsboardBoardEditRepository) FindTagUidByName(name string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1", configs.Env.Prefix, models.TABLE_HASHTAG)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(name).Scan(&uid)
+	r.db.QueryRow(query, name).Scan(&uid)
 	return uid
 }
 
@@ -93,13 +78,8 @@ func (r *TsboardBoardEditRepository) GetInsertedImages(param models.EditorInsert
 	}
 	query := fmt.Sprintf(`SELECT uid, path FROM %s%s WHERE uid < ? AND board_uid = ? AND user_uid = ? 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_IMAGE)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(param.LastUid, param.BoardUid, param.UserUid, param.Bunch)
+	rows, err := r.db.Query(query, param.LastUid, param.BoardUid, param.UserUid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -118,13 +98,8 @@ func (r *TsboardBoardEditRepository) GetMaxImageUid(boardUid uint, actionUserUid
 	var uid uint
 	query := fmt.Sprintf("SELECT MAX(uid) FROM %s%s WHERE board_uid = ? AND user_uid = ?",
 		configs.Env.Prefix, models.TABLE_IMAGE)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(boardUid, actionUserUid).Scan(&uid)
+	r.db.QueryRow(query, boardUid, actionUserUid).Scan(&uid)
 	return uid
 }
 
@@ -133,13 +108,8 @@ func (r *TsboardBoardEditRepository) GetSuggestionTags(input string, bunch uint)
 	items := make([]models.EditorTagItem, 0)
 	query := fmt.Sprintf("SELECT uid, name, used FROM %s%s WHERE name LIKE ? LIMIT ?",
 		configs.Env.Prefix, models.TABLE_HASHTAG)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query("%"+input+"%", bunch)
+	rows, err := r.db.Query(query, "%"+input+"%", bunch)
 	if err != nil {
 		return items
 	}
@@ -158,13 +128,8 @@ func (r *TsboardBoardEditRepository) GetTotalImageCount(boardUid uint, actionUse
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE board_uid = ? AND user_uid = ?",
 		configs.Env.Prefix, models.TABLE_IMAGE)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(boardUid, actionUserUid).Scan(&count)
+	r.db.QueryRow(query, boardUid, actionUserUid).Scan(&count)
 	return count
 }
 
@@ -173,13 +138,8 @@ func (r *TsboardBoardEditRepository) InsertExif(fileUid uint, postUid uint, exif
 	query := fmt.Sprintf(`INSERT INTO %s%s (
 		file_uid, post_uid, make, model, aperture, iso, focal_length, exposure, width, height, date) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_EXIF)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(fileUid, postUid,
+	r.db.Exec(query, fileUid, postUid,
 		exif.Make, exif.Model, exif.Aperture, exif.ISO, exif.FocalLength,
 		exif.Exposure, exif.Width, exif.Height, exif.Date)
 }
@@ -188,13 +148,8 @@ func (r *TsboardBoardEditRepository) InsertExif(fileUid uint, postUid uint, exif
 func (r *TsboardBoardEditRepository) InsertFile(param models.EditorSaveFileParameter) uint {
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, name, path, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_FILE)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	result, _ := stmt.Exec(param.BoardUid, param.PostUid, param.Name, param.Path, time.Now().UnixMilli())
+	result, _ := r.db.Exec(query, param.BoardUid, param.PostUid, param.Name, param.Path, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED
@@ -206,26 +161,16 @@ func (r *TsboardBoardEditRepository) InsertFile(param models.EditorSaveFileParam
 func (r *TsboardBoardEditRepository) InsertFileThumbnail(param models.EditorSaveThumbnailParameter) {
 	query := fmt.Sprintf("INSERT INTO %s%s (file_uid, post_uid, path, full_path) VALUES (?, ?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_FILE_THUMB)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(param.FileUid, param.PostUid, param.Small, param.Large)
+	r.db.Exec(query, param.FileUid, param.PostUid, param.Small, param.Large)
 }
 
 // 이미지 설명글 저장하기 (OpenAI API 사용 시에만 가능)
 func (r *TsboardBoardEditRepository) InsertImageDescription(fileUid uint, postUid uint, description string) {
 	query := fmt.Sprintf("INSERT INTO %s%s (file_uid, post_uid, description) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_IMAGE_DESC)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(fileUid, postUid, description)
+	r.db.Exec(query, fileUid, postUid, description)
 }
 
 // 게시글에 삽입한 이미지 정보들을 한 번에 저장하기
@@ -242,13 +187,7 @@ func (r *TsboardBoardEditRepository) InsertImagePaths(boardUid uint, userUid uin
 	}
 
 	query = query[:len(query)-1]
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-
-	stmt.Exec(values...)
+	r.db.Exec(query, values...)
 }
 
 // 새 게시글 작성하기
@@ -256,14 +195,10 @@ func (r *TsboardBoardEditRepository) InsertPost(param models.EditorWriteParamete
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
 	status := utils.GetContentStatus(param.IsNotice, param.IsSecret)
-	result, _ := stmt.Exec(
+	result, _ := r.db.Exec(
+		query,
 		param.BoardUid,
 		param.UserUid,
 		param.CategoryUid,
@@ -286,26 +221,16 @@ func (r *TsboardBoardEditRepository) InsertPost(param models.EditorWriteParamete
 func (r *TsboardBoardEditRepository) InsertPostHashtag(boardUid uint, postUid uint, hashtagUid uint) {
 	query := fmt.Sprintf("INSERT INTO %s%s (board_uid, post_uid, hashtag_uid) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_POST_HASHTAG)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(boardUid, postUid, hashtagUid)
+	r.db.Exec(query, boardUid, postUid, hashtagUid)
 }
 
 // 신규 태그 저장하기
 func (r *TsboardBoardEditRepository) InsertTag(boardUid uint, postUid uint, tag string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (name, used, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_HASHTAG)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	result, _ := stmt.Exec(tag, 1, time.Now().UnixMilli())
+	result, _ := r.db.Exec(query, tag, 1, time.Now().UnixMilli())
 	hashtagUid, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED
@@ -317,28 +242,17 @@ func (r *TsboardBoardEditRepository) InsertTag(boardUid uint, postUid uint, tag 
 func (r *TsboardBoardEditRepository) RemoveInsertedImage(imageUid uint, actionUserUid uint) string {
 	query := fmt.Sprintf("SELECT user_uid, path FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_IMAGE)
-	stmtSelect, err := r.db.Prepare(query)
-	if err != nil {
-		return ""
-	}
-	defer stmtSelect.Close()
 
 	var userUid uint
 	var path string
-	stmtSelect.QueryRow(imageUid).Scan(&userUid, &path)
+	r.db.QueryRow(query, imageUid).Scan(&userUid, &path)
 
 	if actionUserUid != userUid {
 		return ""
 	}
 
 	query = fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_IMAGE)
-	stmtDelete, err := r.db.Prepare(query)
-	if err != nil {
-		return path
-	}
-	defer stmtDelete.Close()
-
-	stmtDelete.Exec(imageUid)
+	r.db.Exec(query, imageUid)
 	return path
 }
 
@@ -346,14 +260,10 @@ func (r *TsboardBoardEditRepository) RemoveInsertedImage(imageUid uint, actionUs
 func (r *TsboardBoardEditRepository) UpdatePost(param models.EditorModifyParameter) {
 	query := fmt.Sprintf(`UPDATE %s%s SET category_uid = ?, title = ?, content = ?, modified = ?, status = ? 
 												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
 	status := utils.GetContentStatus(param.IsNotice, param.IsSecret)
-	stmt.Exec(
+	r.db.Exec(
+		query,
 		param.CategoryUid,
 		param.Title,
 		param.Content,
@@ -367,11 +277,6 @@ func (r *TsboardBoardEditRepository) UpdatePost(param models.EditorModifyParamet
 func (r *TsboardBoardEditRepository) UpdateTag(hashtagUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET used = used + 1 WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_HASHTAG)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(hashtagUid)
+	r.db.Exec(query, hashtagUid)
 }

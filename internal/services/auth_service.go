@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -20,9 +19,9 @@ type AuthService interface {
 	CheckUserPermission(userUid uint, action models.UserAction) bool
 	GetMyInfo(userUid uint) models.MyInfoResult
 	Logout(userUid uint)
-	ResetPassword(id string, r *http.Request) bool
+	ResetPassword(id string, hostname string) bool
 	Signin(id string, pw string) models.MyInfoResult
-	Signup(id string, pw string, name string, r *http.Request) (models.SignupResult, error)
+	Signup(param models.SignupParameter) (models.SignupResult, error)
 	VerifyEmail(param models.VerifyParameter) bool
 }
 
@@ -61,7 +60,7 @@ func (s *TsboardAuthService) Logout(userUid uint) {
 }
 
 // 비밀번호 초기화하기
-func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
+func (s *TsboardAuthService) ResetPassword(id string, hostname string) bool {
 	userUid := s.repos.Auth.FindUserUidById(id)
 	if userUid < 1 {
 		return false
@@ -77,11 +76,11 @@ func (s *TsboardAuthService) ResetPassword(id string, r *http.Request) bool {
 	} else {
 		code := uuid.New().String()[:6]
 		verifyUid := s.repos.Auth.SaveVerificationCode(id, code)
-		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", r.Host)
+		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", hostname)
 		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
 		body = strings.ReplaceAll(body, "{{Code}}", code)
 		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", r.Host)
+		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", hostname)
 		return utils.SendMail(id, title, body)
 	}
 	return true
@@ -112,36 +111,36 @@ func (s *TsboardAuthService) Signin(id string, pw string) models.MyInfoResult {
 }
 
 // 신규 회원 바로 가입 혹은 인증 메일 발송
-func (s *TsboardAuthService) Signup(id string, pw string, name string, r *http.Request) (models.SignupResult, error) {
-	isDupId := s.repos.User.IsEmailDuplicated(id)
+func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.SignupResult, error) {
+	isDupId := s.repos.User.IsEmailDuplicated(param.ID)
 	signupResult := models.SignupResult{}
 	var target uint
 	if isDupId {
-		return signupResult, fmt.Errorf("email(%s) is already in use", id)
+		return signupResult, fmt.Errorf("email(%s) is already in use", param.ID)
 	}
 
-	name = utils.Escape(name)
+	name := utils.Escape(param.Name)
 	isDupName := s.repos.User.IsNameDuplicated(name)
 	if isDupName {
 		return signupResult, fmt.Errorf("name(%s) is already in use", name)
 	}
 
 	if configs.Env.GmailAppPassword == "" {
-		target = s.repos.User.InsertNewUser(id, pw, name)
+		target = s.repos.User.InsertNewUser(param.ID, param.Password, name)
 		if target < 1 {
 			return signupResult, fmt.Errorf("failed to add a new user")
 		}
 	} else {
 		code := uuid.New().String()[:6]
-		body := strings.ReplaceAll(templates.VerificationBody, "{{Host}}", r.Host)
+		body := strings.ReplaceAll(templates.VerificationBody, "{{Host}}", param.Hostname)
 		body = strings.ReplaceAll(body, "{{Name}}", name)
 		body = strings.ReplaceAll(body, "{{Code}}", code)
 		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-		subject := fmt.Sprintf("[%s] Your verification code: %s", r.Host, code)
+		subject := fmt.Sprintf("[%s] Your verification code: %s", param.Hostname, code)
 
-		result := utils.SendMail(id, subject, body)
+		result := utils.SendMail(param.ID, subject, body)
 		if result {
-			target = s.repos.Auth.SaveVerificationCode(id, code)
+			target = s.repos.Auth.SaveVerificationCode(param.ID, code)
 		}
 	}
 

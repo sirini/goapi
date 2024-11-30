@@ -2,12 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
@@ -27,42 +27,42 @@ func Abs(n int) int {
 }
 
 // 글 작성/수정 시 파라미터 검사 및 타입 변환
-func CheckWriteParameters(r *http.Request) (models.EditorWriteParameter, error) {
+func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 	result := models.EditorWriteParameter{}
-	actionUserUid := GetUserUidFromToken(r)
-	boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+	actionUserUid := ExtractUserUid(c.Get("Authorization"))
+	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return result, err
 	}
-	categoryUid, err := strconv.ParseUint(r.FormValue("categoryUid"), 10, 32)
+	categoryUid, err := strconv.ParseUint(c.FormValue("categoryUid"), 10, 32)
 	if err != nil {
 		return result, err
 	}
-	isNotice, err := strconv.ParseBool(r.FormValue("isNotice"))
+	isNotice, err := strconv.ParseBool(c.FormValue("isNotice"))
 	if err != nil {
 		return result, err
 	}
-	isSecret, err := strconv.ParseBool(r.FormValue("isSecret"))
+	isSecret, err := strconv.ParseBool(c.FormValue("isSecret"))
 	if err != nil {
 		return result, err
 	}
-	title := Escape(r.FormValue("title"))
+	title := Escape(c.FormValue("title"))
 	if len(title) < 2 {
 		return result, fmt.Errorf("invalid title, too short")
 	}
-	content := Sanitize(r.FormValue("content"))
+	content := Sanitize(c.FormValue("content"))
 	if len(content) < 2 {
 		return result, fmt.Errorf("invalid content, too short")
 	}
-	tags := r.FormValue("tags")
+	tags := c.FormValue("tags")
 	tagArr := strings.Split(tags, ",")
 
 	fileSizeLimit, _ := strconv.ParseInt(configs.Env.FileSizeLimit, 10, 32)
-	err = r.ParseMultipartForm(fileSizeLimit)
+	form, err := c.MultipartForm()
 	if err != nil {
 		return result, err
 	}
-	attachments := r.MultipartForm.File["attachments"]
+	attachments := form.File["attachments"]
 	if len(attachments) > 0 {
 		var totalFileSize int64
 		for _, fileHeader := range attachments {

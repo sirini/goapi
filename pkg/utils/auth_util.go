@@ -1,19 +1,20 @@
 package utils
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirini/goapi/internal/configs"
-	"github.com/sirini/goapi/pkg/models"
+	"golang.org/x/oauth2"
 )
 
 // 구조체를 JSON 형식의 문자열로 변환
@@ -51,22 +52,12 @@ func GenerateRefreshToken(months int) (string, error) {
 	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
 }
 
-// (AuthMiddleware 통과 후) 토큰에서 사용자 고유 번호 추출
-func GetUserUidFromToken(r *http.Request) uint {
-	userUid, ok := r.Context().Value(models.JwtClaimsKey).(uint)
-	if !ok {
+// 헤더로 넘어온 Authorization 문자열 추출해서 사용자 고유 번호 반환
+func ExtractUserUid(authorization string) uint {
+	if authorization == "" {
 		return 0
 	}
-	return userUid
-}
-
-// AuthMiddleware 생략하고 토큰이 있을 시 사용자 고유 번호 추출
-func FindUserUidFromHeader(r *http.Request) uint {
-	tokenStr := r.Header.Get("Authorization")
-	if tokenStr == "" {
-		return 0
-	}
-	parts := strings.Split(tokenStr, " ")
+	parts := strings.Split(authorization, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
 		return 0
 	}
@@ -93,15 +84,14 @@ func IsValidEmail(email string) bool {
 }
 
 // 리프레시 토큰을 쿠키에 저장
-func SaveCookie(w http.ResponseWriter, name string, value string, days int) {
-	cookie := &http.Cookie{
+func SaveCookie(c fiber.Ctx, name string, value string, days int) {
+	c.Cookie(&fiber.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		MaxAge:   86400 * days,
-		HttpOnly: true,
-	}
-	http.SetCookie(w, cookie)
+		HTTPOnly: true,
+	})
 }
 
 // JWT 토큰 검증
@@ -117,6 +107,23 @@ func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 	}
 	if !token.Valid {
 		return nil, fmt.Errorf("invalid token")
+	}
+	return token, nil
+}
+
+// 상태 검사 및 토큰 교환 후 토큰 반환
+func OAuth2ExchangeToken(c fiber.Ctx, cfg oauth2.Config) (*oauth2.Token, error) {
+	cookie := c.Cookies("tsboard_oauth_state")
+	if cookie != c.FormValue("state") {
+		c.Redirect().To(configs.Env.URL)
+		return nil, fmt.Errorf("empty oauth state from cookie")
+	}
+
+	code := c.FormValue("code")
+	token, err := cfg.Exchange(context.Background(), code)
+	if err != nil {
+		c.Redirect().To(configs.Env.URL)
+		return nil, err
 	}
 	return token, nil
 }

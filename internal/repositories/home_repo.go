@@ -66,13 +66,8 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomeP
 												FROM %s%s WHERE status != ? %s AND %s LIKE ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +92,8 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.Home
 												FROM %s%s WHERE status != ? %s AND %s = ?
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(models.CONTENT_REMOVED, uid, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, uid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +115,8 @@ func (r *TsboardHomeRepository) FindLatestPostsByTag(param models.HomePostParame
 												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?) 
 												ORDER BY p.uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, whereBoard, tagUidStr)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(models.CONTENT_REMOVED, param.SinceUid, tagCount, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, tagCount, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -146,13 +131,8 @@ func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.Boar
 
 	query := fmt.Sprintf("SELECT id, type, use_category FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return settings
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(boardUid).Scan(&settings.Id, &settings.Type, &useCategory)
+	r.db.QueryRow(query, boardUid).Scan(&settings.Id, &settings.Type, &useCategory)
 	settings.UseCategory = useCategory > 0
 	return settings
 }
@@ -161,13 +141,8 @@ func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.Boar
 func (r *TsboardHomeRepository) GetBoardIDs() []string {
 	var result []string
 	query := fmt.Sprintf("SELECT id FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return result
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query()
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil
 	}
@@ -207,13 +182,8 @@ func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]
 func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error) {
 	var groups []models.HomeSidebarGroupResult
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query()
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +210,7 @@ func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupR
 		}
 
 		group := models.HomeSidebarGroupResult{}
-		group.Group = groupUid
+		group.Group = groupId
 		group.Boards = boards
 		groups = append(groups, group)
 	}
@@ -258,13 +228,8 @@ func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) (
 												FROM %s%s WHERE status != ? %s AND uid < ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -276,10 +241,6 @@ func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) (
 func (r *TsboardHomeRepository) InsertVisitorLog(userUid uint) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, timestamp) VALUES (?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_ACCESS)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(userUid, time.Now().UnixMilli())
+
+	r.db.Exec(query, userUid, time.Now().UnixMilli())
 }

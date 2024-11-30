@@ -1,15 +1,14 @@
 package routers
 
 import (
-	"net/http"
-
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/middlewares"
-	"github.com/sirini/goapi/internal/services"
 )
 
-// 알림 확인용 라우터 셋업
-func SetupLoggedInNotiRouter(mux *http.ServeMux, s *services.Service) {
-	mux.Handle("GET /goapi/home/load/notification", middlewares.AuthMiddleware(handlers.LoadNotiListHandler(s)))
-	mux.Handle("PATCH /goapi/home/checked/notification", middlewares.AuthMiddleware(handlers.CheckedAllNoti(s)))
+// 알림 관련 라우터들 등록
+func RegisterNotiRouters(api fiber.Router, h *handlers.Handler) {
+	noti := api.Group("/noti")
+	noti.Get("/load", h.Noti.LoadNotiListHandler, middlewares.JWTMiddleware())
+	noti.Patch("/checked", h.Noti.CheckedAllNotiHandler, middlewares.JWTMiddleware())
 }

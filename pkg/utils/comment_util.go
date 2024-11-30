@@ -2,25 +2,25 @@ package utils
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/pkg/models"
 )
 
 // 새 댓글 및 답글 작성 시 파라미터 체크
-func CheckCommentParameters(r *http.Request) (models.CommentWriteParameter, error) {
+func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
 	result := models.CommentWriteParameter{}
-	actionUserUid := GetUserUidFromToken(r)
-	boardUid, err := strconv.ParseUint(r.FormValue("boardUid"), 10, 32)
+	actionUserUid := ExtractUserUid(c.Get("Authorization"))
+	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return result, err
 	}
-	postUid, err := strconv.ParseUint(r.FormValue("postUid"), 10, 32)
+	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
 		return result, err
 	}
-	content := Sanitize(r.FormValue("content"))
+	content := Sanitize(c.FormValue("content"))
 	if len(content) < 2 {
 		return result, fmt.Errorf("invalid content, too short")
 	}

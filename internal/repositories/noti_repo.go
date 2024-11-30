@@ -55,26 +55,17 @@ func (r *TsboardNotiRepository) InsertNotification(param models.InsertNotificati
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(to_uid, from_uid, type, post_uid, comment_uid, checked, timestamp)
 												VALUES (?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_NOTI)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	stmt.Exec(param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid, param.CommentUid, 0, time.Now().UnixMilli())
+
+	r.db.Exec(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid, param.CommentUid, 0, time.Now().UnixMilli())
 }
 
 // 중복 알림인지 확인
 func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParameter) bool {
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
 												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
 	var uid uint
-	stmt.QueryRow(param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&uid)
+	r.db.QueryRow(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&uid)
 	return uid > 0
 }
 
@@ -83,13 +74,8 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
 												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_NOTI)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.Query(userUid, limit)
+	rows, err := r.db.Query(query, userUid, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +136,6 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint, limit uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE to_uid = ? LIMIT ?",
 		configs.Env.Prefix, models.TABLE_NOTI)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(1, userUid, limit)
+	r.db.Exec(query, 1, userUid, limit)
 }

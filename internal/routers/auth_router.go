@@ -1,66 +1,31 @@
 package routers
 
 import (
-	"fmt"
-	"net/http"
-
-	"github.com/sirini/goapi/internal/configs"
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/middlewares"
-	"github.com/sirini/goapi/internal/services"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
-// 사용자 인증 관련 비 로그인 라우터 셋업
-func SetupAuthRouter(mux *http.ServeMux, s *services.Service) {
-	mux.HandleFunc("POST /goapi/auth/signin", handlers.SigninHandler(s))
-	mux.HandleFunc("POST /goapi/auth/signup", handlers.SignupHandler(s))
-	mux.HandleFunc("POST /goapi/auth/reset/password", handlers.ResetPasswordHandler(s))
-}
+// 사용자 인증 관련 라우터들 등록
+func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
+	auth := api.Group("/auth")
+	auth.Post("/signin", h.Auth.SigninHandler)
+	auth.Post("/signup", h.Auth.SignupHandler)
+	auth.Post("/reset/password", h.Auth.ResetPasswordHandler)
+	auth.Post("/checkemail", h.Auth.CheckEmailHandler)
+	auth.Post("/checkname", h.Auth.CheckNameHandler)
+	auth.Post("/verify", h.Auth.VerifyCodeHandler)
 
-// 사용자 정보 가져오기 등 로그인 필요한 라우터 셋업
-func SetupLoggedInAuthRouter(mux *http.ServeMux, s *services.Service) {
-	mux.Handle("GET /goapi/auth/load", middlewares.AuthMiddleware(handlers.LoadMyInfoHandler(s)))
-	mux.Handle("PATCH /goapi/auth/update", middlewares.AuthMiddleware(handlers.UpdateMyInfoHandler(s)))
-	mux.Handle("POST /goapi/auth/logout", middlewares.AuthMiddleware(handlers.LogoutHandler(s)))
-}
+	auth.Get("/load", h.Auth.LoadMyInfoHandler, middlewares.JWTMiddleware())
+	auth.Patch("/update", h.Auth.UpdateMyInfoHandler, middlewares.JWTMiddleware())
+	auth.Post("/logout", h.Auth.LogoutHandler, middlewares.JWTMiddleware())
 
-// OAuth 사용자 로그인 관련 라우터 셋업
-func SetupOAuthRouter(mux *http.ServeMux, s *services.Service) {
-	cfgGoogle := oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/google/callback", configs.Env.URL),
-		ClientID:     configs.Env.OAuthGoogleID,
-		ClientSecret: configs.Env.OAuthGoogleSecret,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
-	}
-	cfgNaver := oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.URL),
-		ClientID:     configs.Env.OAuthNaverID,
-		ClientSecret: configs.Env.OAuthNaverSecret,
-		Scopes:       []string{},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://nid.naver.com/oauth2.0/authorize",
-			TokenURL: "https://nid.naver.com/oauth2.0/token",
-		},
-	}
-	cfgKakao := oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/kakao/callback", configs.Env.URL),
-		ClientID:     configs.Env.OAuthKakaoID,
-		ClientSecret: configs.Env.OAuthKakaoSecret,
-		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://kauth.kakao.com/oauth/authorize",
-			TokenURL: "https://kauth.kakao.com/oauth/token",
-		},
-	}
-
-	mux.HandleFunc("GET /goapi/auth/google/request", handlers.GoogleOAuthRequestHandler(s, cfgGoogle))
-	mux.HandleFunc("GET /goapi/auth/google/callback", handlers.GoogleOAuthCallbackHandler(s, cfgGoogle))
-	mux.HandleFunc("GET /goapi/auth/naver/request", handlers.NaverOAuthRequestHandler(s))
-	mux.HandleFunc("GET /goapi/auth/naver/callback", handlers.NaverOAuthCallbackHandler(s, cfgNaver))
-	mux.HandleFunc("GET /goapi/auth/kakao/request", handlers.KakaoOAuthRequestHandler(s, cfgKakao))
-	mux.HandleFunc("GET /goapi/auth/kakao/callback", handlers.KakaoOAuthCallbackHandler(s, cfgKakao))
-	mux.HandleFunc("GET /goapi/auth/oauth/userinfo", handlers.RequestUserInfoHandler(s))
+	// OAuth용 라우터들
+	auth.Get("/google/request", h.OAuth2.GoogleOAuthRequestHandler)
+	auth.Get("/google/callback", h.OAuth2.GoogleOAuthCallbackHandler)
+	auth.Get("/naver/request", h.OAuth2.NaverOAuthRequestHandler)
+	auth.Get("/naver/callback", h.OAuth2.NaverOAuthCallbackHandler)
+	auth.Get("/kakao/request", h.OAuth2.KakaoOAuthRequestHandler)
+	auth.Get("/kakao/callback", h.OAuth2.KakaoOAuthCallbackHandler)
+	auth.Get("/oauth/userinfo", h.OAuth2.RequestUserInfoHandler)
 }

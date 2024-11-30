@@ -1,29 +1,21 @@
 package utils
 
 import (
-	"encoding/json"
-	"net/http"
-
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/pkg/models"
 )
 
-// JSON 응답을 처리하는 헬퍼
-func ResponseJSON(w http.ResponseWriter, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(payload)
-}
-
-// 에러 메시지 JSON 응답 처리용 헬퍼
-func Error(w http.ResponseWriter, message string) {
-	ResponseJSON(w, models.ResponseCommon{
+// 에러 메시지에 대한 응답
+func Err(c fiber.Ctx, msg string) error {
+	return c.JSON(models.ResponseCommon{
 		Success: false,
-		Error:   message,
+		Error:   msg,
 	})
 }
 
-// 성공 메시지 JSON 응답 처리용 헬퍼
-func Success(w http.ResponseWriter, result interface{}) {
-	ResponseJSON(w, models.ResponseCommon{
+// 성공 메시지 및 데이터 반환
+func Ok(c fiber.Ctx, result interface{}) error {
+	return c.JSON(models.ResponseCommon{
 		Success: true,
 		Result:  result,
 	})

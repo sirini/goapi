@@ -1,35 +1,31 @@
 package routers
 
 import (
-	"net/http"
-
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/middlewares"
-	"github.com/sirini/goapi/internal/services"
 )
 
-// 일반 게시판 라우터들 등록하기
-func SetupBoardRouter(mux *http.ServeMux, s *services.Service) {
-	mux.HandleFunc("GET /goapi/board/list", handlers.BoardListHandler(s))
-	mux.HandleFunc("GET /goapi/board/view", handlers.BoardViewHandler(s))
-	mux.HandleFunc("GET /goapi/board/photo/list", handlers.GalleryListHandler(s))
-	mux.HandleFunc("GET /goapi/board/photo/view", handlers.GalleryLoadPhotoHandler(s))
-}
+// 게시판과 상호작용에 필요한 라우터들 등록
+func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
+	board := api.Group("/board")
+	board.Get("/list", h.Board.BoardListHandler)
+	board.Get("/view", h.Board.BoardViewHandler)
+	board.Get("/photo/list", h.Board.GalleryListHandler)
+	board.Get("/photo/view", h.Board.GalleryLoadPhotoHandler)
 
-// 로그인이 필요한 게시판 라우터들 등록하기
-func SetupLoggedInBoardRouter(mux *http.ServeMux, s *services.Service) {
-	mux.Handle("GET /goapi/board/download", middlewares.AuthMiddleware(handlers.DownloadHandler(s)))
-	mux.Handle("GET /goapi/board/config", middlewares.AuthMiddleware(handlers.GetEditorConfigHandler(s)))
-	mux.Handle("GET /goapi/board/move/list", middlewares.AuthMiddleware(handlers.ListForMoveHandler(s)))
-	mux.Handle("PATCH /goapi/board/like/post", middlewares.AuthMiddleware(handlers.LikePostHandler(s)))
-	mux.Handle("GET /goapi/board/load/images", middlewares.AuthMiddleware(handlers.LoadInsertImageHandler(s)))
-	mux.Handle("GET /goapi/board/load/post", middlewares.AuthMiddleware(handlers.LoadPostHandler(s)))
-	mux.Handle("PUT /goapi/board/move/apply", middlewares.AuthMiddleware(handlers.MovePostHandler(s)))
-	mux.Handle("PATCH /goapi/board/modify", middlewares.AuthMiddleware(handlers.ModifyPostHandler(s)))
-	mux.Handle("DELETE /goapi/board/remove/attached", middlewares.AuthMiddleware(handlers.RemoveAttachedFileHandler(s)))
-	mux.Handle("DELETE /goapi/board/remove/post", middlewares.AuthMiddleware(handlers.RemovePostHandler(s)))
-	mux.Handle("DELETE /goapi/board/remove/image", middlewares.AuthMiddleware(handlers.RemoveInsertImageHandler(s)))
-	mux.Handle("GET /goapi/board/tag/suggestion", middlewares.AuthMiddleware(handlers.SuggestionHashtagHandler(s)))
-	mux.Handle("POST /goapi/board/upload/images", middlewares.AuthMiddleware(handlers.UploadInsertImageHandler(s)))
-	mux.Handle("POST /goapi/board/write", middlewares.AuthMiddleware(handlers.WritePostHandler(s)))
+	board.Get("/download", h.Board.DownloadHandler, middlewares.JWTMiddleware())
+	board.Get("/config", h.Board.GetEditorConfigHandler, middlewares.JWTMiddleware())
+	board.Get("/move/list", h.Board.ListForMoveHandler, middlewares.JWTMiddleware())
+	board.Patch("/like/post", h.Board.LikePostHandler, middlewares.JWTMiddleware())
+	board.Get("/load/images", h.Board.LoadInsertImageHandler, middlewares.JWTMiddleware())
+	board.Get("/load/post", h.Board.LoadPostHandler, middlewares.JWTMiddleware())
+	board.Put("/move/apply", h.Board.MovePostHandler, middlewares.JWTMiddleware())
+	board.Patch("/modify", h.Board.ModifyPostHandler, middlewares.JWTMiddleware())
+	board.Delete("/remove/attached", h.Board.RemoveAttachedFileHandler, middlewares.JWTMiddleware())
+	board.Delete("/remove/post", h.Board.RemovePostHandler, middlewares.JWTMiddleware())
+	board.Delete("/remove/image", h.Board.RemoveInsertImageHandler, middlewares.JWTMiddleware())
+	board.Get("/tag/suggestion", h.Board.SuggestionHashtagHandler, middlewares.JWTMiddleware())
+	board.Post("/upload/images", h.Board.UploadInsertImageHandler, middlewares.JWTMiddleware())
+	board.Post("/write", h.Board.WritePostHandler, middlewares.JWTMiddleware())
 }

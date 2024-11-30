@@ -3,11 +3,11 @@ package handlers
 import (
 	"fmt"
 	"html/template"
-	"net/http"
 	"strconv"
 	texttemplate "text/template"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
@@ -15,9 +15,28 @@ import (
 	"github.com/sirini/goapi/pkg/utils"
 )
 
+type HomeHandler interface {
+	ShowVersionHandler(c fiber.Ctx) error
+	CountingVisitorHandler(c fiber.Ctx) error
+	LoadSidebarLinkHandler(c fiber.Ctx) error
+	LoadAllPostsHandler(c fiber.Ctx) error
+	LoadMainPageHandler(c fiber.Ctx) error
+	LoadPostsByIdHandler(c fiber.Ctx) error
+	LoadSitemapHandler(c fiber.Ctx) error
+}
+
+type TsboardHomeHandler struct {
+	service *services.Service
+}
+
+// services.Service 주입 받기
+func NewTsboardHomeHandler(service *services.Service) *TsboardHomeHandler {
+	return &TsboardHomeHandler{service: service}
+}
+
 // 메세지 출력 테스트용 핸들러
-func ShowVersionHandler(w http.ResponseWriter, r *http.Request) {
-	utils.Success(w, &models.HomeVisitResult{
+func (h *TsboardHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
+	return utils.Ok(c, &models.HomeVisitResult{
 		Success:         true,
 		OfficialWebsite: "tsboard.dev",
 		Version:         configs.Env.Version,
@@ -27,161 +46,138 @@ func ShowVersionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // 방문자 조회수 올리기 핸들러
-func CountingVisitorHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userUid, err := strconv.ParseUint(r.FormValue("userUid"), 10, 32)
-		if err != nil {
-			userUid = 0
-		}
-		s.Home.AddVisitorLog(uint(userUid))
-		utils.Success(w, nil)
+func (h *TsboardHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
+	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	if err != nil {
+		userUid = 0
 	}
+	h.service.Home.AddVisitorLog(uint(userUid))
+	return utils.Ok(c, nil)
 }
 
 // 홈화면의 사이드바에 사용할 게시판 링크들 가져오기 핸들러
-func LoadSidebarLinkHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		links, err := s.Home.GetSidebarLinks()
-		if err != nil {
-			utils.Error(w, "Unable to load group/board links")
-			return
-		}
-		utils.Success(w, links)
+func (h *TsboardHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
+	links, err := h.service.Home.GetSidebarLinks()
+	if err != nil {
+		return utils.Err(c, "Unable to load group/board links")
 	}
+	return utils.Ok(c, links)
 }
 
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
-func LoadAllPostsHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		actionUserUid := utils.FindUserUidFromHeader(r)
-		sinceUid64, err := strconv.ParseUint(r.FormValue("sinceUid"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid since uid, not a valid number")
-			return
-		}
-		bunch, err := strconv.ParseUint(r.FormValue("bunch"), 10, 32)
-		if err != nil || bunch < 1 || bunch > 100 {
-			utils.Error(w, "Invalid bunch, not a valid number")
-			return
-		}
-		option, err := strconv.ParseUint(r.FormValue("option"), 10, 32)
-		if err != nil {
-			utils.Error(w, "Invalid option, not a valid number")
-			return
-		}
-		keyword := utils.Escape(r.FormValue("keyword"))
-
-		sinceUid := uint(sinceUid64)
-		if sinceUid < 1 {
-			sinceUid = s.Board.GetMaxUid()
-		}
-		parameter := models.HomePostParameter{
-			SinceUid: sinceUid,
-			Bunch:    uint(bunch),
-			Option:   models.Search(option),
-			Keyword:  keyword,
-			UserUid:  uint(actionUserUid),
-			BoardUid: 0,
-		}
-		result, err := s.Home.GetLatestPosts(parameter)
-		if err != nil {
-			utils.Error(w, "Failed to get latest posts")
-			return
-		}
-		utils.Success(w, result)
+func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid since uid, not a valid number")
 	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil || bunch < 1 || bunch > 100 {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	keyword := utils.Escape(c.FormValue("keyword"))
+
+	sinceUid := uint(sinceUid64)
+	if sinceUid < 1 {
+		sinceUid = h.service.Board.GetMaxUid()
+	}
+	parameter := models.HomePostParameter{
+		SinceUid: sinceUid,
+		Bunch:    uint(bunch),
+		Option:   models.Search(option),
+		Keyword:  keyword,
+		UserUid:  uint(actionUserUid),
+		BoardUid: 0,
+	}
+	result, err := h.service.Home.GetLatestPosts(parameter)
+	if err != nil {
+		return utils.Err(c, "Failed to get latest posts")
+	}
+	return utils.Ok(c, result)
 }
 
 // 검색엔진을 위한 메인 페이지 가져오는 핸들러
-func LoadMainPageHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		main := models.HomeMainPage{}
-		main.Version = configs.Env.Version
-		main.PageTitle = configs.Env.Title
-		main.PageUrl = configs.Env.URL
+func (h *TsboardHomeHandler) LoadMainPageHandler(c fiber.Ctx) error {
+	main := models.HomeMainPage{}
+	main.Version = configs.Env.Version
+	main.PageTitle = configs.Env.Title
+	main.PageUrl = configs.Env.URL
 
-		articles, err := s.Home.LoadMainPage(50)
-		if err != nil {
-			http.Error(w, "Failed to load posts from server", http.StatusInternalServerError)
-			return
-		}
-		main.Articles = articles
-
-		w.Header().Set("Content-Type", "text/html")
-		tmpl, err := template.New("main").Parse(templates.MainPageBody)
-		if err != nil {
-			http.Error(w, "Error loading template", http.StatusInternalServerError)
-			return
-		}
-
-		err = tmpl.Execute(w, main)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	articles, err := h.service.Home.LoadMainPage(50)
+	if err != nil {
+		return utils.Err(c, err.Error())
 	}
+	main.Articles = articles
+
+	c.Set("Content-Type", "text/html")
+	tmpl, err := template.New("main").Parse(templates.MainPageBody)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+
+	err = tmpl.Execute(c.Response().BodyWriter(), main)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return nil
 }
 
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
-func LoadPostsByIdHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		actionUserUid := utils.FindUserUidFromHeader(r)
-		id := r.FormValue("id")
-		bunch, err := strconv.ParseUint(r.FormValue("limit"), 10, 32)
-		if err != nil || bunch < 1 || bunch > 100 {
-			utils.Error(w, "Invalid limit, not a valid number")
-			return
-		}
-
-		boardUid := s.Board.GetBoardUid(id)
-		if boardUid < 1 {
-			utils.Error(w, "Invalid board id, unable to find board")
-			return
-		}
-
-		parameter := models.HomePostParameter{
-			SinceUid: s.Board.GetMaxUid() + 1,
-			Bunch:    uint(bunch),
-			Option:   models.SEARCH_NONE,
-			Keyword:  "",
-			UserUid:  uint(actionUserUid),
-			BoardUid: uint(boardUid),
-		}
-		result, err := s.Home.GetLatestPosts(parameter)
-		if err != nil {
-			utils.Error(w, "Failed to get latest posts from specific board")
-			return
-		}
-		utils.Success(w, result)
+func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	id := c.FormValue("id")
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil || bunch < 1 || bunch > 100 {
+		return utils.Err(c, "Invalid limit, not a valid number")
 	}
+
+	boardUid := h.service.Board.GetBoardUid(id)
+	if boardUid < 1 {
+		return utils.Err(c, "Invalid board id, unable to find board")
+	}
+
+	parameter := models.HomePostParameter{
+		SinceUid: h.service.Board.GetMaxUid() + 1,
+		Bunch:    uint(bunch),
+		Option:   models.SEARCH_NONE,
+		Keyword:  "",
+		UserUid:  uint(actionUserUid),
+		BoardUid: uint(boardUid),
+	}
+	result, err := h.service.Home.GetLatestPosts(parameter)
+	if err != nil {
+		return utils.Err(c, "Failed to get latest posts from specific board")
+	}
+	return utils.Ok(c, result)
 }
 
 // 사이트맵 xml 내용 반환하기 핸들러
-func LoadSitemapHandler(s *services.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		urls := []models.HomeSitemapURL{
-			{
-				Loc:        fmt.Sprintf("%s/goapi/seo/main.html", configs.Env.URL),
-				LastMod:    time.Now().Format("2006-01-02"),
-				ChangeFreq: "daily",
-				Priority:   "1.0",
-			},
-		}
-
-		boards := s.Home.GetBoardIDsForSitemap()
-		urls = append(urls, boards...)
-
-		w.Header().Set("Content-Type", "application/xml")
-		tmpl, err := texttemplate.New("sitemap").Parse(templates.SitemapBody)
-		if err != nil {
-			http.Error(w, "Error parsing template", http.StatusInternalServerError)
-			return
-		}
-
-		err = tmpl.Execute(w, urls)
-		if err != nil {
-			http.Error(w, "Error executing template", http.StatusInternalServerError)
-			return
-		}
+func (h *TsboardHomeHandler) LoadSitemapHandler(c fiber.Ctx) error {
+	urls := []models.HomeSitemapURL{
+		{
+			Loc:        fmt.Sprintf("%s/goapi/seo/main.html", configs.Env.URL),
+			LastMod:    time.Now().Format("2006-01-02"),
+			ChangeFreq: "daily",
+			Priority:   "1.0",
+		},
 	}
+
+	boards := h.service.Home.GetBoardIDsForSitemap()
+	urls = append(urls, boards...)
+
+	c.Set("Content-Type", "application/xml")
+	tmpl, err := texttemplate.New("sitemap").Parse(templates.SitemapBody)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+
+	err = tmpl.Execute(c.Response().BodyWriter(), urls)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return nil
 }

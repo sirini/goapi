@@ -42,14 +42,9 @@ func NewTsboardAuthRepository(db *sql.DB) *TsboardAuthRepository {
 // 관리자 권한 확인하기
 func (r *TsboardAuthRepository) CheckAdminPermission(table models.Table, userUid uint) bool {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE admin_uid = ? LIMIT 1", configs.Env.Prefix, table)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
 	var uid uint
-	err = stmt.QueryRow(userUid).Scan(&uid)
+	err := r.db.QueryRow(query, userUid).Scan(&uid)
 	if err == sql.ErrNoRows {
 		return false
 	} else if err != nil {
@@ -78,14 +73,9 @@ func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint
 func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.UserAction) bool {
 	query := fmt.Sprintf("SELECT %s AS action FROM %s%s WHERE user_uid = ? LIMIT 1",
 		action.String(), configs.Env.Prefix, models.TABLE_USER_PERM)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
 	var actionValue uint8
-	err = stmt.QueryRow(userUid).Scan(&actionValue)
+	err := r.db.QueryRow(query, userUid).Scan(&actionValue)
 	if err == sql.ErrNoRows {
 		return true // 별도 기록이 없다면 기본 허용
 	}
@@ -99,13 +89,8 @@ func (r *TsboardAuthRepository) CheckVerificationCode(param models.VerifyParamet
 
 	query := fmt.Sprintf("SELECT code, timestamp FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return false
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(param.Target).Scan(&code, &timestamp)
+	err := r.db.QueryRow(query, param.Target).Scan(&code, &timestamp)
 	if err == sql.ErrNoRows {
 		return false
 	}
@@ -126,13 +111,8 @@ func (r *TsboardAuthRepository) CheckVerificationCode(param models.VerifyParamet
 func (r *TsboardAuthRepository) ClearRefreshToken(userUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec("", time.Now().UnixMilli(), userUid)
+	r.db.Exec(query, "", time.Now().UnixMilli(), userUid)
 }
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
@@ -140,14 +120,9 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfo
 	info := models.UserInfoResult{}
 	query := fmt.Sprintf(`SELECT name, profile, level, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return info, err
-	}
-	defer stmt.Close()
 
 	var blocked uint
-	err = stmt.QueryRow(userUid).Scan(
+	err := r.db.QueryRow(query, userUid).Scan(
 		&info.Name, &info.Profile, &info.Level, &info.Signature, &info.Signup, &info.Signin, &blocked)
 	if err != nil {
 		return info, err
@@ -164,13 +139,8 @@ func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) models.My
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup 
 												FROM %s%s WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return info
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(id, pw).Scan(&info.Uid, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup)
+	err := r.db.QueryRow(query, id, pw).Scan(&info.Uid, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup)
 	if err == sql.ErrNoRows {
 		return info
 	}
@@ -187,13 +157,8 @@ func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResul
 	info := models.MyInfoResult{}
 	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return info
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(userUid).Scan(&info.Uid, &info.Id, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup, &info.Signin, &info.Blocked)
+	err := r.db.QueryRow(query, userUid).Scan(&info.Uid, &info.Id, &info.Name, &info.Profile, &info.Level, &info.Point, &info.Signature, &info.Signup, &info.Signin, &info.Blocked)
 	if err == sql.ErrNoRows {
 		return info
 	}
@@ -206,13 +171,8 @@ func (r *TsboardAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, s
 	var id, code string
 	query := fmt.Sprintf("SELECT email, code FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return id, code
-	}
-	defer stmt.Close()
 
-	stmt.QueryRow(verifyUid).Scan(&id, &code)
+	r.db.QueryRow(query, verifyUid).Scan(&id, &code)
 	return id, code
 }
 
@@ -220,13 +180,8 @@ func (r *TsboardAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, s
 func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 	var userUid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(id).Scan(&userUid)
+	err := r.db.QueryRow(query, id).Scan(&userUid)
 	if err != nil {
 		return models.FAILED
 	}
@@ -239,14 +194,9 @@ func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken stri
 	hashed := utils.GetHashedString(refreshToken)
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
 	var uid uint
-	err = stmt.QueryRow(userUid).Scan(&uid)
+	err := r.db.QueryRow(query, userUid).Scan(&uid)
 
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
@@ -261,26 +211,16 @@ func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken stri
 func (r *TsboardAuthRepository) InsertRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(userUid, token, time.Now().UnixMilli())
+	r.db.Exec(query, userUid, token, time.Now().UnixMilli())
 }
 
 // 인증코드 추가하기
 func (r *TsboardAuthRepository) InsertVerificationCode(id string, code string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (email, code, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	result, _ := stmt.Exec(id, code, time.Now().UnixMilli())
+	result, _ := r.db.Exec(query, id, code, time.Now().UnixMilli())
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED
@@ -293,13 +233,8 @@ func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uin
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE email = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return models.FAILED
-	}
-	defer stmt.Close()
 
-	err = stmt.QueryRow(id).Scan(&uid)
+	err := r.db.QueryRow(query, id).Scan(&uid)
 	if err == sql.ErrNoRows {
 		return r.InsertVerificationCode(id, code)
 	}
@@ -311,37 +246,22 @@ func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uin
 func (r *TsboardAuthRepository) UpdateRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("UPDATE %s%s SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(token, time.Now().UnixMilli(), userUid)
+	r.db.Exec(query, token, time.Now().UnixMilli(), userUid)
 }
 
 // 인증코드 업데이트하기
 func (r *TsboardAuthRepository) UpdateVerificationCode(id string, code string, uid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET code = ?, timestamp = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(code, time.Now().UnixMilli(), uid)
+	r.db.Exec(query, code, time.Now().UnixMilli(), uid)
 }
 
 // 로그인 시간 업데이트
 func (r *TsboardAuthRepository) UpdateUserSignin(userUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET signin = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	stmt, err := r.db.Prepare(query)
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 
-	stmt.Exec(time.Now().UnixMilli(), userUid)
+	r.db.Exec(query, time.Now().UnixMilli(), userUid)
 }
