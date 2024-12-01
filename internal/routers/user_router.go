@@ -10,6 +10,7 @@ import (
 func RegisterUserRouters(api fiber.Router, h *handlers.Handler) {
 	user := api.Group("/user")
 	user.Get("/load/user/info", h.User.LoadUserInfoHandler)
+	user.Post("/change/password", h.User.ChangePasswordHandler)
 
 	user.Post("/report", h.User.ReportUserHandler, middlewares.JWTMiddleware())
 	user.Get("/load/permission", h.User.LoadUserPermissionHandler, middlewares.JWTMiddleware())
