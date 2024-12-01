@@ -15,17 +15,8 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board.Get("/photo/view", h.Board.GalleryLoadPhotoHandler)
 
 	board.Get("/download", h.Board.DownloadHandler, middlewares.JWTMiddleware())
-	board.Get("/config", h.Board.GetEditorConfigHandler, middlewares.JWTMiddleware())
 	board.Get("/move/list", h.Board.ListForMoveHandler, middlewares.JWTMiddleware())
 	board.Patch("/like", h.Board.LikePostHandler, middlewares.JWTMiddleware())
-	board.Get("/load/images", h.Board.LoadInsertImageHandler, middlewares.JWTMiddleware())
-	board.Get("/load/post", h.Board.LoadPostHandler, middlewares.JWTMiddleware())
-	board.Put("/move/apply", h.Board.MovePostHandler, middlewares.JWTMiddleware())
-	board.Patch("/modify", h.Board.ModifyPostHandler, middlewares.JWTMiddleware())
-	board.Delete("/remove/attached", h.Board.RemoveAttachedFileHandler, middlewares.JWTMiddleware())
+	board.Put("/move/apply", h.Board.MovePostHandler, middlewares.JWTMiddleware())	
 	board.Delete("/remove/post", h.Board.RemovePostHandler, middlewares.JWTMiddleware())
-	board.Delete("/remove/image", h.Board.RemoveInsertImageHandler, middlewares.JWTMiddleware())
-	board.Get("/tag/suggestion", h.Board.SuggestionHashtagHandler, middlewares.JWTMiddleware())
-	board.Post("/upload/images", h.Board.UploadInsertImageHandler, middlewares.JWTMiddleware())
-	board.Post("/write", h.Board.WritePostHandler, middlewares.JWTMiddleware())
 }

@@ -8,6 +8,7 @@ type Handler struct {
 	Board   BoardHandler
 	Chat    ChatHandler
 	Comment CommentHandler
+	Editor EditorHandler
 	Home    HomeHandler
 	Noti    NotiHandler
 	OAuth2  OAuth2Handler
@@ -21,6 +22,7 @@ func NewHandler(s *services.Service) *Handler {
 		Board:   NewTsboardBoardHandler(s),
 		Chat:    NewTsboardChatHandler(s),
 		Comment: NewTsboardCommentHandler(s),
+		Editor: NewTsboardEditorHandler(s),
 		Home:    NewTsboardHomeHandler(s),
 		Noti:    NewTsboardNotiHandler(s),
 		OAuth2:  NewTsboardOAuth2Handler(s),
