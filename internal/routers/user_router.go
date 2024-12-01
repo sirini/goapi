@@ -9,7 +9,7 @@ import (
 // 사용자 관련 라우터들 등록
 func RegisterUserRouters(api fiber.Router, h *handlers.Handler) {
 	user := api.Group("/user")
-	user.Get("/load/user/info", h.User.LoadUserInfoHandler)
+	user.Get("/load/info", h.User.LoadUserInfoHandler)
 	user.Post("/change/password", h.User.ChangePasswordHandler)
 
 	user.Post("/report", h.User.ReportUserHandler, middlewares.JWTMiddleware())
