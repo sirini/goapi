@@ -53,7 +53,7 @@ var Env Config
 // .env 파일에서 설정 내용 불러오기
 func LoadConfig() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found. Please make sure that this goapi binary is locate in tsboard.git directory.")
+		log.Fatal("No .env file found. Please make sure that this goapi binary is locate in tsboard.git directory.")
 	}
 
 	Env = Config{
@@ -72,7 +72,7 @@ func LoadConfig() {
 		DBName:            getEnv("DB_NAME", "tsboard"),
 		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
-		DBSocket:          getEnv("DB_UNIX_SOCKET", "unix(/var/run/mysqld/mysqld.sock)"),
+		DBSocket:          getEnv("DB_UNIX_SOCKET", ""),
 		DBMaxIdle:         getEnv("DB_MAX_IDLE", "100"),
 		DBMaxOpen:         getEnv("DB_MAX_OPEN", "50"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
