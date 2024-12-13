@@ -15,3 +15,14 @@ func JWTMiddleware() fiber.Handler {
 		return c.Next()
 	}
 }
+
+// 최고 관리자인지 확인하는 미들웨어
+func AdminMiddleware() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		userUid := utils.ExtractUserUid(c.Get("Authorization"))
+		if userUid != 1 {
+			return utils.Err(c, "Unauthorized access, you are not an administrator")
+		}
+		return c.Next()
+	}
+}

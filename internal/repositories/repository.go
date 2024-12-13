@@ -4,6 +4,7 @@ import "database/sql"
 
 // 모든 리포지토리들을 관리
 type Repository struct {
+	Admin     AdminRepository
 	Auth      AuthRepository
 	Board     BoardRepository
 	BoardEdit BoardEditRepository
@@ -19,6 +20,7 @@ type Repository struct {
 func NewRepository(db *sql.DB) *Repository {
 	board := NewTsboardBoardRepository(db)
 	return &Repository{
+		Admin:     NewTsboardAdminRepository(db),
 		Auth:      NewTsboardAuthRepository(db),
 		Board:     board,
 		BoardEdit: NewTsboardBoardEditRepository(db, board),
