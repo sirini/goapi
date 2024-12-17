@@ -23,11 +23,16 @@ type AdminHandler interface {
 	ChangeBoardRowHandler(c fiber.Ctx) error
 	ChangeBoardTypeHandler(c fiber.Ctx) error
 	ChangeBoardWidthHandler(c fiber.Ctx) error
+	ChangeGroupAdminHandler(c fiber.Ctx) error
+	CreateBoardHandler(c fiber.Ctx) error
 	DashboardItemLoadHandler(c fiber.Ctx) error
 	DashboardLatestLoadHandler(c fiber.Ctx) error
 	DashboardStatisticLoadHandler(c fiber.Ctx) error
 	GetAdminCandidatesHandler(c fiber.Ctx) error
+	GetBoardListHandler(c fiber.Ctx) error
+	GroupGeneralLoadHandler(c fiber.Ctx) error
 	RemoveBoardCategoryHandler(c fiber.Ctx) error
+	RemoveBoardHandler(c fiber.Ctx) error
 	UseBoardCategoryHandler(c fiber.Ctx) error
 }
 
@@ -310,6 +315,39 @@ func (h *TsboardAdminHandler) ChangeBoardWidthHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
+// 그룹 관리자 변경하기 핸들러
+func (h *TsboardAdminHandler) ChangeGroupAdminHandler(c fiber.Ctx) error {
+	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid group uid, not a valid number")
+	}
+	newAdminUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid target user uid, not a valid number")
+	}
+
+	err = h.service.Admin.ChangeGroupAdmin(uint(groupUid), uint(newAdminUid))
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return utils.Ok(c, nil)
+}
+
+// 게시판 생성하기 핸들러
+func (h *TsboardAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
+	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid group uid, not a valid number")
+	}
+	newBoardId := c.FormValue("newId")
+	if len(newBoardId) < 2 {
+		return utils.Err(c, "Invalid id, too short")
+	}
+
+	result := h.service.Admin.CreateNewBoard(uint(groupUid), newBoardId)
+	return utils.Ok(c, result)
+}
+
 // 대시보드에서 그룹,게시판,회원 목록들 불러오는 핸들러
 func (h *TsboardAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
@@ -323,29 +361,24 @@ func (h *TsboardAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 
 // 대시보드에서 최근 글,댓글,신고 목록들 불러오는 핸들러
 func (h *TsboardAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
-	// bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
-	// if err != nil {
-	// 	return utils.Err(c, "Invalid limit, not a valid number")
-	// }
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number")
+	}
 
-	//
-	// TODO
-	//
-	//latests := h.service.Admin.GetDashboardLatests(uint(bunch))
-	return utils.Err(c, "TODO")
+	latests := h.service.Admin.GetDashboardLatests(uint(bunch))
+	return utils.Ok(c, latests)
 }
 
 // 대시보드에서 통계 데이터 불러오는 핸들러
 func (h *TsboardAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
-	// bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
-	// if err != nil {
-	// 	return utils.Err(c, "Invalid limit, not a valid number")
-	// }
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number")
+	}
 
-	//
-	// TODO
-	//
-	return utils.Err(c, "TODO")
+	statistics := h.service.Admin.GetDashboardStatistics(uint(bunch))
+	return utils.Ok(c, statistics)
 }
 
 // 관리자 변경 시 후보군 출력하는 핸들러
@@ -366,6 +399,25 @@ func (h *TsboardAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 	return utils.Ok(c, candidates)
 }
 
+// 게시판 아이디 중복 방지를 위해 입력된 아이디와 유사한 목록 출력하는 핸들러
+func (h *TsboardAdminHandler) GetBoardListHandler(c fiber.Ctx) error {
+	boardId := c.FormValue("id")
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number")
+	}
+
+	list := h.service.Admin.GetExistBoardIds(boardId, uint(bunch))
+	return utils.Ok(c, list)
+}
+
+// 그룹 설정 및 소속 게시판 목록 반환하는 핸들러
+func (h *TsboardAdminHandler) GroupGeneralLoadHandler(c fiber.Ctx) error {
+	groupId := c.FormValue("id")
+	config := h.service.Admin.GetGroupConfig(groupId)
+	return utils.Ok(c, config)
+}
+
 // 게시판에 특정 카테고리 제거하기 핸들러
 func (h *TsboardAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
@@ -379,6 +431,20 @@ func (h *TsboardAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
 	}
 
 	h.service.Admin.RemoveBoardCategory(uint(boardUid), uint(catUid))
+	return utils.Ok(c, nil)
+}
+
+// 게시판 삭제하기 핸들러
+func (h *TsboardAdminHandler) RemoveBoardHandler(c fiber.Ctx) error {
+	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid board uid, not a valid number")
+	}
+
+	err = h.service.Admin.RemoveBoard(uint(boardUid))
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
 	return utils.Ok(c, nil)
 }
 

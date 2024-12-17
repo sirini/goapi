@@ -11,6 +11,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	admin := api.Group("/admin")
 	board := admin.Group("/board")
 	dashboard := admin.Group("/dashboard")
+	group := admin.Group("/group")
 
 	bGeneral := board.Group("/general")
 	bGeneral.Post("/add/category", h.Admin.AddBoardCategoryHandler, middlewares.AdminMiddleware())
@@ -40,4 +41,18 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	dLoad.Get("/latest", h.Admin.DashboardLatestLoadHandler, middlewares.AdminMiddleware())
 	dLoad.Get("/statistic", h.Admin.DashboardStatisticLoadHandler, middlewares.AdminMiddleware())
 
+	gGeneral := group.Group("/general")
+	gGeneral.Get("/load", h.Admin.GroupGeneralLoadHandler, middlewares.AdminMiddleware())
+	gGeneral.Get("/candidates", h.Admin.GetAdminCandidatesHandler, middlewares.AdminMiddleware())
+	gGeneral.Get("/boardids", h.Admin.GetBoardListHandler, middlewares.AdminMiddleware())
+	gGeneral.Patch("/change/admin", h.Admin.ChangeGroupAdminHandler, middlewares.AdminMiddleware())
+	gGeneral.Delete("/remove/board", h.Admin.RemoveBoardHandler, middlewares.AdminMiddleware())
+	gGeneral.Post("/create/board", h.Admin.CreateBoardHandler, middlewares.AdminMiddleware())
+
+	gList := group.Group("/list")
+	gList.Get("/load", nil, middlewares.AdminMiddleware())
+	gList.Get("/groupids", nil, middlewares.AdminMiddleware())
+	gList.Post("/create/group", nil, middlewares.AdminMiddleware())
+	gList.Delete("/remove/group", nil, middlewares.AdminMiddleware())
+	gList.Put("/update/group", nil, middlewares.AdminMiddleware())
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -12,12 +13,18 @@ type AdminService interface {
 	ChangeBoardAdmin(boardUid uint, newAdminUid uint) error
 	ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error
 	ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error
+	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
+	CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
+	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
+	GetExistBoardIds(boardId string, bunch uint) []models.Triple
+	GetGroupConfig(groupId string) models.AdminGroupConfig
 	RemoveBoardCategory(boardUid uint, catUid uint)
+	RemoveBoard(boardUid uint) error
 	UpdateBoardSetting(boardUid uint, column string, value string)
 }
 
@@ -46,7 +53,7 @@ func (s *TsboardAdminService) ChangeBoardAdmin(boardUid uint, newAdminUid uint) 
 	if isBlocked := s.repos.User.IsBlocked(newAdminUid); isBlocked {
 		return fmt.Errorf("blocked user is not able to be an administrator")
 	}
-	return s.repos.Admin.UpdateBoardAdmin(boardUid, newAdminUid)
+	return s.repos.Admin.UpdateGroupBoardAdmin(models.TABLE_BOARD, boardUid, newAdminUid)
 }
 
 // 게시판 레벨 제한값 변경하기
@@ -57,6 +64,27 @@ func (s *TsboardAdminService) ChangeBoardLevelPolicy(boardUid uint, level models
 // 게시판 포인트 정책 변경하기
 func (s *TsboardAdminService) ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error {
 	return s.repos.Admin.UpdatePointPolicy(boardUid, point)
+}
+
+// 그룹 관리자 변경하기
+func (s *TsboardAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) error {
+	if isBlocked := s.repos.User.IsBlocked(newAdminUid); isBlocked {
+		return fmt.Errorf("blocked user is not able to be an administrator")
+	}
+	return s.repos.Admin.UpdateGroupBoardAdmin(models.TABLE_GROUP, groupUid, newAdminUid)
+}
+
+// 새 게시판 만들기
+func (s *TsboardAdminService) CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult {
+	result := models.AdminCreateBoardResult{}
+
+	//
+	//
+	// TODO - 게시판 추가하는 로직 작성
+	//
+	//
+
+	return result
 }
 
 // 게시판 관리자 후보 목록 가져오기
@@ -98,7 +126,6 @@ func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboar
 	groups := s.repos.Admin.GetGroupBoardList(models.TABLE_GROUP, bunch)
 	boards := s.repos.Admin.GetGroupBoardList(models.TABLE_BOARD, bunch)
 	members := s.repos.Admin.GetMemberList(bunch)
-
 	result := models.AdminDashboardItem{
 		Groups:  groups,
 		Boards:  boards,
@@ -109,12 +136,53 @@ func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboar
 
 // 대시보드용 최근 (댓)글, 신고 목록 가져오기
 func (s *TsboardAdminService) GetDashboardLatests(bunch uint) models.AdminDashboardLatest {
-	//
-	//
-	// TODO
-	//
-	//
-	return models.AdminDashboardLatest{}
+	posts := s.repos.Admin.GetLatestPosts(bunch)
+	comments := s.repos.Admin.GetLatestComments(bunch)
+	reports := s.repos.Admin.GetLatestReports(bunch)
+	result := models.AdminDashboardLatest{
+		Posts:    posts,
+		Comments: comments,
+		Reports:  reports,
+	}
+	return result
+}
+
+// 대시보드용 최근 통계 가져오기
+func (s *TsboardAdminService) GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult {
+	days := 7
+	visit := s.repos.Admin.GetStatistic(models.TABLE_USER_ACCESS, models.COLUMN_TIMESTAMP, days)
+	member := s.repos.Admin.GetStatistic(models.TABLE_USER, models.COLUMN_SIGNUP, days)
+	post := s.repos.Admin.GetStatistic(models.TABLE_POST, models.COLUMN_SUBMITTED, days)
+	reply := s.repos.Admin.GetStatistic(models.TABLE_COMMENT, models.COLUMN_SUBMITTED, days)
+	file := s.repos.Admin.GetStatistic(models.TABLE_FILE, models.COLUMN_TIMESTAMP, days)
+	image := s.repos.Admin.GetStatistic(models.TABLE_IMAGE, models.COLUMN_TIMESTAMP, days)
+	result := models.AdminDashboardStatisticResult{
+		Visit:  visit,
+		Member: member,
+		Post:   post,
+		Reply:  reply,
+		File:   file,
+		Image:  image,
+	}
+	return result
+}
+
+// 게시판 아이디와 유사한 목록 가져오기
+func (s *TsboardAdminService) GetExistBoardIds(boardId string, bunch uint) []models.Triple {
+	return s.repos.Admin.FindBoardInfoById(boardId, bunch)
+}
+
+// 그룹 설정값 가져오기
+func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupConfig {
+	result := models.AdminGroupConfig{}
+	groupUid, adminUid := s.repos.Admin.FindGroupUidAdminUidById(groupId)
+	if groupUid < 1 || adminUid < 1 {
+		return result
+	}
+	result.Uid = groupUid
+	result.Manager = s.repos.Admin.FindWriterByUid(adminUid)
+	result.Count = s.repos.Admin.GetTotalBoardCount(groupUid)
+	return result
 }
 
 // 카테고리 삭제하기
@@ -126,6 +194,32 @@ func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) {
 	s.repos.Admin.RemoveCategory(boardUid, catUid)
 	defCatUid := s.repos.Admin.GetLowestCategoryUid(boardUid)
 	s.repos.Admin.UpdatePostCategory(boardUid, catUid, defCatUid)
+}
+
+// 게시판 삭제하기
+func (s *TsboardAdminService) RemoveBoard(boardUid uint) error {
+	paths := s.repos.Admin.GetRemoveFilePaths(boardUid)
+	for _, path := range paths {
+		os.Remove("." + path)
+	}
+
+	err := s.repos.Admin.RemoveBoardCategories(boardUid)
+	if err != nil {
+		return err
+	}
+	err = s.repos.Admin.RemoveFileRecords(boardUid)
+	if err != nil {
+		return err
+	}
+	err = s.repos.Admin.UpdateStatusRemoved(models.TABLE_POST, boardUid)
+	if err != nil {
+		return err
+	}
+	err = s.repos.Admin.UpdateStatusRemoved(models.TABLE_COMMENT, boardUid)
+	if err != nil {
+		return err
+	}
+	return s.repos.Admin.RemoveBoard(boardUid)
 }
 
 // 게시판 설정 변경하기

@@ -11,3 +11,9 @@ const (
 	UPLOAD_TEMP    UploadCategory = "temp"
 	UPLOAD_THUMB   UploadCategory = "thumbnails"
 )
+
+// uid, id, name 3개를 담는 구조체
+type Triple struct {
+	Pair
+	Id string `json:"id"`
+}
