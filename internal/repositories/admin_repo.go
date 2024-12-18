@@ -12,15 +12,20 @@ import (
 type AdminRepository interface {
 	CheckCategoryInBoard(boardUid uint, catUid uint) bool
 	CreateBoard(groupUid uint, newBoardId string) uint
+	CreateDefaultCategories(boardUid uint, cats []string)
+	CreateGroup(newGroupId string) uint
 	FindPathByUid(table models.Table, targetUid uint) []string
 	FindBoardIdTypeByUid(boardUid uint) (string, models.Board)
 	FindBoardUidByPostUid(postUid uint) uint
-	FindBoardInfoById(boardId string, bunch uint) []models.Triple
+	FindBoardInfoById(inputId string, bunch uint) []models.Triple
 	FindGroupUidAdminUidById(groupId string) (uint, uint)
+	FindGroupUidIdById(inputId string, bunch uint) []models.Pair
 	FindThumbPathByPostUid(postUid uint) []string
 	FindWriterByUid(userUid uint) models.BoardWriter
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
+	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
+	GetGroupList() []models.AdminGroupItem
 	GetLatestComments(bunch uint) []models.AdminDashboardLatestContent
 	GetLatestPosts(bunch uint) []models.AdminDashboardLatestContent
 	GetLatestReports(bunch uint) []models.AdminDashboardReport
@@ -31,11 +36,14 @@ type AdminRepository interface {
 	GetRemoveFilePaths(boardUid uint) []string
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
+	GetTotalGroupCount() uint
 	InsertCategory(boardUid uint, name string) uint
 	IsAddedCategory(boardUid uint, name string) bool
-	IsAddedBoard(boardId string) bool
+	IsAdded(table models.Table, boardId string) bool
 	UpdateBoardSetting(boardUid uint, column string, value string)
 	UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error
+	UpdateGroupId(groupUid uint, newGroupId string) error
+	UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error
 	UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error
 	UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error
 	UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint)
@@ -43,6 +51,7 @@ type AdminRepository interface {
 	RemoveBoardCategories(boardUid uint) error
 	RemoveBoard(boardUid uint) error
 	RemoveCategory(boardUid uint, catUid uint)
+	RemoveGroup(groupUid uint) error
 	RemoveFileRecords(boardUid uint) error
 	RemoveRecordByFileUid(table models.Table, fileUid uint)
 }
@@ -66,17 +75,64 @@ func (r *TsboardAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint
 
 // 새 게시판 만들기
 func (r *TsboardAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint {
-	if isAdded := r.IsAddedBoard(newBoardId); isAdded {
+	query := fmt.Sprintf(`INSERT INTO %s%s 
+												(id, group_uid, admin_uid, type, name, info,
+													row_count, width, use_category, level_list, level_view, level_write,
+													level_comment, level_download, point_view, point_write, point_comment, point_download) 
+													VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		configs.Env.Prefix, models.TABLE_BOARD)
+	result, err := r.db.Exec(
+		query,
+		newBoardId,
+		groupUid,
+		models.CREATE_BOARD_ADMIN,
+		models.CREATE_BOARD_TYPE,
+		models.CREATE_BOARD_NAME,
+		models.CREATE_BOARD_INFO,
+		models.CREATE_BOARD_ROWS,
+		models.CREATE_BOARD_WIDTH,
+		models.CREATE_BOARD_USE_CAT,
+		models.CREATE_BOARD_LV_LIST,
+		models.CREATE_BOARD_LV_VIEW,
+		models.CREATE_BOARD_LV_WRITE,
+		models.CREATE_BOARD_LV_COMMENT,
+		models.CREATE_BOARD_LV_DOWNLOAD,
+		models.CREATE_BOARD_PT_VIEW,
+		models.CREATE_BOARD_PT_WRITE,
+		models.CREATE_BOARD_PT_COMMENT,
+		models.CREATE_BOARD_PT_DOWNLOAD,
+	)
+	if err != nil {
+		return models.FAILED
+	}
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return models.FAILED
+	}
+	return uint(insertId)
+}
+
+// 새 게시판 생성 시 함께 생성되는 기본 분류들 생성 처리
+func (r *TsboardAdminRepository) CreateDefaultCategories(boardUid uint, cats []string) {
+	for _, cat := range cats {
+		query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
+		r.db.Exec(query, boardUid, cat)
+	}
+}
+
+// 새 그룹 생성하기
+func (r *TsboardAdminRepository) CreateGroup(newGroupId string) uint {
+	query := fmt.Sprintf("INSERT INTO %s%s (id, admin_uid, timestamp) VALUES (?, ?, ?)", configs.Env.Prefix, models.TABLE_GROUP)
+	result, err := r.db.Exec(query, newGroupId, models.CREATE_GROUP_ADMIN, time.Now().UnixMilli())
+	if err != nil {
 		return models.FAILED
 	}
 
-	//
-	//
-	// TODO - 게시판 추가하는 쿼리문 작성
-	//
-	//
-
-	return models.FAILED
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return models.FAILED
+	}
+	return uint(insertId)
 }
 
 // 게시판 삭제 시 게시글에 딸린 첨부파일들 or 본문에 삽입한 이미지들 삭제를 위한 경로 반환
@@ -118,10 +174,10 @@ func (r *TsboardAdminRepository) FindBoardUidByPostUid(postUid uint) uint {
 }
 
 // 입력된 게시판 아이디와 유사한 것들 가져오기
-func (r *TsboardAdminRepository) FindBoardInfoById(boardId string, bunch uint) []models.Triple {
+func (r *TsboardAdminRepository) FindBoardInfoById(inputId string, bunch uint) []models.Triple {
 	items := []models.Triple{}
 	query := fmt.Sprintf("SELECT uid, id, name FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_BOARD)
-	rows, err := r.db.Query(query, "%"+boardId+"%", bunch)
+	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
 	if err != nil {
 		return items
 	}
@@ -144,6 +200,27 @@ func (r *TsboardAdminRepository) FindGroupUidAdminUidById(groupId string) (uint,
 	query := fmt.Sprintf("SELECT uid, admin_uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
 	r.db.QueryRow(query, groupId).Scan(&groupUid, &adminUid)
 	return groupUid, adminUid
+}
+
+// 입력된 그룹 ID가 이미 등록되었는지 확인하기 위해 유사 ID 목록 가져오기
+func (r *TsboardAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []models.Pair {
+	items := []models.Pair{}
+	query := fmt.Sprintf("SELECT uid, id FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_GROUP)
+	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.Pair{}
+		err = rows.Scan(&item.Uid, &item.Name)
+		if err != nil {
+			return items
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // 게시판 삭제 시 게시글에 딸린 썸네일들 삭제를 위한 경로 반환
@@ -201,6 +278,14 @@ func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]
 	return items, nil
 }
 
+// 기본 그룹 번호 가져오기
+func (r *TsboardAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE uid != ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
+	r.db.QueryRow(query, exceptUid).Scan(&uid)
+	return uid
+}
+
 // 대시보드용 그룹 or 게시판 목록 가져오기
 func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uint) []models.Pair {
 	items := []models.Pair{}
@@ -217,6 +302,29 @@ func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uin
 		if err != nil {
 			return items
 		}
+		items = append(items, item)
+	}
+	return items
+}
+
+// 그룹 목록 가져오기
+func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupItem {
+	items := []models.AdminGroupItem{}
+	query := fmt.Sprintf("SELECT uid, id, admin_uid FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.AdminGroupItem{}
+		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid)
+		if err != nil {
+			return items
+		}
+		item.Manager = r.FindWriterByUid(item.Manager.UserUid)
+		item.Count = r.GetTotalBoardCount(item.Uid)
 		items = append(items, item)
 	}
 	return items
@@ -429,6 +537,14 @@ func (r *TsboardAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	return count
 }
 
+// 그룹의 총 갯수 반환
+func (r *TsboardAdminRepository) GetTotalGroupCount() uint {
+	var count uint
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
+	r.db.QueryRow(query).Scan(&count)
+	return count
+}
+
 // 카테고리 추가하기
 func (r *TsboardAdminRepository) InsertCategory(boardUid uint, name string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
@@ -452,10 +568,10 @@ func (r *TsboardAdminRepository) IsAddedCategory(boardUid uint, name string) boo
 	return uid > 0
 }
 
-// 이미 추가된 게시판 ID인지 검사하기
-func (r *TsboardAdminRepository) IsAddedBoard(boardId string) bool {
+// 이미 추가된 그룹 or 게시판 ID인지 검사하기
+func (r *TsboardAdminRepository) IsAdded(table models.Table, boardId string) bool {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, table)
 	r.db.QueryRow(query, boardId).Scan(&count)
 	return count > 0
 }
@@ -471,6 +587,20 @@ func (r *TsboardAdminRepository) UpdateBoardSetting(boardUid uint, column string
 func (r *TsboardAdminRepository) UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET admin_uid = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, newAdminUid, targetUid)
+	return err
+}
+
+// 그룹 ID 변경하기
+func (r *TsboardAdminRepository) UpdateGroupId(groupUid uint, newGroupId string) error {
+	query := fmt.Sprintf("UPDATE %s%s SET id = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
+	_, err := r.db.Exec(query, newGroupId, groupUid)
+	return err
+}
+
+// 소속 그룹 번호를 일괄 변경하기
+func (r *TsboardAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error {
+	query := fmt.Sprintf("UPDATE %s%s SET group_uid = ? WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
+	_, err := r.db.Exec(query, newGroupUid, oldGroupUid)
 	return err
 }
 
@@ -522,6 +652,13 @@ func (r *TsboardAdminRepository) RemoveBoard(boardUid uint) error {
 func (r *TsboardAdminRepository) RemoveCategory(boardUid uint, catUid uint) {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	r.db.Exec(query, catUid)
+}
+
+// 그룹 삭제하기
+func (r *TsboardAdminRepository) RemoveGroup(groupUid uint) error {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
+	_, err := r.db.Exec(query, groupUid)
+	return err
 }
 
 // 게시판 삭제 시 파일 경로들 삭제하기 (주의: 실제 파일들 삭제 처리 이후 실행 필요)

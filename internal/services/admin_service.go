@@ -14,7 +14,9 @@ type AdminService interface {
 	ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error
 	ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
+	ChangeGroupId(groupUid uint, newGroupId string) error
 	CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult
+	CreateNewGroup(newGroupId string) models.AdminGroupItem
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
@@ -22,9 +24,12 @@ type AdminService interface {
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
 	GetExistBoardIds(boardId string, bunch uint) []models.Triple
+	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
+	GetGroupList() []models.AdminGroupItem
 	RemoveBoardCategory(boardUid uint, catUid uint)
 	RemoveBoard(boardUid uint) error
+	RemoveGroup(groupUid uint) error
 	UpdateBoardSetting(boardUid uint, column string, value string)
 }
 
@@ -74,16 +79,56 @@ func (s *TsboardAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) 
 	return s.repos.Admin.UpdateGroupBoardAdmin(models.TABLE_GROUP, groupUid, newAdminUid)
 }
 
+// 그룹 ID 변경하기
+func (s *TsboardAdminService) ChangeGroupId(groupUid uint, newGroupId string) error {
+	uid, _ := s.repos.Admin.FindGroupUidAdminUidById(newGroupId)
+	if uid > 0 {
+		return fmt.Errorf("duplicated group id")
+	}
+	return s.repos.Admin.UpdateGroupId(groupUid, newGroupId)
+}
+
 // 새 게시판 만들기
 func (s *TsboardAdminService) CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult {
 	result := models.AdminCreateBoardResult{}
+	if isAdded := s.repos.Admin.IsAdded(models.TABLE_BOARD, newBoardId); isAdded {
+		return result
+	}
 
-	//
-	//
-	// TODO - 게시판 추가하는 로직 작성
-	//
-	//
+	boardUid := s.repos.Admin.CreateBoard(groupUid, newBoardId)
+	if boardUid < 1 {
+		return result
+	}
 
+	admin := s.repos.Admin.FindWriterByUid(models.CREATE_BOARD_ADMIN)
+	result = models.AdminCreateBoardResult{
+		Uid:  boardUid,
+		Type: models.CREATE_BOARD_TYPE,
+		Name: models.CREATE_BOARD_NAME,
+		Info: models.CREATE_BOARD_INFO,
+		Manager: models.Pair{
+			Uid:  models.CREATE_BOARD_ADMIN,
+			Name: admin.Name,
+		},
+	}
+
+	defaultCats := []string{"free", "news", "qna", "etc"}
+	s.repos.Admin.CreateDefaultCategories(boardUid, defaultCats)
+	return result
+}
+
+// 새 그룹 만들기
+func (s *TsboardAdminService) CreateNewGroup(newGroupId string) models.AdminGroupItem {
+	groupUid := s.repos.Admin.CreateGroup(newGroupId)
+	manager := s.repos.Admin.FindWriterByUid(models.CREATE_GROUP_ADMIN)
+	result := models.AdminGroupItem{
+		AdminGroupConfig: models.AdminGroupConfig{
+			Uid:     groupUid,
+			Count:   0,
+			Manager: manager,
+		},
+		Id: newGroupId,
+	}
 	return result
 }
 
@@ -172,6 +217,11 @@ func (s *TsboardAdminService) GetExistBoardIds(boardId string, bunch uint) []mod
 	return s.repos.Admin.FindBoardInfoById(boardId, bunch)
 }
 
+// 그룹 아이디와 유사한 목록 가져오기
+func (s *TsboardAdminService) GetExistGroupIds(groupId string, bunch uint) []models.Pair {
+	return s.repos.Admin.FindGroupUidIdById(groupId, bunch)
+}
+
 // 그룹 설정값 가져오기
 func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupConfig {
 	result := models.AdminGroupConfig{}
@@ -183,6 +233,11 @@ func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupCo
 	result.Manager = s.repos.Admin.FindWriterByUid(adminUid)
 	result.Count = s.repos.Admin.GetTotalBoardCount(groupUid)
 	return result
+}
+
+// 그룹 목록 가져오기
+func (s *TsboardAdminService) GetGroupList() []models.AdminGroupItem {
+	return s.repos.Admin.GetGroupList()
 }
 
 // 카테고리 삭제하기
@@ -220,6 +275,20 @@ func (s *TsboardAdminService) RemoveBoard(boardUid uint) error {
 		return err
 	}
 	return s.repos.Admin.RemoveBoard(boardUid)
+}
+
+// 그룹 삭제하기
+func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
+	groupCount := s.repos.Admin.GetTotalGroupCount()
+	if groupCount < 2 {
+		return fmt.Errorf("only one group is left, it cannot be removed")
+	}
+	defaultUid := s.repos.Admin.GetDefaultGroupUid(groupUid)
+	err := s.repos.Admin.UpdateGroupUid(defaultUid, groupUid)
+	if err != nil {
+		return err
+	}
+	return s.repos.Admin.RemoveGroup(groupUid)
 }
 
 // 게시판 설정 변경하기

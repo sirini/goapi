@@ -24,15 +24,20 @@ type AdminHandler interface {
 	ChangeBoardTypeHandler(c fiber.Ctx) error
 	ChangeBoardWidthHandler(c fiber.Ctx) error
 	ChangeGroupAdminHandler(c fiber.Ctx) error
+	ChangeGroupIdHandler(c fiber.Ctx) error
 	CreateBoardHandler(c fiber.Ctx) error
+	CreateGroupHandler(c fiber.Ctx) error
 	DashboardItemLoadHandler(c fiber.Ctx) error
 	DashboardLatestLoadHandler(c fiber.Ctx) error
 	DashboardStatisticLoadHandler(c fiber.Ctx) error
 	GetAdminCandidatesHandler(c fiber.Ctx) error
-	GetBoardListHandler(c fiber.Ctx) error
 	GroupGeneralLoadHandler(c fiber.Ctx) error
+	GroupListLoadHandler(c fiber.Ctx) error
 	RemoveBoardCategoryHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
+	RemoveGroupHandler(c fiber.Ctx) error
+	ShowSimilarBoardIdHandler(c fiber.Ctx) error
+	ShowSimilarGroupIdHandler(c fiber.Ctx) error
 	UseBoardCategoryHandler(c fiber.Ctx) error
 }
 
@@ -333,6 +338,21 @@ func (h *TsboardAdminHandler) ChangeGroupAdminHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
+// 그룹 ID 변경하기 핸들러
+func (h *TsboardAdminHandler) ChangeGroupIdHandler(c fiber.Ctx) error {
+	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid group uid, not a valid number")
+	}
+	newGroupId := c.FormValue("changeGroupId")
+
+	err = h.service.Admin.ChangeGroupId(uint(groupUid), newGroupId)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return utils.Ok(c, nil)
+}
+
 // 게시판 생성하기 핸들러
 func (h *TsboardAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
@@ -345,6 +365,17 @@ func (h *TsboardAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
 	}
 
 	result := h.service.Admin.CreateNewBoard(uint(groupUid), newBoardId)
+	return utils.Ok(c, result)
+}
+
+// 그룹 생성하기 핸들러
+func (h *TsboardAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
+	newGroupId := c.FormValue("newId")
+	if len(newGroupId) < 2 {
+		return utils.Err(c, "Invalid id, too short")
+	}
+
+	result := h.service.Admin.CreateNewGroup(newGroupId)
 	return utils.Ok(c, result)
 }
 
@@ -399,23 +430,17 @@ func (h *TsboardAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 	return utils.Ok(c, candidates)
 }
 
-// 게시판 아이디 중복 방지를 위해 입력된 아이디와 유사한 목록 출력하는 핸들러
-func (h *TsboardAdminHandler) GetBoardListHandler(c fiber.Ctx) error {
-	boardId := c.FormValue("id")
-	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
-	}
-
-	list := h.service.Admin.GetExistBoardIds(boardId, uint(bunch))
-	return utils.Ok(c, list)
-}
-
 // 그룹 설정 및 소속 게시판 목록 반환하는 핸들러
 func (h *TsboardAdminHandler) GroupGeneralLoadHandler(c fiber.Ctx) error {
 	groupId := c.FormValue("id")
 	config := h.service.Admin.GetGroupConfig(groupId)
 	return utils.Ok(c, config)
+}
+
+// 그룹 목록 가져오는 핸들러
+func (h *TsboardAdminHandler) GroupListLoadHandler(c fiber.Ctx) error {
+	list := h.service.Admin.GetGroupList()
+	return utils.Ok(c, list)
 }
 
 // 게시판에 특정 카테고리 제거하기 핸들러
@@ -446,6 +471,44 @@ func (h *TsboardAdminHandler) RemoveBoardHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error())
 	}
 	return utils.Ok(c, nil)
+}
+
+// 그룹 삭제하기 핸들러
+func (h *TsboardAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
+	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid group uid, not a valid number")
+	}
+
+	err = h.service.Admin.RemoveGroup(uint(groupUid))
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
+	return utils.Ok(c, nil)
+}
+
+// 게시판 아이디 중복 방지를 위해 입력된 아이디와 유사한 목록 출력하는 핸들러
+func (h *TsboardAdminHandler) ShowSimilarBoardIdHandler(c fiber.Ctx) error {
+	boardId := c.FormValue("id")
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number")
+	}
+
+	list := h.service.Admin.GetExistBoardIds(boardId, uint(bunch))
+	return utils.Ok(c, list)
+}
+
+// 그룹 아이디 중복 방지를 위해 입력된 아이디와 유사한 목록 출력하는 핸들러
+func (h *TsboardAdminHandler) ShowSimilarGroupIdHandler(c fiber.Ctx) error {
+	groupId := c.FormValue("id")
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number")
+	}
+
+	list := h.service.Admin.GetExistGroupIds(groupId, uint(bunch))
+	return utils.Ok(c, list)
 }
 
 // 게시판에서 카테고리 기능 사용 or 사용 해제하는 핸들러

@@ -44,15 +44,16 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	gGeneral := group.Group("/general")
 	gGeneral.Get("/load", h.Admin.GroupGeneralLoadHandler, middlewares.AdminMiddleware())
 	gGeneral.Get("/candidates", h.Admin.GetAdminCandidatesHandler, middlewares.AdminMiddleware())
-	gGeneral.Get("/boardids", h.Admin.GetBoardListHandler, middlewares.AdminMiddleware())
+	gGeneral.Get("/boardids", h.Admin.ShowSimilarBoardIdHandler, middlewares.AdminMiddleware())
 	gGeneral.Patch("/change/admin", h.Admin.ChangeGroupAdminHandler, middlewares.AdminMiddleware())
 	gGeneral.Delete("/remove/board", h.Admin.RemoveBoardHandler, middlewares.AdminMiddleware())
 	gGeneral.Post("/create/board", h.Admin.CreateBoardHandler, middlewares.AdminMiddleware())
 
 	gList := group.Group("/list")
-	gList.Get("/load", nil, middlewares.AdminMiddleware())
-	gList.Get("/groupids", nil, middlewares.AdminMiddleware())
-	gList.Post("/create/group", nil, middlewares.AdminMiddleware())
-	gList.Delete("/remove/group", nil, middlewares.AdminMiddleware())
-	gList.Put("/update/group", nil, middlewares.AdminMiddleware())
+	gList.Get("/load", h.Admin.GroupListLoadHandler, middlewares.AdminMiddleware())
+	gList.Get("/groupids", h.Admin.ShowSimilarGroupIdHandler, middlewares.AdminMiddleware())
+	gList.Post("/create/group", h.Admin.CreateGroupHandler, middlewares.AdminMiddleware())
+	gList.Delete("/remove/group", h.Admin.RemoveGroupHandler, middlewares.AdminMiddleware())
+	gList.Put("/update/group", h.Admin.ChangeGroupIdHandler, middlewares.AdminMiddleware())
+
 }

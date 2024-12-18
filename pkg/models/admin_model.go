@@ -41,6 +41,9 @@ const (
 	CREATE_BOARD_PT_DOWNLOAD = -10
 )
 
+// 그룹 생성 시 기본값 정의
+const CREATE_GROUP_ADMIN = 1
+
 // 게시판 레벨 제한 반환값 정의
 type AdminBoardLevelPolicy struct {
 	Uid   uint             `json:"uid"`
@@ -118,4 +121,10 @@ type AdminGroupConfig struct {
 	Uid     uint        `json:"uid"`
 	Count   uint        `json:"count"`
 	Manager BoardWriter `json:"manager"`
+}
+
+// 그룹 목록용 반환값 정의
+type AdminGroupItem struct {
+	AdminGroupConfig
+	Id string `json:"id"`
 }
