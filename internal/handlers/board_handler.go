@@ -130,8 +130,6 @@ func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	return utils.Ok(c, result)
 }
 
-
-
 // 갤러리 리스트 핸들러
 func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
@@ -233,8 +231,6 @@ func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
 	return utils.Ok(c, boards)
 }
 
-
-
 // 게시글 이동하기 핸들러
 func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
@@ -262,8 +258,6 @@ func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
-
-
 // 게시글 삭제하기 핸들러
 func (h *TsboardBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
@@ -279,5 +273,3 @@ func (h *TsboardBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 	h.service.Board.RemovePost(uint(boardUid), uint(postUid), actionUserUid)
 	return utils.Ok(c, nil)
 }
-
-

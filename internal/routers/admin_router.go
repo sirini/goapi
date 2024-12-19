@@ -12,6 +12,8 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	board := admin.Group("/board")
 	dashboard := admin.Group("/dashboard")
 	group := admin.Group("/group")
+	latest := admin.Group("/latest")
+	report := admin.Group("/report")
 
 	bGeneral := board.Group("/general")
 	bGeneral.Post("/add/category", h.Admin.AddBoardCategoryHandler, middlewares.AdminMiddleware())
@@ -55,5 +57,15 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	gList.Post("/create/group", h.Admin.CreateGroupHandler, middlewares.AdminMiddleware())
 	gList.Delete("/remove/group", h.Admin.RemoveGroupHandler, middlewares.AdminMiddleware())
 	gList.Put("/update/group", h.Admin.ChangeGroupIdHandler, middlewares.AdminMiddleware())
+
+	latest.Get("/comment", h.Admin.LatestCommentLoadHandler, middlewares.AdminMiddleware())
+	latest.Get("/search/comment", h.Admin.LatestCommentSearchHandler, middlewares.AdminMiddleware())
+	latest.Delete("/remove/comment", h.Admin.RemoveCommentHandler, middlewares.AdminMiddleware())
+	latest.Get("/post", h.Admin.LatestPostLoadHandler, middlewares.AdminMiddleware())
+	latest.Get("/search/post", h.Admin.LatestPostSearchHandler, middlewares.AdminMiddleware())
+	latest.Delete("/remove/post", h.Admin.RemovePostHandler, middlewares.AdminMiddleware())
+
+	report.Get("/list", h.Admin.ReportListLoadHandler, middlewares.AdminMiddleware())
+	report.Get("/search/list", h.Admin.ReportListSearchHandler, middlewares.AdminMiddleware())
 
 }

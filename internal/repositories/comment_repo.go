@@ -21,7 +21,7 @@ type CommentRepository interface {
 	IsLikedComment(commentUid uint, userUid uint) bool
 	InsertComment(param models.CommentWriteParameter) (uint, error)
 	InsertLikeComment(param models.CommentLikeParameter)
-	RemoveComment(commentUid uint)
+	RemoveComment(commentUid uint) error
 	UpdateComment(commentUid uint, content string)
 	UpdateLikeComment(param models.CommentLikeParameter)
 	UpdateReplyUid(commentUid uint, replyUid uint)
@@ -210,11 +210,11 @@ func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikePar
 }
 
 // 댓글을 삭제 상태로 변경하기
-func (r *TsboardCommentRepository) RemoveComment(commentUid uint) {
+func (r *TsboardCommentRepository) RemoveComment(commentUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-
-	r.db.Exec(query, models.CONTENT_REMOVED, commentUid)
+	_, err := r.db.Exec(query, models.CONTENT_REMOVED, commentUid)
+	return err
 }
 
 // 기존 댓글 수정하기

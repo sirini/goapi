@@ -4,12 +4,12 @@ import "github.com/sirini/goapi/internal/services"
 
 // 모든 핸들러들을 관리
 type Handler struct {
-	Admin		AdminHandler
+	Admin   AdminHandler
 	Auth    AuthHandler
 	Board   BoardHandler
 	Chat    ChatHandler
 	Comment CommentHandler
-	Editor 	EditorHandler
+	Editor  EditorHandler
 	Home    HomeHandler
 	Noti    NotiHandler
 	OAuth2  OAuth2Handler

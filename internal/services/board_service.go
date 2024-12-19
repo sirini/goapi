@@ -83,7 +83,7 @@ func (s *TsboardBoardService) GetBoardUid(id string) uint {
 
 // 게시글 최대 고유번호 반환
 func (s *TsboardBoardService) GetMaxUid() uint {
-	return s.repos.Board.GetMaxUid()
+	return s.repos.Board.GetMaxUid(models.TABLE_POST)
 }
 
 // 게시판 설정값 가져오기

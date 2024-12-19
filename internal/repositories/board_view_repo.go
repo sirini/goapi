@@ -35,7 +35,7 @@ type BoardViewRepository interface {
 	RemoveComments(postUid uint)
 	RemoveExif(fileUid uint)
 	RemoveImageDescription(fileUid uint)
-	RemovePost(postUid uint)
+	RemovePost(postUid uint) error
 	RemovePostTags(postUid uint)
 	RemoveThumbnails(fileUid uint) []string
 	UpdateLikePost(param models.BoardViewLikeParameter)
@@ -416,9 +416,10 @@ func (r *TsboardBoardViewRepository) RemoveImageDescription(fileUid uint) {
 }
 
 // 게시글 삭제 상태로 변경하기
-func (r *TsboardBoardViewRepository) RemovePost(postUid uint) {
+func (r *TsboardBoardViewRepository) RemovePost(postUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
-	r.db.Exec(query, models.CONTENT_REMOVED, postUid)
+	_, err := r.db.Exec(query, models.CONTENT_REMOVED, postUid)
+	return err
 }
 
 // 게시글에 등록된 태그 제거하기

@@ -30,7 +30,7 @@ type BoardRepository interface {
 	GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error)
-	GetMaxUid() uint
+	GetMaxUid(table models.Table) uint
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
 	GetUidByTable(table models.Table, name string) uint
@@ -320,10 +320,10 @@ func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter)
 	return r.MakeListItem(param.UserUid, rows)
 }
 
-// 게시판의 현재 uid 값 반환하기
-func (r *TsboardBoardRepository) GetMaxUid() uint {
+// 게시판 or 댓글의 현재 uid 값 반환하기
+func (r *TsboardBoardRepository) GetMaxUid(table models.Table) uint {
 	var max uint
-	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, models.TABLE_POST)
+	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, table)
 	r.db.QueryRow(query).Scan(&max)
 	return max
 }

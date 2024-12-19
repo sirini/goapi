@@ -52,6 +52,10 @@ const (
 	SEARCH_WRITER
 	SEARCH_TAG
 	SEARCH_CATEGORY
+	SEARCH_REPORT_TO
+	SEARCH_REPORT_FROM
+	SEARCH_REPORT_REQUEST
+	SEARCH_REPORT_RESPONSE
 	SEARCH_NONE
 )
 
@@ -65,6 +69,14 @@ func (s Search) String() string {
 		return "category_uid"
 	case SEARCH_TAG:
 		return "tag"
+	case SEARCH_REPORT_TO:
+		return "to"
+	case SEARCH_REPORT_FROM:
+		return "from"
+	case SEARCH_REPORT_REQUEST:
+		return "request"
+	case SEARCH_REPORT_RESPONSE:
+		return "response"
 	default:
 		return "title"
 	}

@@ -115,7 +115,7 @@ func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult,
 func (s *TsboardHomeService) LoadMainPage(bunch uint) ([]models.HomeMainArticle, error) {
 	var articles []models.HomeMainArticle
 	posts, err := s.GetLatestPosts(models.HomePostParameter{
-		SinceUid: s.repos.Board.GetMaxUid() + 1,
+		SinceUid: s.repos.Board.GetMaxUid(models.TABLE_POST) + 1,
 		Bunch:    bunch,
 		Option:   models.SEARCH_NONE,
 		Keyword:  "",

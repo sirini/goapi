@@ -27,9 +27,17 @@ type AdminService interface {
 	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupItem
+	GetLatestComments(page uint, bunch uint) []models.AdminLatestComment
+	GetLatestPosts(page uint, bunch uint) []models.AdminLatestPost
+	GetReportList(page uint, bunch uint, isSolved bool) []models.AdminReportItem
+	GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment
+	GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost
+	GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem
 	RemoveBoardCategory(boardUid uint, catUid uint)
 	RemoveBoard(boardUid uint) error
+	RemoveComment(commentUid uint) error
 	RemoveGroup(groupUid uint) error
+	RemovePost(postUid uint) error
 	UpdateBoardSetting(boardUid uint, column string, value string)
 }
 
@@ -181,9 +189,9 @@ func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboar
 
 // 대시보드용 최근 (댓)글, 신고 목록 가져오기
 func (s *TsboardAdminService) GetDashboardLatests(bunch uint) models.AdminDashboardLatest {
-	posts := s.repos.Admin.GetLatestPosts(bunch)
-	comments := s.repos.Admin.GetLatestComments(bunch)
-	reports := s.repos.Admin.GetLatestReports(bunch)
+	posts := s.repos.Admin.GetDashboardPosts(bunch)
+	comments := s.repos.Admin.GetDashboardComments(bunch)
+	reports := s.repos.Admin.GetDashboardReports(bunch)
 	result := models.AdminDashboardLatest{
 		Posts:    posts,
 		Comments: comments,
@@ -240,6 +248,50 @@ func (s *TsboardAdminService) GetGroupList() []models.AdminGroupItem {
 	return s.repos.Admin.GetGroupList()
 }
 
+// 최근 댓글들 가져오기
+func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) []models.AdminLatestComment {
+	maxUid := s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
+	return s.repos.Admin.GetLatestComments(page, bunch, maxUid)
+}
+
+// 최근 게시글들을 가져오기
+func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) []models.AdminLatestPost {
+	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
+	return s.repos.Admin.GetLatestPosts(page, bunch, maxUid)
+}
+
+// 최근 신고 목록 가져오기
+func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool) []models.AdminReportItem {
+	//
+	//
+	// TODO
+	//
+	//
+	return nil
+}
+
+// 검색된 댓글들 가져오기
+func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment {
+	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
+	return s.repos.Admin.GetSearchedComments(param)
+}
+
+// 검색된 게시글들 가져오기
+func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost {
+	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_POST)
+	return s.repos.Admin.GetSearchedPosts(param)
+}
+
+// 검색된 신고 목록 가져오기
+func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem {
+	//
+	//
+	// TODO
+	//
+	//
+	return nil
+}
+
 // 카테고리 삭제하기
 func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) {
 	if isValid := s.repos.Admin.CheckCategoryInBoard(boardUid, catUid); !isValid {
@@ -277,6 +329,11 @@ func (s *TsboardAdminService) RemoveBoard(boardUid uint) error {
 	return s.repos.Admin.RemoveBoard(boardUid)
 }
 
+// 댓글 삭제하기
+func (s *TsboardAdminService) RemoveComment(commentUid uint) error {
+	return s.repos.Comment.RemoveComment(commentUid)
+}
+
 // 그룹 삭제하기
 func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
 	groupCount := s.repos.Admin.GetTotalGroupCount()
@@ -289,6 +346,11 @@ func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
 		return err
 	}
 	return s.repos.Admin.RemoveGroup(groupUid)
+}
+
+// 게시글 삭제하기
+func (s *TsboardAdminService) RemovePost(postUid uint) error {
+	return s.repos.BoardView.RemovePost(postUid)
 }
 
 // 게시판 설정 변경하기

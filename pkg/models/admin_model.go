@@ -128,3 +128,53 @@ type AdminGroupItem struct {
 	AdminGroupConfig
 	Id string `json:"id"`
 }
+
+// 최근 (댓)글 출력에 필요한 공통 반환값 정의
+type AdminLatestCommon struct {
+	Uid    uint        `json:"uid"`
+	Id     string      `json:"id"`
+	Type   Board       `json:"type"`
+	Like   uint        `json:"like"`
+	Date   uint64      `json:"date"`
+	Status Status      `json:"status"`
+	Writer BoardWriter `json:"writer"`
+}
+
+// 최근 댓글 반환값 정의
+type AdminLatestComment struct {
+	AdminLatestCommon
+	Content string `json:"content"`
+	PostUid uint   `json:"postUid"`
+}
+
+// (댓)글 검색하기에 필요한 파라미터 정의
+type AdminLatestParameter struct {
+	Page    uint
+	Bunch   uint
+	MaxUid  uint
+	Option  Search
+	Keyword string
+}
+
+// 신고 목록 검색하기에 필요한 파라미터 정의
+type AdminReportParameter struct {
+	AdminLatestParameter
+	IsSolved bool
+}
+
+// 최근 글 반환값 정의
+type AdminLatestPost struct {
+	AdminLatestCommon
+	Title   string `json:"title"`
+	Comment uint   `json:"comment"`
+	Hit     uint   `json:"hit"`
+}
+
+// 신고 목록 반환값 정의
+type AdminReportItem struct {
+	To       BoardWriter `json:"to"`
+	From     BoardWriter `json:"from"`
+	Request  string      `json:"request"`
+	Response string      `json:"response"`
+	Date     uint64      `json:"date"`
+}

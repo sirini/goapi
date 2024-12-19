@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
@@ -33,9 +34,17 @@ type AdminHandler interface {
 	GetAdminCandidatesHandler(c fiber.Ctx) error
 	GroupGeneralLoadHandler(c fiber.Ctx) error
 	GroupListLoadHandler(c fiber.Ctx) error
+	LatestCommentLoadHandler(c fiber.Ctx) error
+	LatestCommentSearchHandler(c fiber.Ctx) error
+	LatestPostLoadHandler(c fiber.Ctx) error
+	LatestPostSearchHandler(c fiber.Ctx) error
 	RemoveBoardCategoryHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
+	RemoveCommentHandler(c fiber.Ctx) error
+	RemovePostHandler(c fiber.Ctx) error
 	RemoveGroupHandler(c fiber.Ctx) error
+	ReportListLoadHandler(c fiber.Ctx) error
+	ReportListSearchHandler(c fiber.Ctx) error
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
 	UseBoardCategoryHandler(c fiber.Ctx) error
@@ -443,6 +452,90 @@ func (h *TsboardAdminHandler) GroupListLoadHandler(c fiber.Ctx) error {
 	return utils.Ok(c, list)
 }
 
+// 최근 댓글 불러오는 핸들러
+func (h *TsboardAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+
+	comments := h.service.Admin.GetLatestComments(uint(page), uint(bunch))
+	return utils.Ok(c, comments)
+}
+
+// 댓글 검색하는 핸들러
+func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	keyword := utils.Escape(c.FormValue("keyword"))
+
+	parameter := models.AdminLatestParameter{
+		Page:    uint(page),
+		Bunch:   uint(bunch),
+		MaxUid:  0,
+		Option:  models.Search(option),
+		Keyword: keyword,
+	}
+	comments := h.service.Admin.GetSearchedComments(parameter)
+	return utils.Ok(c, comments)
+}
+
+// 최근 글 불러오는 핸들러
+func (h *TsboardAdminHandler) LatestPostLoadHandler(c fiber.Ctx) error {
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+
+	posts := h.service.Admin.GetLatestPosts(uint(page), uint(bunch))
+	return utils.Ok(c, posts)
+}
+
+// 게시글 검색하는 핸들러
+func (h *TsboardAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	keyword := utils.Escape(c.FormValue("keyword"))
+
+	parameter := models.AdminLatestParameter{
+		Page:    uint(page),
+		Bunch:   uint(bunch),
+		MaxUid:  0,
+		Option:  models.Search(option),
+		Keyword: keyword,
+	}
+	posts := h.service.Admin.GetSearchedPosts(parameter)
+	return utils.Ok(c, posts)
+}
+
 // 게시판에 특정 카테고리 제거하기 핸들러
 func (h *TsboardAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
@@ -473,6 +566,32 @@ func (h *TsboardAdminHandler) RemoveBoardHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
+// 댓글 삭제하기 핸들러
+func (h *TsboardAdminHandler) RemoveCommentHandler(c fiber.Ctx) error {
+	targets := strings.Split(c.FormValue("targets"), ",")
+	for _, target := range targets {
+		commentUid, err := strconv.ParseUint(target, 10, 32)
+		if err != nil {
+			return utils.Err(c, err.Error())
+		}
+		h.service.Admin.RemoveComment(uint(commentUid))
+	}
+	return utils.Ok(c, nil)
+}
+
+// 게시글 삭제하기 핸들러
+func (h *TsboardAdminHandler) RemovePostHandler(c fiber.Ctx) error {
+	targets := strings.Split(c.FormValue("targets"), ",")
+	for _, target := range targets {
+		postUid, err := strconv.ParseUint(target, 10, 32)
+		if err != nil {
+			return utils.Err(c, err.Error())
+		}
+		h.service.Admin.RemovePost(uint(postUid))
+	}
+	return utils.Ok(c, nil)
+}
+
 // 그룹 삭제하기 핸들러
 func (h *TsboardAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
@@ -485,6 +604,59 @@ func (h *TsboardAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error())
 	}
 	return utils.Ok(c, nil)
+}
+
+// 신고 목록 가져오기 핸들러
+func (h *TsboardAdminHandler) ReportListLoadHandler(c fiber.Ctx) error {
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
+	if err != nil {
+		return utils.Err(c, "Invalid parameter(isSolved), unable to convert bool type")
+	}
+
+	reports := h.service.Admin.GetReportList(uint(page), uint(bunch), isSolved)
+	return utils.Ok(c, reports)
+}
+
+// 신고 목록 검색하기 핸들러
+func (h *TsboardAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
+	if err != nil {
+		return utils.Err(c, "Invalid parameter(isSolved), unable to convert bool type")
+	}
+	keyword := utils.Escape(c.FormValue("keyword"))
+
+	parameter := models.AdminReportParameter{
+		AdminLatestParameter: models.AdminLatestParameter{
+			Page:    uint(page),
+			Bunch:   uint(bunch),
+			MaxUid:  0,
+			Option:  models.Search(option),
+			Keyword: keyword,
+		},
+		IsSolved: isSolved,
+	}
+	reports := h.service.Admin.GetSearchedReports(parameter)
+	return utils.Ok(c, reports)
 }
 
 // 게시판 아이디 중복 방지를 위해 입력된 아이디와 유사한 목록 출력하는 핸들러
