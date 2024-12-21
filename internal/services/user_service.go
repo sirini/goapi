@@ -10,8 +10,8 @@ import (
 
 type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
-	ChangeUserInfo(info models.UpdateUserInfoParameter, oldInfo models.UserInfoResult)
-	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult)
+	ChangeUserInfo(info models.UpdateUserInfoParameter) error
+	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
 	GetUserPermission(userUid uint) models.UserPermissionReportResult
@@ -46,51 +46,79 @@ func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, new
 }
 
 // 사용자 정보 변경하기
-func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter, oldInfo models.UserInfoResult) {
+func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter) error {
 	if len(param.Password) == 64 {
 		s.repos.User.UpdatePassword(param.UserUid, param.Password)
 	}
 	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
 
-	if param.Profile != nil && param.ProfileHandler.Size > 0 {
-		tempPath, err := utils.SaveUploadedFile(param.Profile, param.ProfileHandler.Filename)
+	file, err := param.Profile.Open()
+	if err == nil {
+		defer file.Close()
+	}
+
+	if param.Profile.Size > 0 {
+		tempPath, err := utils.SaveUploadedFile(file, param.Profile.Filename)
 		if err != nil {
-			return
+			return err
 		}
 		profilePath, err := utils.SaveProfileImage(tempPath)
 		if err != nil {
 			os.Remove(tempPath)
-			return
+			return err
 		}
 
 		s.repos.User.UpdateUserProfile(param.UserUid, profilePath[1:])
-		os.Remove("." + oldInfo.Profile)
-		os.Remove(tempPath)
+		err = os.Remove("." + param.OldProfile)
+		if err != nil {
+			return err
+		}
+		err = os.Remove(tempPath)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // 사용자 권한 변경하기
-func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) {
+func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error {
 	targetUserUid := perm.UserUid
 	permission := perm.UserPermissionResult
 
 	isPermAdded := s.repos.User.IsPermissionAdded(targetUserUid)
 	if isPermAdded {
-		s.repos.User.UpdateUserPermission(targetUserUid, permission)
+		err := s.repos.User.UpdateUserPermission(targetUserUid, permission)
+		if err != nil {
+			return err
+		}
 	} else {
-		s.repos.User.InsertUserPermission(targetUserUid, permission)
+		err := s.repos.User.InsertUserPermission(targetUserUid, permission)
+		if err != nil {
+			return err
+		}
 	}
 
 	isReported := s.repos.User.IsUserReported(targetUserUid)
 	responseReport := utils.Escape(perm.Response)
 	if isReported {
-		s.repos.User.UpdateReportResponse(targetUserUid, responseReport)
+		err := s.repos.User.UpdateReportResponse(targetUserUid, responseReport)
+		if err != nil {
+			return err
+		}
 	} else {
-		s.repos.User.InsertReportResponse(actionUserUid, targetUserUid, responseReport)
+		err := s.repos.User.InsertReportResponse(actionUserUid, targetUserUid, responseReport)
+		if err != nil {
+			return err
+		}
 	}
 
-	s.repos.User.UpdateUserBlocked(targetUserUid, !perm.Login)
+	err := s.repos.User.UpdateUserBlocked(targetUserUid, !perm.Login)
+	if err != nil {
+		return err
+	}
 	s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, responseReport)
+	return nil
 }
 
 // 사용자의 공개 정보 조회

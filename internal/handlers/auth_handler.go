@@ -182,38 +182,28 @@ func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	if len(name) < 2 {
 		return utils.Err(c, "Invalid name, too short")
 	}
-
 	userUid64, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid access user uid, not a valid number")
 	}
-
 	if isDup := h.service.Auth.CheckNameExists(name); isDup {
 		return utils.Err(c, "Duplicated name, please choose another one")
 	}
-
 	userUid := uint(userUid64)
 	userInfo, err := h.service.User.GetUserInfo(userUid)
 	if err != nil {
 		return utils.Err(c, "Unable to find your information")
 	}
 
-	userInfo.Name = name
-	userInfo.Signature = signature
 	header, _ := c.FormFile("profile")
-	file, err := header.Open()
-	if err == nil {
-		defer file.Close()
+	parameter := models.UpdateUserInfoParameter{
+		UserUid:    userUid,
+		Name:       name,
+		Signature:  signature,
+		Password:   password,
+		Profile:    header,
+		OldProfile: userInfo.Profile,
 	}
-
-	param := models.UpdateUserInfoParameter{
-		UserUid:        userUid,
-		Name:           name,
-		Signature:      signature,
-		Password:       password,
-		Profile:        file,
-		ProfileHandler: header,
-	}
-	h.service.User.ChangeUserInfo(param, userInfo)
+	h.service.User.ChangeUserInfo(parameter)
 	return utils.Ok(c, nil)
 }

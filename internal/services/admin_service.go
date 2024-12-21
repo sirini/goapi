@@ -35,12 +35,14 @@ type AdminService interface {
 	GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem
 	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
-	RemoveBoardCategory(boardUid uint, catUid uint)
+	GetUserInfo(userUid uint) models.AdminUserInfo
+	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
 	RemoveComment(commentUid uint) error
 	RemoveGroup(groupUid uint) error
 	RemovePost(postUid uint) error
-	UpdateBoardSetting(boardUid uint, column string, value string)
+	UpdateBoardSetting(boardUid uint, column string, value string) error
+	UpdateUserLevelPoint(userUid uint, level uint, point uint) error
 }
 
 type TsboardAdminService struct {
@@ -320,15 +322,23 @@ func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) []mod
 	return s.repos.Admin.GetUserList(param)
 }
 
+// 사용자 정보 가져오기
+func (s *TsboardAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
+	return s.repos.Admin.GetUserInfo(userUid)
+}
+
 // 카테고리 삭제하기
-func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) {
+func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error {
 	if isValid := s.repos.Admin.CheckCategoryInBoard(boardUid, catUid); !isValid {
-		return
+		return fmt.Errorf("category is not belong to this board")
 	}
 
-	s.repos.Admin.RemoveCategory(boardUid, catUid)
+	err := s.repos.Admin.RemoveCategory(boardUid, catUid)
+	if err != nil {
+		return err
+	}
 	defCatUid := s.repos.Admin.GetLowestCategoryUid(boardUid)
-	s.repos.Admin.UpdatePostCategory(boardUid, catUid, defCatUid)
+	return s.repos.Admin.UpdatePostCategory(boardUid, catUid, defCatUid)
 }
 
 // 게시판 삭제하기
@@ -382,6 +392,11 @@ func (s *TsboardAdminService) RemovePost(postUid uint) error {
 }
 
 // 게시판 설정 변경하기
-func (s *TsboardAdminService) UpdateBoardSetting(boardUid uint, column string, value string) {
-	s.repos.Admin.UpdateBoardSetting(boardUid, column, value)
+func (s *TsboardAdminService) UpdateBoardSetting(boardUid uint, column string, value string) error {
+	return s.repos.Admin.UpdateBoardSetting(boardUid, column, value)
+}
+
+// 사용자의 레벨, 포인트 정보 변경하기
+func (s *TsboardAdminService) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
+	return s.repos.Admin.UpdateUserLevelPoint(userUid, level, point)
 }

@@ -84,12 +84,12 @@ type UpdatePointParameter struct {
 
 // 내 정보 수정하기 파라미터 정의
 type UpdateUserInfoParameter struct {
-	UserUid        uint
-	Name           string
-	Signature      string
-	Password       string
-	Profile        multipart.File
-	ProfileHandler *multipart.FileHeader
+	UserUid    uint
+	Name       string
+	Signature  string
+	Password   string
+	Profile    *multipart.FileHeader
+	OldProfile string
 }
 
 // 사용자의 권한 정보들

@@ -195,3 +195,13 @@ type AdminUserItem struct {
 	Point   uint   `json:"point"`
 	Signup  uint64 `json:"signup"`
 }
+
+// 사용자 정보 반환값 정의
+type AdminUserInfo struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Profile   string `json:"profile"`
+	Level     uint   `json:"level"`
+	Point     uint   `json:"point"`
+	Signature string `json:"signature"`
+}

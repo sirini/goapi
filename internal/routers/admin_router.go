@@ -14,6 +14,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	group := admin.Group("/group")
 	latest := admin.Group("/latest")
 	report := admin.Group("/report")
+	user := admin.Group("/user")
 
 	bGeneral := board.Group("/general")
 	bGeneral.Post("/add/category", h.Admin.AddBoardCategoryHandler, middlewares.AdminMiddleware())
@@ -67,4 +68,8 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 
 	report.Get("/list", h.Admin.ReportListLoadHandler, middlewares.AdminMiddleware())
 	report.Get("/search/list", h.Admin.ReportListSearchHandler, middlewares.AdminMiddleware())
+
+	user.Get("/list", h.Admin.UserListLoadHandler, middlewares.AdminMiddleware())
+	user.Get("/load", h.Admin.UserInfoLoadHandler, middlewares.AdminMiddleware())
+	user.Patch("/modify", h.Admin.UserInfoModifyHandler, middlewares.AdminMiddleware())
 }

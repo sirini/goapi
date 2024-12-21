@@ -44,23 +44,25 @@ type AdminRepository interface {
 	GetTotalBoardCount(groupUid uint) uint
 	GetTotalGroupCount() uint
 	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
+	GetUserInfo(userUid uint) models.AdminUserInfo
 	InsertCategory(boardUid uint, name string) uint
 	IsAddedCategory(boardUid uint, name string) bool
 	IsAdded(table models.Table, boardId string) bool
-	UpdateBoardSetting(boardUid uint, column string, value string)
+	UpdateBoardSetting(boardUid uint, column string, value string) error
 	UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error
 	UpdateGroupId(groupUid uint, newGroupId string) error
 	UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error
 	UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error
 	UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error
-	UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint)
+	UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error
 	UpdateStatusRemoved(table models.Table, boardUid uint) error
+	UpdateUserLevelPoint(userUid uint, level uint, point uint) error
 	RemoveBoardCategories(boardUid uint) error
 	RemoveBoard(boardUid uint) error
-	RemoveCategory(boardUid uint, catUid uint)
+	RemoveCategory(boardUid uint, catUid uint) error
 	RemoveGroup(groupUid uint) error
 	RemoveFileRecords(boardUid uint) error
-	RemoveRecordByFileUid(table models.Table, fileUid uint)
+	RemoveRecordByFileUid(table models.Table, fileUid uint) error
 }
 
 type TsboardAdminRepository struct {
@@ -729,6 +731,15 @@ func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []
 	return items
 }
 
+// 사용자 정보 반환
+func (r *TsboardAdminRepository) GetUserInfo(userUid uint) models.AdminUserInfo {
+	result := models.AdminUserInfo{}
+	query := fmt.Sprintf("SELECT id, name, profile, level, point, signature FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER)
+	r.db.QueryRow(query, userUid).Scan(&result.Id, &result.Name, &result.Profile, &result.Level, &result.Point, &result.Signature)
+	return result
+}
+
 // 카테고리 추가하기
 func (r *TsboardAdminRepository) InsertCategory(boardUid uint, name string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
@@ -761,10 +772,11 @@ func (r *TsboardAdminRepository) IsAdded(table models.Table, boardId string) boo
 }
 
 // 게시판 설정 업데이트하는 쿼리 실행
-func (r *TsboardAdminRepository) UpdateBoardSetting(boardUid uint, column string, value string) {
+func (r *TsboardAdminRepository) UpdateBoardSetting(boardUid uint, column string, value string) error {
 	query := fmt.Sprintf("UPDATE %s%s SET %s = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD, column)
-	r.db.Exec(query, value, boardUid)
+	_, err := r.db.Exec(query, value, boardUid)
+	return err
 }
 
 // 그룹 or 게시판 관리자 변경하기
@@ -805,16 +817,24 @@ func (r *TsboardAdminRepository) UpdatePointPolicy(boardUid uint, point models.B
 }
 
 // 카테고리 삭제 후 게시글들의 카테고리 번호를 기본값으로 변경하기
-func (r *TsboardAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) {
+func (r *TsboardAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET category_uid = ? WHERE board_uid = ? AND category_uid = ?",
 		configs.Env.Prefix, models.TABLE_POST)
-	r.db.Exec(query, newCatUid, boardUid, oldCatUid)
+	_, err := r.db.Exec(query, newCatUid, boardUid, oldCatUid)
+	return err
 }
 
 // 게시판 삭제 시 (댓)글의 상태를 삭제됨으로 변경
 func (r *TsboardAdminRepository) UpdateStatusRemoved(table models.Table, boardUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE board_uid = ?", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, models.CONTENT_REMOVED, boardUid)
+	return err
+}
+
+// 사용자의 레벨, 포인트 정보 변경하기
+func (r *TsboardAdminRepository) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
+	query := fmt.Sprintf("UPDATE %s%s SET level = ?, point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	_, err := r.db.Exec(query, level, point, userUid)
 	return err
 }
 
@@ -833,9 +853,10 @@ func (r *TsboardAdminRepository) RemoveBoard(boardUid uint) error {
 }
 
 // 카테고리 삭제하기
-func (r *TsboardAdminRepository) RemoveCategory(boardUid uint, catUid uint) {
+func (r *TsboardAdminRepository) RemoveCategory(boardUid uint, catUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD_CAT)
-	r.db.Exec(query, catUid)
+	_, err := r.db.Exec(query, catUid)
+	return err
 }
 
 // 그룹 삭제하기
@@ -861,9 +882,18 @@ func (r *TsboardAdminRepository) RemoveFileRecords(boardUid uint) error {
 			return err
 		}
 
-		r.RemoveRecordByFileUid(models.TABLE_FILE_THUMB, fileUid)
-		r.RemoveRecordByFileUid(models.TABLE_EXIF, fileUid)
-		r.RemoveRecordByFileUid(models.TABLE_IMAGE_DESC, fileUid)
+		err = r.RemoveRecordByFileUid(models.TABLE_FILE_THUMB, fileUid)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRecordByFileUid(models.TABLE_EXIF, fileUid)
+		if err != nil {
+			return err
+		}
+		err = r.RemoveRecordByFileUid(models.TABLE_IMAGE_DESC, fileUid)
+		if err != nil {
+			return err
+		}
 	}
 
 	query = fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
@@ -872,7 +902,8 @@ func (r *TsboardAdminRepository) RemoveFileRecords(boardUid uint) error {
 }
 
 // 게시판 삭제 시 레코드 삭제 필요한 테이블 작업 처리
-func (r *TsboardAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) {
+func (r *TsboardAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ?", configs.Env.Prefix, table)
-	r.db.Exec(query, fileUid)
+	_, err := r.db.Exec(query, fileUid)
+	return err
 }

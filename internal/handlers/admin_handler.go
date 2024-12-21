@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,8 @@ type AdminHandler interface {
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
 	UseBoardCategoryHandler(c fiber.Ctx) error
+	UserInfoLoadHandler(c fiber.Ctx) error
+	UserInfoModifyHandler(c fiber.Ctx) error
 	UserListLoadHandler(c fiber.Ctx) error
 }
 
@@ -705,6 +708,57 @@ func (h *TsboardAdminHandler) UseBoardCategoryHandler(c fiber.Ctx) error {
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "use_category", use)
+	return utils.Ok(c, nil)
+}
+
+// 사용자 정보 가져오는 핸들러
+func (h *TsboardAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
+	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid user uid, not a valid number")
+	}
+
+	info := h.service.Admin.GetUserInfo(uint(userUid))
+	return utils.Ok(c, info)
+}
+
+// 사용자 정보 수정하는 핸들러
+func (h *TsboardAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
+	userUid64, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid user uid, not a valid number")
+	}
+	userUid := uint(userUid64)
+	userInfo, err := h.service.User.GetUserInfo(userUid)
+	if err != nil {
+		return utils.Err(c, "Unable to find user's information")
+	}
+	level, err := strconv.ParseUint(c.FormValue("level"), 10, 32)
+	if err != nil || level > 9 {
+		return utils.Err(c, "Invalid level, not a valid number")
+	}
+	point, err := strconv.ParseUint(c.FormValue("point"), 10, 32)
+	if err != nil || point > math.MaxUint {
+		return utils.Err(c, "Invalid point, not a valid number")
+	}
+	name := utils.Escape(c.FormValue("name"))
+	if isDup := h.service.Auth.CheckNameExists(name); isDup {
+		return utils.Err(c, "Duplicated name, please choose another one")
+	}
+	signature := utils.Escape(c.FormValue("signature"))
+	password := c.FormValue("password")
+	header, _ := c.FormFile("profile")
+
+	parameter := models.UpdateUserInfoParameter{
+		UserUid:    userUid,
+		Name:       name,
+		Signature:  signature,
+		Password:   password,
+		Profile:    header,
+		OldProfile: userInfo.Profile,
+	}
+	h.service.User.ChangeUserInfo(parameter)
+	h.service.Admin.UpdateUserLevelPoint(userUid, uint(level), uint(point))
 	return utils.Ok(c, nil)
 }
 
