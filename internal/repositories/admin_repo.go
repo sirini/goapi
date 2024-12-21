@@ -23,30 +23,27 @@ type AdminRepository interface {
 	FindLikeByUid(table models.Table, targetUid uint) uint
 	FindThumbPathByPostUid(postUid uint) []string
 	FindWriterByUid(userUid uint) models.BoardWriter
+	FindWriterUidByName(name string) uint
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetCommentCount(postUid uint) uint
-	GetComments(rows *sql.Rows) []models.AdminLatestComment
+	GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment
 	GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent
 	GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent
 	GetDashboardReports(bunch uint) []models.AdminDashboardReport
 	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
 	GetGroupList() []models.AdminGroupItem
-	GetLatestComments(page uint, bunch uint, maxUid uint) []models.AdminLatestComment
-	GetLatestPosts(page uint, bunch uint, maxUid uint) []models.AdminLatestPost
 	GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetLowestCategoryUid(boardUid uint) uint
 	GetReportList(param models.AdminReportParameter) []models.AdminReportItem
 	GetMemberList(bunch uint) []models.BoardWriter
 	GetPointPolicy(boardUid uint) (models.BoardActionPoint, error)
-	GetPosts(rows *sql.Rows) []models.AdminLatestPost
+	GetPostList(param models.AdminLatestParameter) []models.AdminLatestPost
 	GetRemoveFilePaths(boardUid uint) []string
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
-	GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment
-	GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost
-	GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem
 	GetTotalBoardCount(groupUid uint) uint
 	GetTotalGroupCount() uint
+	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
 	InsertCategory(boardUid uint, name string) uint
 	IsAddedCategory(boardUid uint, name string) bool
 	IsAdded(table models.Table, boardId string) bool
@@ -273,6 +270,14 @@ func (r *TsboardAdminRepository) FindWriterByUid(userUid uint) models.BoardWrite
 	return result
 }
 
+// 사용자 이름으로 고유 번화 반환하기
+func (r *TsboardAdminRepository) FindWriterUidByName(name string) uint {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name LIKE ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	r.db.QueryRow(query, "%"+name+"%").Scan(&uid)
+	return uid
+}
+
 // 게시판 관리자 후보 목록 가져오기 (이름으로 검색)
 func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
 	items := []models.BoardWriter{}
@@ -304,9 +309,24 @@ func (r *TsboardAdminRepository) GetCommentCount(postUid uint) uint {
 	return count
 }
 
-// (검색 or 일반) 댓글 정제해서 반환
-func (r *TsboardAdminRepository) GetComments(rows *sql.Rows) []models.AdminLatestComment {
+// (검색된) 댓글 목록 가져오기
+func (r *TsboardAdminRepository) GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment {
 	items := []models.AdminLatestComment{}
+	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	whereQuery := ""
+	if param.Option == models.SEARCH_CONTENT {
+		whereQuery = "AND content LIKE %" + param.Keyword + "%"
+	}
+
+	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
+												WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_COMMENT, whereQuery)
+	rows, err := r.db.Query(query, last, param.Bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
 	for rows.Next() {
 		item := models.AdminLatestComment{}
 		err := rows.Scan(&item.Uid, &item.PostUid, &item.Writer.UserUid, &item.Content, &item.Date, &item.Status)
@@ -455,34 +475,6 @@ func (r *TsboardAdminRepository) GetDashboardReports(bunch uint) []models.AdminD
 	return items
 }
 
-// 최근 댓글 가져오기
-func (r *TsboardAdminRepository) GetLatestComments(page uint, bunch uint, maxUid uint) []models.AdminLatestComment {
-	items := []models.AdminLatestComment{}
-	last := 1 + maxUid - (page-1)*bunch
-	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
-												WHERE uid < ? ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT)
-	rows, err := r.db.Query(query, last, bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-	return r.GetComments(rows)
-}
-
-// 최근 게시글 가져오기
-func (r *TsboardAdminRepository) GetLatestPosts(page uint, bunch uint, maxUid uint) []models.AdminLatestPost {
-	items := []models.AdminLatestPost{}
-	last := 1 + maxUid - (page-1)*bunch
-	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, title, submitted, hit, status 
-												FROM %s%s WHERE uid < ? ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_POST)
-	rows, err := r.db.Query(query, last, bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-	return r.GetPosts(rows)
-}
-
 // 게시판 레벨 제한값 가져오기
 func (r *TsboardAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
 	result := models.AdminBoardLevelPolicy{}
@@ -514,12 +506,42 @@ func (r *TsboardAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 
 // 신고 목록 가져오기
 func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter) []models.AdminReportItem {
-	//
-	//
-	// TODO
-	//
-	//
-	return nil
+	items := []models.AdminReportItem{}
+	isSolvedQuery := "<"
+	if param.IsSolved {
+		isSolvedQuery = "="
+	}
+
+	whereQuery := ""
+	if param.Option == models.SEARCH_REPORT_TO || param.Option == models.SEARCH_REPORT_FROM {
+		writerUid := r.FindWriterUidByName(param.Keyword)
+		whereQuery = fmt.Sprintf("AND %s_uid = %d", param.Option.String(), writerUid)
+	} else if param.Option == models.SEARCH_REPORT_REQUEST {
+		whereQuery = "AND request LIKE %" + param.Keyword + "%"
+	}
+
+	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	query := fmt.Sprintf(`SELECT to_uid, from_uid, request, response, timestamp 
+												FROM %s%s WHERE uid < ? AND solved %s 1 
+												%s ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_REPORT, isSolvedQuery, whereQuery)
+	rows, err := r.db.Query(query, last, param.Bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.AdminReportItem{}
+		err := rows.Scan(&item.To.UserUid, &item.From.UserUid, &item.Request, &item.Response, &item.Date)
+		if err != nil {
+			return items
+		}
+		item.To = r.FindWriterByUid(item.To.UserUid)
+		item.From = r.FindWriterByUid(item.From.UserUid)
+		items = append(items, item)
+	}
+	return items
 }
 
 // 대시보드용 회원 목록 가져오기
@@ -556,9 +578,27 @@ func (r *TsboardAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActi
 	return result, nil
 }
 
-// (검색 or 일반) 게시글 정제해서 반환
-func (r *TsboardAdminRepository) GetPosts(rows *sql.Rows) []models.AdminLatestPost {
+// (검색된) 게시글 가져오기
+func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) []models.AdminLatestPost {
 	items := []models.AdminLatestPost{}
+	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	whereQuery := ""
+	if param.Option == models.SEARCH_TITLE || param.Option == models.SEARCH_CONTENT {
+		whereQuery = fmt.Sprintf("AND %s LIKE %s", param.Option.String(), "%"+param.Keyword+"%")
+	} else if param.Option == models.SEARCH_WRITER {
+		writer := r.FindWriterUidByName(param.Keyword)
+		whereQuery = fmt.Sprintf("AND user_uid = %d", writer)
+	}
+
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, title, submitted, hit, status 
+												FROM %s%s WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, whereQuery)
+	rows, err := r.db.Query(query, last, param.Bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
 	for rows.Next() {
 		item := models.AdminLatestPost{}
 		var boardUid uint
@@ -634,46 +674,6 @@ func (r *TsboardAdminRepository) GetStatistic(table models.Table, column models.
 	return result
 }
 
-// 댓글 내용 검색하기
-func (r *TsboardAdminRepository) GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment {
-	items := []models.AdminLatestComment{}
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
-	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
-												WHERE uid < ? AND %s LIKE ? ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_COMMENT, param.Option.String())
-	rows, err := r.db.Query(query, last, "%"+param.Keyword+"%", param.Bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-	return r.GetComments(rows)
-}
-
-// 게시글 내용 검색하기
-func (r *TsboardAdminRepository) GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost {
-	items := []models.AdminLatestPost{}
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
-	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, title, submitted, hit, status 
-												FROM %s%s WHERE uid < ? AND %s LIKE ? ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_POST, param.Option.String())
-	rows, err := r.db.Query(query, last, "%"+param.Keyword+"%", param.Bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-	return r.GetPosts(rows)
-}
-
-// 신고 목록 검색하기
-func (r *TsboardAdminRepository) GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem {
-	//
-	//
-	// TODO
-	//
-	//
-	return nil
-}
-
 // 지정된 그룹에 소속된 게시판 갯수 반환
 func (r *TsboardAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	var count uint
@@ -688,6 +688,45 @@ func (r *TsboardAdminRepository) GetTotalGroupCount() uint {
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 	r.db.QueryRow(query).Scan(&count)
 	return count
+}
+
+// (검색된) 사용자 목록 반환
+func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []models.AdminUserItem {
+	items := []models.AdminUserItem{}
+	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	isBlockedQuery := "<"
+	if param.IsBlocked {
+		isBlockedQuery = "="
+	}
+
+	whereQuery := ""
+	if param.Option == models.SEARCH_USER_NAME {
+		whereQuery = "AND name LIKE %" + param.Keyword + "%"
+	} else if param.Option == models.SEARCH_USER_ID {
+		whereQuery = "AND id LIKE %" + param.Keyword + "%"
+	} else if param.Option == models.SEARCH_USER_LEVEL {
+		whereQuery = "AND level = " + param.Keyword
+	}
+
+	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signup 
+												FROM %s%s WHERE uid < ? AND blocked %s 1 %s
+												ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_USER, isBlockedQuery, whereQuery)
+	rows, err := r.db.Query(query, last, param.Bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.AdminUserItem{}
+		err = rows.Scan(&item.Uid, &item.Id, &item.Name, &item.Profile, &item.Level, &item.Point, &item.Signup)
+		if err != nil {
+			return items
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // 카테고리 추가하기

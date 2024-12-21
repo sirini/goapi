@@ -56,11 +56,16 @@ const (
 	SEARCH_REPORT_FROM
 	SEARCH_REPORT_REQUEST
 	SEARCH_REPORT_RESPONSE
+	SEARCH_USER_NAME
+	SEARCH_USER_ID
+	SEARCH_USER_LEVEL
 	SEARCH_NONE
 )
 
 func (s Search) String() string {
 	switch s {
+	case SEARCH_TITLE:
+		return "title"
 	case SEARCH_CONTENT:
 		return "content"
 	case SEARCH_WRITER:
@@ -77,8 +82,14 @@ func (s Search) String() string {
 		return "request"
 	case SEARCH_REPORT_RESPONSE:
 		return "response"
+	case SEARCH_USER_NAME:
+		return "name"
+	case SEARCH_USER_ID:
+		return "id"
+	case SEARCH_USER_LEVEL:
+		return "level"
 	default:
-		return "title"
+		return ""
 	}
 }
 

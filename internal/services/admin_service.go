@@ -20,6 +20,7 @@ type AdminService interface {
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
+	GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
@@ -33,6 +34,7 @@ type AdminService interface {
 	GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem
+	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
 	RemoveBoardCategory(boardUid uint, catUid uint)
 	RemoveBoard(boardUid uint) error
 	RemoveComment(commentUid uint) error
@@ -174,6 +176,12 @@ func (s *TsboardAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBo
 	return result, nil
 }
 
+// (검색된) 댓글 목록 가져오기
+func (s *TsboardAdminService) GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment {
+	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
+	return s.repos.Admin.GetCommentList(param)
+}
+
 // 대시보드용 그룹, 게시판, 회원 목록 가져오기
 func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboardItem {
 	groups := s.repos.Admin.GetGroupBoardList(models.TABLE_GROUP, bunch)
@@ -251,45 +259,65 @@ func (s *TsboardAdminService) GetGroupList() []models.AdminGroupItem {
 // 최근 댓글들 가져오기
 func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) []models.AdminLatestComment {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	return s.repos.Admin.GetLatestComments(page, bunch, maxUid)
+	return s.repos.Admin.GetCommentList(models.AdminLatestParameter{
+		Page:    page,
+		Bunch:   bunch,
+		MaxUid:  maxUid,
+		Option:  models.SEARCH_NONE,
+		Keyword: "",
+	})
 }
 
 // 최근 게시글들을 가져오기
 func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) []models.AdminLatestPost {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
-	return s.repos.Admin.GetLatestPosts(page, bunch, maxUid)
+	return s.repos.Admin.GetPostList(models.AdminLatestParameter{
+		Page:    page,
+		Bunch:   bunch,
+		MaxUid:  maxUid,
+		Option:  models.SEARCH_NONE,
+		Keyword: "",
+	})
 }
 
 // 최근 신고 목록 가져오기
 func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool) []models.AdminReportItem {
-	//
-	//
-	// TODO
-	//
-	//
-	return nil
+	maxUid := s.repos.Board.GetMaxUid(models.TABLE_REPORT)
+	parameter := models.AdminReportParameter{
+		AdminLatestParameter: models.AdminLatestParameter{
+			Page:    page,
+			Bunch:   bunch,
+			MaxUid:  maxUid,
+			Option:  models.SEARCH_REPORT_REQUEST,
+			Keyword: "",
+		},
+		IsSolved: isSolved,
+	}
+	return s.repos.Admin.GetReportList(parameter)
 }
 
 // 검색된 댓글들 가져오기
 func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	return s.repos.Admin.GetSearchedComments(param)
+	return s.repos.Admin.GetCommentList(param)
 }
 
 // 검색된 게시글들 가져오기
 func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_POST)
-	return s.repos.Admin.GetSearchedPosts(param)
+	return s.repos.Admin.GetPostList(param)
 }
 
 // 검색된 신고 목록 가져오기
 func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem {
-	//
-	//
-	// TODO
-	//
-	//
-	return nil
+	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_REPORT)
+	return s.repos.Admin.GetReportList(param)
+}
+
+// (검색된) 사용자 목록 가져오기
+func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) []models.AdminUserItem {
+	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_USER)
+	return s.repos.Admin.GetUserList(param)
 }
 
 // 카테고리 삭제하기

@@ -178,3 +178,20 @@ type AdminReportItem struct {
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
 }
+
+// 사용자 목록 검색하기에 필요한 파라미터 정의
+type AdminUserParameter struct {
+	AdminLatestParameter
+	IsBlocked bool
+}
+
+// 사용자 목록 검색하기 반환값 정의
+type AdminUserItem struct {
+	Uid     uint   `json:"uid"`
+	Name    string `json:"name"`
+	Id      string `json:"id"`
+	Profile string `json:"profile"`
+	Level   uint   `json:"level"`
+	Point   uint   `json:"point"`
+	Signup  uint64 `json:"signup"`
+}

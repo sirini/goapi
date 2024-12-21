@@ -67,5 +67,4 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 
 	report.Get("/list", h.Admin.ReportListLoadHandler, middlewares.AdminMiddleware())
 	report.Get("/search/list", h.Admin.ReportListSearchHandler, middlewares.AdminMiddleware())
-
 }

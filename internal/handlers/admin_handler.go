@@ -48,6 +48,7 @@ type AdminHandler interface {
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
 	UseBoardCategoryHandler(c fiber.Ctx) error
+	UserListLoadHandler(c fiber.Ctx) error
 }
 
 type TsboardAdminHandler struct {
@@ -463,21 +464,28 @@ func (h *TsboardAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid bunch, not a valid number")
 	}
 
-	comments := h.service.Admin.GetLatestComments(uint(page), uint(bunch))
+	parameter := models.AdminLatestParameter{
+		Page:    uint(page),
+		Bunch:   uint(bunch),
+		MaxUid:  0,
+		Option:  models.SEARCH_NONE,
+		Keyword: "",
+	}
+	comments := h.service.Admin.GetCommentList(parameter)
 	return utils.Ok(c, comments)
 }
 
 // 댓글 검색하는 핸들러
 func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
-	}
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid page, not a valid number")
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid option, not a valid number")
 	}
@@ -490,7 +498,7 @@ func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
-	comments := h.service.Admin.GetSearchedComments(parameter)
+	comments := h.service.Admin.GetCommentList(parameter)
 	return utils.Ok(c, comments)
 }
 
@@ -698,4 +706,38 @@ func (h *TsboardAdminHandler) UseBoardCategoryHandler(c fiber.Ctx) error {
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "use_category", use)
 	return utils.Ok(c, nil)
+}
+
+// 사용자 목록 조회하는 핸들러
+func (h *TsboardAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
+	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid page, not a valid number")
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid bunch, not a valid number")
+	}
+	isBlocked, err := strconv.ParseBool(c.FormValue("isBlocked"))
+	if err != nil {
+		return utils.Err(c, "Invalid parameter(isBlocked), unable to be a boolean type")
+	}
+	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid option, not a valid number")
+	}
+	keyword := utils.Escape(c.FormValue("keyword"))
+
+	parameter := models.AdminUserParameter{
+		AdminLatestParameter: models.AdminLatestParameter{
+			Page:    uint(page),
+			Bunch:   uint(bunch),
+			MaxUid:  0,
+			Option:  models.Search(option),
+			Keyword: keyword,
+		},
+		IsBlocked: isBlocked,
+	}
+	list := h.service.Admin.GetUserList(parameter)
+	return utils.Ok(c, list)
 }
