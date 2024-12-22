@@ -15,6 +15,12 @@ import (
 )
 
 func main() {
+	if isInstalled := configs.Install(); !isInstalled {
+		log.Fatalln("💣 Failed to install TSBOARD, the database connection details you provided may be incorrect ",
+			"or you may not have the necessary permissions to create a new .env file. ",
+			"Please leave a support request on the [tsboard.dev] website!")
+	}
+
 	configs.LoadConfig()
 	db := models.Connect(&configs.Env)
 	defer db.Close()
