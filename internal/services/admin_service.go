@@ -16,25 +16,26 @@ type AdminService interface {
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
 	ChangeGroupId(groupUid uint, newGroupId string) error
 	CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult
-	CreateNewGroup(newGroupId string) models.AdminGroupItem
+	CreateNewGroup(newGroupId string) models.AdminGroupConfig
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
+	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
-	GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment
+	GetCommentList(param models.AdminLatestParameter) models.AdminLatestCommentResult
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
 	GetExistBoardIds(boardId string, bunch uint) []models.Triple
 	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
-	GetGroupList() []models.AdminGroupItem
-	GetLatestComments(page uint, bunch uint) []models.AdminLatestComment
-	GetLatestPosts(page uint, bunch uint) []models.AdminLatestPost
-	GetReportList(page uint, bunch uint, isSolved bool) []models.AdminReportItem
-	GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment
-	GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost
-	GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem
-	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
+	GetGroupList() []models.AdminGroupConfig
+	GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult
+	GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult
+	GetReportList(page uint, bunch uint, isSolved bool) models.AdminReportResult
+	GetSearchedComments(param models.AdminLatestParameter) models.AdminLatestCommentResult
+	GetSearchedPosts(param models.AdminLatestParameter) models.AdminLatestPostResult
+	GetSearchedReports(param models.AdminReportParameter) models.AdminReportResult
+	GetUserList(param models.AdminUserParameter) models.AdminUserItemResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
@@ -130,16 +131,14 @@ func (s *TsboardAdminService) CreateNewBoard(groupUid uint, newBoardId string) m
 }
 
 // 새 그룹 만들기
-func (s *TsboardAdminService) CreateNewGroup(newGroupId string) models.AdminGroupItem {
+func (s *TsboardAdminService) CreateNewGroup(newGroupId string) models.AdminGroupConfig {
 	groupUid := s.repos.Admin.CreateGroup(newGroupId)
 	manager := s.repos.Admin.FindWriterByUid(models.CREATE_GROUP_ADMIN)
-	result := models.AdminGroupItem{
-		AdminGroupConfig: models.AdminGroupConfig{
-			Uid:     groupUid,
-			Count:   0,
-			Manager: manager,
-		},
-		Id: newGroupId,
+	result := models.AdminGroupConfig{
+		Uid:     groupUid,
+		Count:   0,
+		Manager: manager,
+		Id:      newGroupId,
 	}
 	return result
 }
@@ -165,6 +164,11 @@ func (s *TsboardAdminService) GetBoardLevelPolicy(boardUid uint) (models.AdminBo
 	return perm, nil
 }
 
+// 그룹 소속 게시판들의 목록(및 간단 통계) 가져오기
+func (s *TsboardAdminService) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+	return s.repos.Admin.GetBoardList(groupUid)
+}
+
 // 게시판 포인트 정책값 가져오기
 func (s *TsboardAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error) {
 	result := models.AdminBoardPointPolicy{}
@@ -179,9 +183,14 @@ func (s *TsboardAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBo
 }
 
 // (검색된) 댓글 목록 가져오기
-func (s *TsboardAdminService) GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment {
+func (s *TsboardAdminService) GetCommentList(param models.AdminLatestParameter) models.AdminLatestCommentResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	return s.repos.Admin.GetCommentList(param)
+	comments := s.repos.Admin.GetCommentList(param)
+
+	return models.AdminLatestCommentResult{
+		Comments: comments,
+		MaxUid:   param.MaxUid,
+	}
 }
 
 // 대시보드용 그룹, 게시판, 회원 목록 가져오기
@@ -248,42 +257,51 @@ func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupCo
 		return result
 	}
 	result.Uid = groupUid
+	result.Id = groupId
 	result.Manager = s.repos.Admin.FindWriterByUid(adminUid)
 	result.Count = s.repos.Admin.GetTotalBoardCount(groupUid)
 	return result
 }
 
 // 그룹 목록 가져오기
-func (s *TsboardAdminService) GetGroupList() []models.AdminGroupItem {
+func (s *TsboardAdminService) GetGroupList() []models.AdminGroupConfig {
 	return s.repos.Admin.GetGroupList()
 }
 
 // 최근 댓글들 가져오기
-func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) []models.AdminLatestComment {
+func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	return s.repos.Admin.GetCommentList(models.AdminLatestParameter{
+	comments := s.repos.Admin.GetCommentList(models.AdminLatestParameter{
 		Page:    page,
 		Bunch:   bunch,
 		MaxUid:  maxUid,
 		Option:  models.SEARCH_NONE,
 		Keyword: "",
 	})
+	return models.AdminLatestCommentResult{
+		Comments: comments,
+		MaxUid:   maxUid,
+	}
 }
 
 // 최근 게시글들을 가져오기
-func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) []models.AdminLatestPost {
+func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
-	return s.repos.Admin.GetPostList(models.AdminLatestParameter{
+	posts := s.repos.Admin.GetPostList(models.AdminLatestParameter{
 		Page:    page,
 		Bunch:   bunch,
 		MaxUid:  maxUid,
 		Option:  models.SEARCH_NONE,
 		Keyword: "",
 	})
+	return models.AdminLatestPostResult{
+		Posts:  posts,
+		MaxUid: maxUid,
+	}
 }
 
 // 최근 신고 목록 가져오기
-func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool) []models.AdminReportItem {
+func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool) models.AdminReportResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_REPORT)
 	parameter := models.AdminReportParameter{
 		AdminLatestParameter: models.AdminLatestParameter{
@@ -295,31 +313,51 @@ func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool
 		},
 		IsSolved: isSolved,
 	}
-	return s.repos.Admin.GetReportList(parameter)
+	reports := s.repos.Admin.GetReportList(parameter)
+	return models.AdminReportResult{
+		Reports: reports,
+		MaxUid:  maxUid,
+	}
 }
 
 // 검색된 댓글들 가져오기
-func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParameter) []models.AdminLatestComment {
+func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParameter) models.AdminLatestCommentResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	return s.repos.Admin.GetCommentList(param)
+	comments := s.repos.Admin.GetCommentList(param)
+	return models.AdminLatestCommentResult{
+		Comments: comments,
+		MaxUid:   param.MaxUid,
+	}
 }
 
 // 검색된 게시글들 가져오기
-func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter) []models.AdminLatestPost {
+func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter) models.AdminLatestPostResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_POST)
-	return s.repos.Admin.GetPostList(param)
+	posts := s.repos.Admin.GetPostList(param)
+	return models.AdminLatestPostResult{
+		Posts:  posts,
+		MaxUid: param.MaxUid,
+	}
 }
 
 // 검색된 신고 목록 가져오기
-func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParameter) []models.AdminReportItem {
+func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParameter) models.AdminReportResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_REPORT)
-	return s.repos.Admin.GetReportList(param)
+	reports := s.repos.Admin.GetReportList(param)
+	return models.AdminReportResult{
+		Reports: reports,
+		MaxUid:  param.MaxUid,
+	}
 }
 
 // (검색된) 사용자 목록 가져오기
-func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) []models.AdminUserItem {
+func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) models.AdminUserItemResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_USER)
-	return s.repos.Admin.GetUserList(param)
+	user := s.repos.Admin.GetUserList(param)
+	return models.AdminUserItemResult{
+		User:   user,
+		MaxUid: param.MaxUid,
+	}
 }
 
 // 사용자 정보 가져오기
@@ -374,7 +412,7 @@ func (s *TsboardAdminService) RemoveComment(commentUid uint) error {
 
 // 그룹 삭제하기
 func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
-	groupCount := s.repos.Admin.GetTotalGroupCount()
+	groupCount := s.repos.Admin.GetTotalCount(models.TABLE_GROUP)
 	if groupCount < 2 {
 		return fmt.Errorf("only one group is left, it cannot be removed")
 	}

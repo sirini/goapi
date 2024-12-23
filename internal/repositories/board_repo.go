@@ -176,13 +176,13 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param models.BoardListParame
 // 게시판 설정값 가져오기
 func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfig {
 	config := models.BoardConfig{}
-	query := fmt.Sprintf(`SELECT admin_uid, type, name, info, row_count, width, use_category,
+	query := fmt.Sprintf(`SELECT id, group_uid, admin_uid, type, name, info, row_count, width, use_category,
 												level_list, level_view, level_write, level_comment, level_download,
 												point_view, point_write, point_comment, point_download 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
 
 	var useCategory uint8
-	r.db.QueryRow(query, boardUid).Scan(&config.Admin.Board, &config.Type, &config.Name, &config.Info,
+	r.db.QueryRow(query, boardUid).Scan(&config.Id, &config.GroupUid, &config.Admin.Board, &config.Type, &config.Name, &config.Info,
 		&config.RowCount, &config.Width, &useCategory, &config.Level.List, &config.Level.View,
 		&config.Level.Write, &config.Level.Comment, &config.Level.Download, &config.Point.View,
 		&config.Point.Write, &config.Point.Comment, &config.Point.Download)

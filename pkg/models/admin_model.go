@@ -51,6 +51,12 @@ type AdminBoardLevelPolicy struct {
 	Level BoardActionLevel `json:"level"`
 }
 
+// 게시판 설정 반환값 정의
+type AdminBoardResult struct {
+	Config BoardConfig `json:"config"`
+	Groups []Pair      `json:"groups"`
+}
+
 // 게시판 포인트 정책 반환값 정의
 type AdminBoardPointPolicy struct {
 	Uid uint `json:"uid"`
@@ -116,17 +122,36 @@ type AdminDashboardStatus struct {
 	Visit uint   `json:"visit"`
 }
 
+// 그룹 관리화면 게시판 (및 통계) 목록 반환값 정의
+type AdminGroupBoardItem struct {
+	AdminGroupConfig
+	Id    string                `json:"id"`
+	Type  Board                 `json:"type"`
+	Name  string                `json:"name"`
+	Info  string                `json:"info"`
+	Total AdminGroupBoardStatus `json:"total"`
+}
+
+// 게시판 별 간단 통계 반환값 정의
+type AdminGroupBoardStatus struct {
+	Post    uint `json:"post"`
+	Comment uint `json:"comment"`
+	File    uint `json:"file"`
+	Image   uint `json:"image"`
+}
+
+// 그룹 설정 및 소속 게시판들 정보 반환값 정의
+type AdminGroupListResult struct {
+	Config AdminGroupConfig      `json:"config"`
+	Boards []AdminGroupBoardItem `json:"boards"`
+}
+
 // 그룹 관리화면 일반 설정들 반환값 정의
 type AdminGroupConfig struct {
 	Uid     uint        `json:"uid"`
+	Id      string      `json:"id"`
 	Count   uint        `json:"count"`
 	Manager BoardWriter `json:"manager"`
-}
-
-// 그룹 목록용 반환값 정의
-type AdminGroupItem struct {
-	AdminGroupConfig
-	Id string `json:"id"`
 }
 
 // 최근 (댓)글 출력에 필요한 공통 반환값 정의
@@ -145,6 +170,12 @@ type AdminLatestComment struct {
 	AdminLatestCommon
 	Content string `json:"content"`
 	PostUid uint   `json:"postUid"`
+}
+
+// 최근 댓글 및 max uid 반환값 정의
+type AdminLatestCommentResult struct {
+	Comments []AdminLatestComment `json:"comments"`
+	MaxUid   uint                 `json:"maxUid"`
 }
 
 // (댓)글 검색하기에 필요한 파라미터 정의
@@ -170,6 +201,12 @@ type AdminLatestPost struct {
 	Hit     uint   `json:"hit"`
 }
 
+// 최근 글 및 max uid 반환값 정의
+type AdminLatestPostResult struct {
+	Posts  []AdminLatestPost `json:"posts"`
+	MaxUid uint              `json:"maxUid"`
+}
+
 // 신고 목록 반환값 정의
 type AdminReportItem struct {
 	To       BoardWriter `json:"to"`
@@ -177,6 +214,12 @@ type AdminReportItem struct {
 	Request  string      `json:"request"`
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
+}
+
+// 신고 목록 및 max uid 반환값 정의
+type AdminReportResult struct {
+	Reports []AdminReportItem `json:"reports"`
+	MaxUid  uint              `json:"maxUid"`
 }
 
 // 사용자 목록 검색하기에 필요한 파라미터 정의
@@ -187,21 +230,23 @@ type AdminUserParameter struct {
 
 // 사용자 목록 검색하기 반환값 정의
 type AdminUserItem struct {
-	Uid     uint   `json:"uid"`
-	Name    string `json:"name"`
-	Id      string `json:"id"`
-	Profile string `json:"profile"`
-	Level   uint   `json:"level"`
-	Point   uint   `json:"point"`
-	Signup  uint64 `json:"signup"`
+	UserBasicInfo
+	Id     string `json:"id"`
+	Level  uint   `json:"level"`
+	Point  uint   `json:"point"`
+	Signup uint64 `json:"signup"`
+}
+
+// 사용자 목록 검색 결과 및 max uid 반환값 정의
+type AdminUserItemResult struct {
+	User   []AdminUserItem `json:"user"`
+	MaxUid uint            `json:"maxUid"`
 }
 
 // 사용자 정보 반환값 정의
 type AdminUserInfo struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Profile   string `json:"profile"`
-	Level     uint   `json:"level"`
-	Point     uint   `json:"point"`
-	Signature string `json:"signature"`
+	BoardWriter
+	Id    string `json:"id"`
+	Level uint   `json:"level"`
+	Point uint   `json:"point"`
 }

@@ -22,9 +22,11 @@ type AdminRepository interface {
 	FindGroupUidIdById(inputId string, bunch uint) []models.Pair
 	FindLikeByUid(table models.Table, targetUid uint) uint
 	FindThumbPathByPostUid(postUid uint) []string
+	FindCountByBoardUid(table models.Table, boardUid uint) uint
 	FindWriterByUid(userUid uint) models.BoardWriter
 	FindWriterUidByName(name string) uint
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
+	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetCommentCount(postUid uint) uint
 	GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment
 	GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent
@@ -32,7 +34,7 @@ type AdminRepository interface {
 	GetDashboardReports(bunch uint) []models.AdminDashboardReport
 	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
-	GetGroupList() []models.AdminGroupItem
+	GetGroupList() []models.AdminGroupConfig
 	GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetLowestCategoryUid(boardUid uint) uint
 	GetReportList(param models.AdminReportParameter) []models.AdminReportItem
@@ -42,7 +44,7 @@ type AdminRepository interface {
 	GetRemoveFilePaths(boardUid uint) []string
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
-	GetTotalGroupCount() uint
+	GetTotalCount(table models.Table) uint
 	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	InsertCategory(boardUid uint, name string) uint
@@ -261,6 +263,14 @@ func (r *TsboardAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
 	return paths
 }
 
+// 게시판 번호에 해당하는 총 레코드 수 반환
+func (r *TsboardAdminRepository) FindCountByBoardUid(table models.Table, boardUid uint) uint {
+	var count uint
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, table)
+	r.db.QueryRow(query, boardUid).Scan(&count)
+	return count
+}
+
 // 게시글 작성자 기본 정보 반환하기
 func (r *TsboardAdminRepository) FindWriterByUid(userUid uint) models.BoardWriter {
 	result := models.BoardWriter{}
@@ -301,6 +311,34 @@ func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+// 그룹 소속 게시판의 기본 정보 및 간단 통계 가져오기
+func (r *TsboardAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+	items := []models.AdminGroupBoardItem{}
+	query := fmt.Sprintf("SELECT uid, id, admin_uid, type, name, info FROM %s%s WHERE group_uid = ?",
+		configs.Env.Prefix, models.TABLE_BOARD)
+
+	rows, err := r.db.Query(query, groupUid)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.AdminGroupBoardItem{}
+		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid, &item.Type, &item.Name, &item.Info)
+		if err != nil {
+			return items
+		}
+		item.Manager = r.FindWriterByUid(item.Manager.UserUid)
+		item.Total.Post = r.FindCountByBoardUid(models.TABLE_POST, item.Uid)
+		item.Total.Comment = r.FindCountByBoardUid(models.TABLE_COMMENT, item.Uid)
+		item.Total.File = r.FindCountByBoardUid(models.TABLE_FILE, item.Uid)
+		item.Total.Image = r.FindCountByBoardUid(models.TABLE_IMAGE, item.Uid)
+		items = append(items, item)
+	}
+	return items
 }
 
 // 게시글에 달린 댓글 갯수 가져오기
@@ -376,8 +414,8 @@ func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uin
 }
 
 // 그룹 목록 가져오기
-func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupItem {
-	items := []models.AdminGroupItem{}
+func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupConfig {
+	items := []models.AdminGroupConfig{}
 	query := fmt.Sprintf("SELECT uid, id, admin_uid FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -386,7 +424,7 @@ func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupItem {
 	defer rows.Close()
 
 	for rows.Next() {
-		item := models.AdminGroupItem{}
+		item := models.AdminGroupConfig{}
 		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid)
 		if err != nil {
 			return items
@@ -684,10 +722,10 @@ func (r *TsboardAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	return count
 }
 
-// 그룹의 총 갯수 반환
-func (r *TsboardAdminRepository) GetTotalGroupCount() uint {
+// 지정 테이블의 총 레코드 갯수 반환
+func (r *TsboardAdminRepository) GetTotalCount(table models.Table) uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, table)
 	r.db.QueryRow(query).Scan(&count)
 	return count
 }
@@ -722,7 +760,7 @@ func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []
 
 	for rows.Next() {
 		item := models.AdminUserItem{}
-		err = rows.Scan(&item.Uid, &item.Id, &item.Name, &item.Profile, &item.Level, &item.Point, &item.Signup)
+		err = rows.Scan(&item.UserUid, &item.Id, &item.Name, &item.Profile, &item.Level, &item.Point, &item.Signup)
 		if err != nil {
 			return items
 		}
@@ -734,9 +772,9 @@ func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []
 // 사용자 정보 반환
 func (r *TsboardAdminRepository) GetUserInfo(userUid uint) models.AdminUserInfo {
 	result := models.AdminUserInfo{}
-	query := fmt.Sprintf("SELECT id, name, profile, level, point, signature FROM %s%s WHERE uid = ? LIMIT 1",
+	query := fmt.Sprintf("SELECT uid, id, name, profile, level, point, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	r.db.QueryRow(query, userUid).Scan(&result.Id, &result.Name, &result.Profile, &result.Level, &result.Point, &result.Signature)
+	r.db.QueryRow(query, userUid).Scan(&result.UserUid, &result.Id, &result.Name, &result.Profile, &result.Level, &result.Point, &result.Signature)
 	return result
 }
 

@@ -3,6 +3,7 @@ module github.com/sirini/goapi
 go 1.23.2
 
 require (
+	github.com/fatih/color v1.18.0
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gofiber/fiber/v3 v3.0.0-beta.3
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -21,7 +22,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/fatih/color v1.18.0 // indirect
 	github.com/gofiber/utils/v2 v2.0.0-beta.4 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect

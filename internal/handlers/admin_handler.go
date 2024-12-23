@@ -91,7 +91,20 @@ func (h *TsboardAdminHandler) BoardGeneralLoadHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to load configuration")
 	}
 
-	return utils.Ok(c, config)
+	pairs := []models.Pair{}
+	groups := h.service.Admin.GetGroupList()
+	for _, group := range groups {
+		pair := models.Pair{
+			Uid:  group.Uid,
+			Name: group.Id,
+		}
+		pairs = append(pairs, pair)
+	}
+
+	return utils.Ok(c, models.AdminBoardResult{
+		Config: config,
+		Groups: pairs,
+	})
 }
 
 // 게시판 권한 설정 가져오기 핸들러
@@ -447,7 +460,12 @@ func (h *TsboardAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) GroupGeneralLoadHandler(c fiber.Ctx) error {
 	groupId := c.FormValue("id")
 	config := h.service.Admin.GetGroupConfig(groupId)
-	return utils.Ok(c, config)
+	boards := h.service.Admin.GetBoardList(config.Uid)
+
+	return utils.Ok(c, models.AdminGroupListResult{
+		Config: config,
+		Boards: boards,
+	})
 }
 
 // 그룹 목록 가져오는 핸들러
@@ -792,6 +810,6 @@ func (h *TsboardAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
 		},
 		IsBlocked: isBlocked,
 	}
-	list := h.service.Admin.GetUserList(parameter)
-	return utils.Ok(c, list)
+	result := h.service.Admin.GetUserList(parameter)
+	return utils.Ok(c, result)
 }

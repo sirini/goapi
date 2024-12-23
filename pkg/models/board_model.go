@@ -100,12 +100,6 @@ type BoardBasicSettingResult struct {
 	UseCategory bool
 }
 
-// 게시글 작성자 타입 정의
-type BoardWriter struct {
-	UserBasicInfo
-	Signature string `json:"signature"`
-}
-
 // 홈화면 게시글 공통 리턴 타입 정의
 type BoardCommonPostItem struct {
 	Uid       uint   `json:"uid"`
@@ -167,8 +161,10 @@ type BoardActionLevel struct {
 
 // 게시판 설정 타입 정의
 type BoardConfig struct {
-	Uid   uint `json:"uid"`
-	Admin struct {
+	Uid      uint   `json:"uid"`
+	Id       string `json:"id"`
+	GroupUid uint   `json:"groupUid"`
+	Admin    struct {
 		Group uint `json:"group"`
 		Board uint `json:"board"`
 	} `json:"admin"`
@@ -241,24 +237,19 @@ type BoardAttachment struct {
 	Size uint `json:"size"`
 }
 
-// 파일 기본 구조 정의
-type BoardFile struct {
-	Uid  uint   `json:"uid"`
-	Path string `json:"path"`
-}
-
-// 썸네일 크기별 종류 정의
-type BoardThumbnail struct {
-	Large string `json:"large"`
-	Small string `json:"small"`
-}
-
 // 게시판 첨부 이미지 구조체 정의
 type BoardAttachedImage struct {
 	File        BoardFile      `json:"file"`
 	Thumbnail   BoardThumbnail `json:"thumbnail"`
 	Exif        BoardExif      `json:"exif"`
 	Description string         `json:"description"`
+}
+
+// 게시글 작성자의 최근 글/댓글에 전달할 게시판 기본 설정값 정의
+type BoardBasicConfig struct {
+	Id   string `json:"id"`
+	Type Board  `json:"type"`
+	Name string `json:"name"`
 }
 
 // EXIF 구조체 정의
@@ -274,32 +265,22 @@ type BoardExif struct {
 	Date        uint64 `json:"date"`
 }
 
-// 게시글 작성자의 최근 글/댓글에 전달할 게시판 기본 설정값 정의
-type BoardBasicConfig struct {
-	Id   string `json:"id"`
-	Type Board  `json:"type"`
-	Name string `json:"name"`
+// 파일 기본 구조 정의
+type BoardFile struct {
+	Uid  uint   `json:"uid"`
+	Path string `json:"path"`
 }
 
-// 게시글 작성자의 최근 글/댓글 공통 요소 정의
-type BoardWriterLatestCommon struct {
-	Board     BoardBasicConfig `json:"board"`
-	PostUid   uint             `json:"postUid"`
-	Like      uint             `json:"like"`
-	Submitted uint             `json:"submitted"`
+// 게시글 이동에 필요한 게시판 목록 타입 정의
+type BoardItem struct {
+	Pair
+	Info string `json:"info"`
 }
 
-// 게시글 작성자의 최근 댓글 정의
-type BoardWriterLatestComment struct {
-	BoardWriterLatestCommon
-	Content string `json:"content"`
-}
-
-// 게시글 작성자의 최근 글 정의
-type BoardWriterLatestPost struct {
-	BoardWriterLatestCommon
-	Comment uint   `json:"comment"`
-	Title   string `json:"title"`
+// 썸네일 크기별 종류 정의
+type BoardThumbnail struct {
+	Large string `json:"large"`
+	Small string `json:"small"`
 }
 
 // 게시글 보기에서 공통으로 쓰이는 파라미터 정의
@@ -347,10 +328,31 @@ type BoardMovePostParameter struct {
 	TargetBoardUid uint
 }
 
-// 게시글 이동에 필요한 게시판 목록 타입 정의
-type BoardItem struct {
-	Pair
-	Info string `json:"info"`
+// 게시글 작성자 타입 정의
+type BoardWriter struct {
+	UserBasicInfo
+	Signature string `json:"signature"`
+}
+
+// 게시글 작성자의 최근 글/댓글 공통 요소 정의
+type BoardWriterLatestCommon struct {
+	Board     BoardBasicConfig `json:"board"`
+	PostUid   uint             `json:"postUid"`
+	Like      uint             `json:"like"`
+	Submitted uint             `json:"submitted"`
+}
+
+// 게시글 작성자의 최근 댓글 정의
+type BoardWriterLatestComment struct {
+	BoardWriterLatestCommon
+	Content string `json:"content"`
+}
+
+// 게시글 작성자의 최근 글 정의
+type BoardWriterLatestPost struct {
+	BoardWriterLatestCommon
+	Comment uint   `json:"comment"`
+	Title   string `json:"title"`
 }
 
 // 에디터에서 게시판 설정 및 카테고리 불러오기 결과 타입 정의
