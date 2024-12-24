@@ -103,8 +103,9 @@ func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]model
 // 게시판 설정 및 카테고리, 관리자 여부 반환
 func (s *TsboardBoardService) GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult {
 	return models.EditorConfigResult{
-		Config:  s.repos.Board.GetBoardConfig(boardUid),
-		IsAdmin: s.repos.Auth.CheckPermissionByUid(userUid, boardUid),
+		Config:     s.repos.Board.GetBoardConfig(boardUid),
+		IsAdmin:    s.repos.Auth.CheckPermissionByUid(userUid, boardUid),
+		Categories: s.repos.Board.GetBoardCategories(boardUid),
 	}
 }
 

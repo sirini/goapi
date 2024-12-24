@@ -357,8 +357,9 @@ type BoardWriterLatestPost struct {
 
 // 에디터에서 게시판 설정 및 카테고리 불러오기 결과 타입 정의
 type EditorConfigResult struct {
-	Config  BoardConfig `json:"config"`
-	IsAdmin bool        `json:"isAdmin"`
+	Config     BoardConfig `json:"config"`
+	IsAdmin    bool        `json:"isAdmin"`
+	Categories []Pair      `json:"categories"`
 }
 
 // EXIF 저장할 때 필요한 파라미터 정의
