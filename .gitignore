@@ -1,5 +1,6 @@
 .DS_Store
 goapi
+.goreleaser.yaml
 
 # local env files
 .env
@@ -18,3 +19,5 @@ goapi
 *.sln
 *.sw?
 .env
+
+dist/
