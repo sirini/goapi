@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/sirini/goapi/internal/repositories"
@@ -14,7 +15,7 @@ type UserService interface {
 	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
-	GetUserPermission(userUid uint) models.UserPermissionReportResult
+	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult
 	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
 }
 
@@ -83,6 +84,9 @@ func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter
 
 // 사용자 권한 변경하기
 func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error {
+	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
+		return fmt.Errorf("unauthorized access")
+	}
 	targetUserUid := perm.UserUid
 	permission := perm.UserPermissionResult
 
@@ -132,18 +136,22 @@ func (s *TsboardUserService) GetUserLevelPoint(userUid uint) (int, int) {
 }
 
 // 사용자의 권한 조회
-func (s *TsboardUserService) GetUserPermission(userUid uint) models.UserPermissionReportResult {
-	var result models.UserPermissionReportResult
-	permission := s.repos.User.LoadUserPermission(userUid)
-	isBlocked := s.repos.User.IsBlocked(userUid)
-	response := s.repos.User.GetReportResponse(userUid)
+func (s *TsboardUserService) GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult {
+	result := models.UserPermissionReportResult{}
+	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
+		return result
+	}
+
+	permission := s.repos.User.LoadUserPermission(targetUserUid)
+	isBlocked := s.repos.User.IsBlocked(targetUserUid)
+	response := s.repos.User.GetReportResponse(targetUserUid)
 
 	result.WritePost = permission.WritePost
 	result.WriteComment = permission.WriteComment
 	result.SendChatMessage = permission.SendChatMessage
 	result.SendReport = permission.SendReport
 	result.Login = !isBlocked
-	result.UserUid = userUid
+	result.UserUid = targetUserUid
 	result.Response = response
 
 	return result

@@ -91,7 +91,7 @@ func (h *TsboardAdminHandler) BoardGeneralLoadHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to load configuration")
 	}
 
-	pairs := []models.Pair{}
+	pairs := make([]models.Pair, 0)
 	groups := h.service.Admin.GetGroupList()
 	for _, group := range groups {
 		pair := models.Pair{

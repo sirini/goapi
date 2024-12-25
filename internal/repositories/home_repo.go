@@ -37,7 +37,7 @@ func NewTsboardHomeRepository(db *sql.DB, board BoardRepository) *TsboardHomeRep
 
 // 홈화면에 보여줄 게시글 레코드들을 패킹해서 반환
 func (r *TsboardHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostItem, error) {
-	var items []models.HomePostItem
+	items := make([]models.HomePostItem, 0)
 	for rows.Next() {
 		item := models.HomePostItem{}
 		err := rows.Scan(&item.Uid, &item.BoardUid, &item.UserUid, &item.CategoryUid,
@@ -158,7 +158,7 @@ func (r *TsboardHomeRepository) GetBoardIDs() []string {
 
 // 홈화면에서 게시판 목록들 가져오기
 func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error) {
-	var boards []models.HomeSidebarBoardResult
+	boards := make([]models.HomeSidebarBoardResult, 0)
 	rows, err := stmt.Query(groupUid)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]
 
 // 홈화면 사이드바에 사용할 그룹 및 하위 게시판 목록들 가져오기
 func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error) {
-	var groups []models.HomeSidebarGroupResult
+	groups := make([]models.HomeSidebarGroupResult, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 
 	rows, err := r.db.Query(query)

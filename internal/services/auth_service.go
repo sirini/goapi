@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
@@ -93,17 +94,19 @@ func (s *TsboardAuthService) Signin(id string, pw string) models.MyInfoResult {
 		return user
 	}
 
-	authToken, err := utils.GenerateAccessToken(user.Uid, 2)
+	var twoHours time.Duration = 2
+	accessToken, err := utils.GenerateAccessToken(user.Uid, twoHours)
 	if err != nil {
 		return user
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(1)
+	oneMonth := 1
+	refreshToken, err := utils.GenerateRefreshToken(oneMonth)
 	if err != nil {
 		return user
 	}
 
-	user.Token = authToken
+	user.Token = accessToken
 	user.Refresh = refreshToken
 	s.repos.Auth.SaveRefreshToken(user.Uid, refreshToken)
 	s.repos.Auth.UpdateUserSignin(user.Uid)

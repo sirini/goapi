@@ -7,6 +7,7 @@ type Service struct {
 	Admin   AdminService
 	Auth    AuthService
 	Board   BoardService
+	Blog    BlogService
 	Chat    ChatService
 	Comment CommentService
 	Home    HomeService
@@ -21,6 +22,7 @@ func NewService(repos *repositories.Repository) *Service {
 		Admin:   NewTsboardAdminService(repos),
 		Auth:    NewTsboardAuthService(repos),
 		Board:   NewTsboardBoardService(repos),
+		Blog:    NewTsboardBlogService(repos),
 		Chat:    NewTsboardChatService(repos),
 		Comment: NewTsboardCommentService(repos),
 		Home:    NewTsboardHomeService(repos),

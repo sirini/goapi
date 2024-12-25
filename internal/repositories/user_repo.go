@@ -55,7 +55,7 @@ func (r *TsboardUserRepository) GetReportResponse(userUid uint) string {
 
 // 사용자가 지정한 블랙 리스트 목록 가져오기
 func (r *TsboardUserRepository) GetUserBlackList(userUid uint) []uint {
-	var blocks []uint
+	blocks := make([]uint, 0)
 	query := fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ?",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
 	rows, err := r.db.Query(query, userUid)

@@ -78,7 +78,7 @@ func ExtractUserUid(authorization string) uint {
 
 // 아이디가 이메일 형식에 부합하는지 확인
 func IsValidEmail(email string) bool {
-	const regexPattern = `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`
+	const regexPattern = `^(?i)[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$`
 	re := regexp.MustCompile(regexPattern)
 	return re.MatchString(email)
 }

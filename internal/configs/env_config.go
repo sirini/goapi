@@ -12,6 +12,7 @@ type Config struct {
 	Version           string
 	Port              string
 	URL               string
+	URLPrefix         string
 	Title             string
 	ProfileSize       string
 	ContentInsertSize string
@@ -60,6 +61,7 @@ func LoadConfig() {
 		Version:           getEnv("GOAPI_VERSION", "1.0.0-beta1"),
 		Port:              getEnv("GOAPI_PORT", "3003"),
 		URL:               getEnv("GOAPI_URL", "http://localhost:3003"),
+		URLPrefix:         getEnv("GOAPI_URL_PREFIX", ""),
 		Title:             getEnv("GOAPI_TITLE", "TSBOARD"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),
 		ContentInsertSize: getEnv("GOAPI_CONTENT_INSERT_SIZE", "640"),
@@ -73,8 +75,8 @@ func LoadConfig() {
 		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
 		DBSocket:          getEnv("DB_UNIX_SOCKET", ""),
-		DBMaxIdle:         getEnv("DB_MAX_IDLE", "100"),
-		DBMaxOpen:         getEnv("DB_MAX_OPEN", "50"),
+		DBMaxIdle:         getEnv("DB_MAX_IDLE", "10"),
+		DBMaxOpen:         getEnv("DB_MAX_OPEN", "10"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),
 		GmailAppPassword:  getEnv("GMAIL_APP_PASSWORD", ""),

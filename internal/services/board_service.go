@@ -111,11 +111,9 @@ func (s *TsboardBoardService) GetEditorConfig(boardUid uint, userUid uint) model
 
 // 갤러리에 사진 목록들 가져오기
 func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error) {
-	var (
-		posts []models.BoardListItem
-		err   error
-	)
-	items := []models.GalleryGridItem{}
+	posts := make([]models.BoardListItem, 0)
+	var err error
+	items := make([]models.GalleryGridItem, 0)
 
 	if len(param.Keyword) < 2 {
 		posts, err = s.repos.Board.GetNormalPosts(param)
@@ -211,10 +209,8 @@ func (s *TsboardBoardService) GetInsertedImages(param models.EditorInsertImagePa
 
 // 게시판 목록글들 가져오기
 func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
-	var (
-		items []models.BoardListItem
-		err   error
-	)
+	items := make([]models.BoardListItem, 0)
+	var err error
 
 	notices, err := s.repos.Board.GetNoticePosts(param.BoardUid, param.UserUid)
 	if err != nil {
@@ -292,6 +288,8 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	result.Config = config
 	result.Post = post
+	result.Files = make([]models.BoardAttachment, 0)
+	result.Images = make([]models.BoardAttachedImage, 0)
 
 	if config.Level.Download <= userLv {
 		files, err := s.repos.BoardView.GetAttachments(param.PostUid)
@@ -436,7 +434,7 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader) {
 	for _, file := range files {
 		go func(file *multipart.FileHeader) {
-			savedPath, err := utils.SaveAttachmentFile(file, file.Filename)
+			savedPath, err := utils.SaveAttachmentFile(file)
 			if err != nil {
 				return
 			}

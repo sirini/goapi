@@ -72,7 +72,7 @@ func (r *TsboardBoardEditRepository) FindTagUidByName(name string) uint {
 
 // 게시글에 삽입했던 이미지들 가져오기
 func (r *TsboardBoardEditRepository) GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error) {
-	var images []models.Pair
+	images := make([]models.Pair, 0)
 	if param.LastUid < 1 {
 		param.LastUid = r.GetMaxImageUid(param.BoardUid, param.UserUid) + 1
 	}

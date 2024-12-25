@@ -70,7 +70,7 @@ func (r *TsboardBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid
 
 // 게시판 목록들 가져오기 (게시글 이동 시 필요)
 func (r *TsboardBoardViewRepository) GetAllBoards() []models.BoardItem {
-	var items []models.BoardItem
+	items := make([]models.BoardItem, 0)
 	query := fmt.Sprintf("SELECT uid, name, info FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -88,7 +88,7 @@ func (r *TsboardBoardViewRepository) GetAllBoards() []models.BoardItem {
 
 // 게시글에 첨부된 파일 목록들 가져오기
 func (r *TsboardBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAttachment, error) {
-	var items []models.BoardAttachment
+	items := make([]models.BoardAttachment, 0)
 	query := fmt.Sprintf("SELECT uid, name, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *TsboardBoardViewRepository) GetAttachments(postUid uint) ([]models.Boar
 
 // 게시글에 첨부된 이미지들 가져오기
 func (r *TsboardBoardViewRepository) GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error) {
-	var items []models.BoardAttachedImage
+	items := make([]models.BoardAttachedImage, 0)
 	query := fmt.Sprintf("SELECT uid, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
 	if err != nil {
@@ -241,7 +241,7 @@ func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (
 
 // 게시글에 등록된 해시태그들 가져오기
 func (r *TsboardBoardViewRepository) GetTags(postUid uint) []models.Pair {
-	var items []models.Pair
+	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT hashtag_uid FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_POST_HASHTAG)
 	rows, err := r.db.Query(query, postUid)
 	if err != nil {
@@ -290,7 +290,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 	}
 	defer rows.Close()
 
-	var items []models.BoardWriterLatestComment
+	items := make([]models.BoardWriterLatestComment, 0)
 	for rows.Next() {
 		item := models.BoardWriterLatestComment{}
 		var uid, boardUid uint
@@ -317,7 +317,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit u
 	}
 	defer rows.Close()
 
-	var items []models.BoardWriterLatestPost
+	items := make([]models.BoardWriterLatestPost, 0)
 	for rows.Next() {
 		item := models.BoardWriterLatestPost{}
 		var boardUid uint

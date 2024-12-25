@@ -204,7 +204,7 @@ func (r *TsboardBoardRepository) GetBoardUidById(id string) uint {
 
 // 지정된 게시판에서 사용중인 카테고리 목록들 반환
 func (r *TsboardBoardRepository) GetBoardCategories(boardUid uint) []models.Pair {
-	var items []models.Pair
+	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 
 	rows, err := r.db.Query(query, boardUid)
@@ -392,7 +392,7 @@ func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter 
 
 // 게시글 목록 만들어서 반환
 func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error) {
-	var items []models.BoardListItem
+	items := make([]models.BoardListItem, 0)
 
 	// 카테고리 이름 가져오는 쿼리문 준비
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE uid = ? LIMIT 1",

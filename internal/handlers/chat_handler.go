@@ -50,7 +50,7 @@ func (h *TsboardChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Unable to get an user uid from token")
 	}
 
-	targetUserUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid (target) user uid, not a valid number")
 	}
@@ -69,7 +69,6 @@ func (h *TsboardChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
 
 // 쪽지 내용 저장하기
 func (h *TsboardChatHandler) SaveChatHandler(c fiber.Ctx) error {
-
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	if actionUserUid < 1 {
 		return utils.Err(c, "Unable to get an user uid from token")

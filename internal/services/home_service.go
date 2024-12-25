@@ -52,11 +52,9 @@ func (s *TsboardHomeService) GetBoardIDsForSitemap() []models.HomeSitemapURL {
 
 // 지정된 게시글 번호 이하의 최근글들 가져오기
 func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error) {
-	var items []models.BoardHomePostItem
-	var (
-		posts []models.HomePostItem
-		err   error
-	)
+	items := make([]models.BoardHomePostItem, 0)
+	posts := make([]models.HomePostItem, 0)
+	var err error
 
 	if len(param.Keyword) < 2 {
 		posts, err = s.repos.Home.GetLatestPosts(param)
@@ -113,7 +111,7 @@ func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult,
 
 // SEO 메인 페이지 가져오기
 func (s *TsboardHomeService) LoadMainPage(bunch uint) ([]models.HomeMainArticle, error) {
-	var articles []models.HomeMainArticle
+	articles := make([]models.HomeMainArticle, 0)
 	posts, err := s.GetLatestPosts(models.HomePostParameter{
 		SinceUid: s.repos.Board.GetMaxUid(models.TABLE_POST) + 1,
 		Bunch:    bunch,

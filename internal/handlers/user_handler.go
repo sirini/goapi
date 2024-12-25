@@ -63,12 +63,16 @@ func (h *TsboardUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
 
 // 사용자 권한 및 리포트 응답 가져오기
 func (h *TsboardUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	if actionUserUid < 1 {
+		return utils.Err(c, "Unable to get an user uid from token")
+	}
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid target user uid, not a valid number")
 	}
 
-	result := h.service.User.GetUserPermission(uint(targetUserUid))
+	result := h.service.User.GetUserPermission(actionUserUid, uint(targetUserUid))
 	return utils.Ok(c, result)
 }
 
@@ -78,7 +82,7 @@ func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 	if actionUserUid < 1 {
 		return utils.Err(c, "Unable to get an user uid from token")
 	}
-	targetUserUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid parameter(userUid), not a valid number")
 	}
@@ -116,26 +120,26 @@ func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 		Response: response,
 	}
 
-	h.service.User.ChangeUserPermission(actionUserUid, param)
+	err = h.service.User.ChangeUserPermission(actionUserUid, param)
+	if err != nil {
+		return utils.Err(c, err.Error())
+	}
 	return utils.Ok(c, nil)
 }
 
 // 사용자 신고하기
 func (h *TsboardUserHandler) ReportUserHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	content := c.FormValue("content")
-	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid userUid, not a valid number")
-	}
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid targetUserUid, not a valid number")
 	}
-	checkedBlackList, err := strconv.ParseUint(c.FormValue("checkedBlackList"), 10, 32)
+	checkedBlackList, err := strconv.ParseBool(c.FormValue("checkedBlackList"))
 	if err != nil {
-		return utils.Err(c, "Invalid checkedBlackList, not a valid number")
+		return utils.Err(c, "Invalid checkedBlackList, it should be able to convert a bool type")
 	}
-	result := h.service.User.ReportTargetUser(uint(userUid), uint(targetUserUid), checkedBlackList > 0, content)
+	result := h.service.User.ReportTargetUser(actionUserUid, uint(targetUserUid), checkedBlackList, content)
 	if !result {
 		return utils.Err(c, "You have no permission to report other user")
 	}

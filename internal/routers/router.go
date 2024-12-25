@@ -10,6 +10,7 @@ func RegisterRouters(api fiber.Router, h *handlers.Handler) {
 	RegisterAdminRouters(api, h)
 	RegisterAuthRouters(api, h)
 	RegisterBoardRouters(api, h)
+	RegisterBlogRouters(api, h)
 	RegisterChatRouters(api, h)
 	RegisterCommentRouters(api, h)
 	RegisterEditorRouters(api, h)

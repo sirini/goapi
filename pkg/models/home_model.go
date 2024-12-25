@@ -44,6 +44,12 @@ type BoardHomePostItem struct {
 	UseCategory bool   `json:"useCategory"`
 }
 
+// 최근 게시글들 최종 리턴 타입 및 게시판 정보 정의
+type BoardHomePostResult struct {
+	Items  []BoardHomePostItem `json:"items"`
+	Config BoardConfig         `json:"config"`
+}
+
 // 최근 게시글 리턴 타입 정의
 type HomePostItem struct {
 	BoardCommonPostItem

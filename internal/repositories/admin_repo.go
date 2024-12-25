@@ -186,7 +186,7 @@ func (r *TsboardAdminRepository) FindBoardUidByPostUid(postUid uint) uint {
 
 // 입력된 게시판 아이디와 유사한 것들 가져오기
 func (r *TsboardAdminRepository) FindBoardInfoById(inputId string, bunch uint) []models.Triple {
-	items := []models.Triple{}
+	items := make([]models.Triple, 0)
 	query := fmt.Sprintf("SELECT uid, id, name FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
 	if err != nil {
@@ -215,7 +215,7 @@ func (r *TsboardAdminRepository) FindGroupUidAdminUidById(groupId string) (uint,
 
 // 입력된 그룹 ID가 이미 등록되었는지 확인하기 위해 유사 ID 목록 가져오기
 func (r *TsboardAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []models.Pair {
-	items := []models.Pair{}
+	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
 	if err != nil {
@@ -292,7 +292,7 @@ func (r *TsboardAdminRepository) FindWriterUidByName(name string) uint {
 
 // 게시판 관리자 후보 목록 가져오기 (이름으로 검색)
 func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
-	items := []models.BoardWriter{}
+	items := make([]models.BoardWriter, 0)
 	query := fmt.Sprintf("SELECT uid, name, profile, signature FROM %s%s WHERE blocked = ? AND name LIKE ? LIMIT ?",
 		configs.Env.Prefix, models.TABLE_USER)
 
@@ -315,7 +315,7 @@ func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]
 
 // 그룹 소속 게시판의 기본 정보 및 간단 통계 가져오기
 func (r *TsboardAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
-	items := []models.AdminGroupBoardItem{}
+	items := make([]models.AdminGroupBoardItem, 0)
 	query := fmt.Sprintf("SELECT uid, id, admin_uid, type, name, info FROM %s%s WHERE group_uid = ?",
 		configs.Env.Prefix, models.TABLE_BOARD)
 
@@ -351,7 +351,7 @@ func (r *TsboardAdminRepository) GetCommentCount(postUid uint) uint {
 
 // (검색된) 댓글 목록 가져오기
 func (r *TsboardAdminRepository) GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment {
-	items := []models.AdminLatestComment{}
+	items := make([]models.AdminLatestComment, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
 	if param.Option == models.SEARCH_CONTENT {
@@ -394,7 +394,7 @@ func (r *TsboardAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
 
 // 대시보드용 그룹 or 게시판 목록 가져오기
 func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uint) []models.Pair {
-	items := []models.Pair{}
+	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s ORDER BY uid DESC LIMIT ?", configs.Env.Prefix, table)
 	rows, err := r.db.Query(query, bunch)
 	if err != nil {
@@ -415,7 +415,7 @@ func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uin
 
 // 그룹 목록 가져오기
 func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupConfig {
-	items := []models.AdminGroupConfig{}
+	items := make([]models.AdminGroupConfig, 0)
 	query := fmt.Sprintf("SELECT uid, id, admin_uid FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -438,7 +438,7 @@ func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupConfig {
 
 // 대시보드용 최근 댓글 목록 가져오기
 func (r *TsboardAdminRepository) GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent {
-	items := []models.AdminDashboardLatestContent{}
+	items := make([]models.AdminDashboardLatestContent, 0)
 	query := fmt.Sprintf("SELECT uid, post_uid, user_uid, content FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 	rows, err := r.db.Query(query, bunch)
@@ -466,7 +466,7 @@ func (r *TsboardAdminRepository) GetDashboardComments(bunch uint) []models.Admin
 
 // 대시보드용 최근 게시글 목록 가져오기
 func (r *TsboardAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent {
-	items := []models.AdminDashboardLatestContent{}
+	items := make([]models.AdminDashboardLatestContent, 0)
 	query := fmt.Sprintf("SELECT uid, board_uid, user_uid, title FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_POST)
 	rows, err := r.db.Query(query, bunch)
@@ -494,7 +494,7 @@ func (r *TsboardAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDas
 
 // 대시보드용 최근 신고 목록 가져오기
 func (r *TsboardAdminRepository) GetDashboardReports(bunch uint) []models.AdminDashboardReport {
-	items := []models.AdminDashboardReport{}
+	items := make([]models.AdminDashboardReport, 0)
 	query := fmt.Sprintf("SELECT uid, from_uid, request FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_REPORT)
 	rows, err := r.db.Query(query, bunch)
@@ -546,7 +546,7 @@ func (r *TsboardAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 
 // 신고 목록 가져오기
 func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter) []models.AdminReportItem {
-	items := []models.AdminReportItem{}
+	items := make([]models.AdminReportItem, 0)
 	isSolvedQuery := "<"
 	if param.IsSolved {
 		isSolvedQuery = "="
@@ -586,7 +586,7 @@ func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter
 
 // 대시보드용 회원 목록 가져오기
 func (r *TsboardAdminRepository) GetMemberList(bunch uint) []models.BoardWriter {
-	items := []models.BoardWriter{}
+	items := make([]models.BoardWriter, 0)
 	query := fmt.Sprintf("SELECT uid, name, profile, signature FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_USER)
 	rows, err := r.db.Query(query, bunch)
@@ -620,7 +620,7 @@ func (r *TsboardAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActi
 
 // (검색된) 게시글 가져오기
 func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) []models.AdminLatestPost {
-	items := []models.AdminLatestPost{}
+	items := make([]models.AdminLatestPost, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
 	if param.Option == models.SEARCH_TITLE || param.Option == models.SEARCH_CONTENT {
@@ -659,7 +659,7 @@ func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) 
 
 // 게시판 삭제 시 제거 필요한 파일 목록 반환하기
 func (r *TsboardAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
-	paths := []string{}
+	paths := make([]string, 0)
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_POST)
 	rows, err := r.db.Query(query, boardUid)
 	if err != nil {
@@ -732,7 +732,7 @@ func (r *TsboardAdminRepository) GetTotalCount(table models.Table) uint {
 
 // (검색된) 사용자 목록 반환
 func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []models.AdminUserItem {
-	items := []models.AdminUserItem{}
+	items := make([]models.AdminUserItem, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	isBlockedQuery := "<"
 	if param.IsBlocked {

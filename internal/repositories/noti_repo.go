@@ -108,7 +108,7 @@ func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]mo
 	}
 	defer stmtUser.Close()
 
-	var items []models.NotificationItem
+	items := make([]models.NotificationItem, 0)
 	for rows.Next() {
 		item := models.NotificationItem{}
 		var checked uint8

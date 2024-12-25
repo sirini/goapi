@@ -51,14 +51,14 @@ func MakeSavePath(target models.UploadCategory) (string, error) {
 }
 
 // 업로드 된 파일을 attachments 폴더에 저장하고 경로 반환
-func SaveAttachmentFile(file *multipart.FileHeader, fileName string) (string, error) {
+func SaveAttachmentFile(file *multipart.FileHeader) (string, error) {
 	result := ""
 	savePath, err := MakeSavePath(models.UPLOAD_ATTACH)
 	if err != nil {
 		return result, err
 	}
 	randName := uuid.New().String()[:8]
-	ext := filepath.Ext(fileName)
+	ext := filepath.Ext(file.Filename)
 	result = fmt.Sprintf("%s/%s%s", savePath, randName, ext)
 
 	srcFile, err := file.Open()

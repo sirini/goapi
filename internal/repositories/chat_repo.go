@@ -51,7 +51,7 @@ func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]models
 	}
 	defer rows.Close()
 
-	var chatItems []models.ChatItem
+	chatItems := make([]models.ChatItem, 0)
 	for rows.Next() {
 		item := models.ChatItem{}
 		err = rows.Scan(&item.Uid, &item.Sender.UserUid, &item.Message, &item.Timestamp, &item.Sender.Name, &item.Sender.Profile)
@@ -76,7 +76,7 @@ func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUi
 	}
 	defer rows.Close()
 
-	var chatHistories []models.ChatHistory
+	chatHistories := make([]models.ChatHistory, 0)
 	for rows.Next() {
 		history := models.ChatHistory{}
 		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp); err != nil {

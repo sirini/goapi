@@ -148,11 +148,16 @@ func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 		UserUid:  uint(actionUserUid),
 		BoardUid: uint(boardUid),
 	}
-	result, err := h.service.Home.GetLatestPosts(parameter)
+	items, err := h.service.Home.GetLatestPosts(parameter)
 	if err != nil {
 		return utils.Err(c, "Failed to get latest posts from specific board")
 	}
-	return utils.Ok(c, result)
+
+	config := h.service.Board.GetBoardConfig(boardUid)
+	return utils.Ok(c, models.BoardHomePostResult{
+		Items:  items,
+		Config: config,
+	})
 }
 
 // 사이트맵 xml 내용 반환하기 핸들러
