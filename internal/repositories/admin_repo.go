@@ -842,7 +842,7 @@ func (r *TsboardAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid ui
 func (r *TsboardAdminRepository) UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
 	query := fmt.Sprintf(`UPDATE %s%s SET level_list = ?, level_view = ?, level_write = ?, level_comment = ?, level_download = ? 
 												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
-	_, err := r.db.Exec(query, level.List, level.View, level.Write, level.Comment, level.Download)
+	_, err := r.db.Exec(query, level.List, level.View, level.Write, level.Comment, level.Download, boardUid)
 	return err
 }
 
