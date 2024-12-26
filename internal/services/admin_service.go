@@ -221,7 +221,7 @@ func (s *TsboardAdminService) GetDashboardLatests(bunch uint) models.AdminDashbo
 
 // 대시보드용 최근 통계 가져오기
 func (s *TsboardAdminService) GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult {
-	days := 7
+	days := int(bunch)
 	visit := s.repos.Admin.GetStatistic(models.TABLE_USER_ACCESS, models.COLUMN_TIMESTAMP, days)
 	member := s.repos.Admin.GetStatistic(models.TABLE_USER, models.COLUMN_SIGNUP, days)
 	post := s.repos.Admin.GetStatistic(models.TABLE_POST, models.COLUMN_SUBMITTED, days)

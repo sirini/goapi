@@ -29,7 +29,12 @@ func main() {
 	service := services.NewService(repo)
 	handler := handlers.NewHandler(service)
 
-	app := fiber.New()
+	sizeLimit := configs.GetFileSizeLimit()
+	app := fiber.New(fiber.Config{
+		BodyLimit: sizeLimit,
+	})
+	log.Printf("📎 Max body size: %d bytes", sizeLimit)
+
 	goapi := app.Group("/goapi")
 	routers.RegisterRouters(goapi, handler)
 

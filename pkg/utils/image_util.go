@@ -19,12 +19,12 @@ import (
 	"github.com/sirini/goapi/pkg/models"
 )
 
-//                                                                              //
-// 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현 //
-// macOS(homebrew): brew install vips                                           //
-// Ubuntu Linux: sudo apt install libvips                                       //
-// Windows: https://www.libvips.org/install.html                                //
-//                                                                              //
+//                                                                //
+// 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현   //
+// macOS(homebrew): brew install vips                             //
+// Ubuntu Linux: sudo apt install libvips                         //
+// Windows: https://www.libvips.org/install.html                  //
+//                                                                //
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
 func AskImageDescription(path string) (string, error) {
@@ -207,6 +207,9 @@ func MakeTempJpeg(path string) (string, error) {
 	}
 
 	processed, err := bimg.NewImage(buffer).Process(options)
+	if err != nil {
+		return "", err
+	}
 	err = bimg.Write(jpgTempPath, processed)
 	if err != nil {
 		return "", err

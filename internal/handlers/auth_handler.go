@@ -53,7 +53,7 @@ func (h *TsboardAuthHandler) CheckNameHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid name, too short")
 	}
 
-	result := h.service.Auth.CheckNameExists(name)
+	result := h.service.Auth.CheckNameExists(name, 0)
 	if result {
 		return utils.Err(c, "Name is already in use")
 	}
@@ -180,7 +180,7 @@ func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	if len(name) < 2 {
 		return utils.Err(c, "Invalid name, too short")
 	}
-	if isDup := h.service.Auth.CheckNameExists(name); isDup {
+	if isDup := h.service.Auth.CheckNameExists(name, userUid); isDup {
 		return utils.Err(c, "Duplicated name, please choose another one")
 	}
 	userInfo, err := h.service.User.GetUserInfo(userUid)

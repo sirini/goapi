@@ -16,7 +16,7 @@ import (
 
 type AuthService interface {
 	CheckEmailExists(id string) bool
-	CheckNameExists(name string) bool
+	CheckNameExists(name string, userUid uint) bool
 	CheckUserPermission(userUid uint, action models.UserAction) bool
 	GetMyInfo(userUid uint) models.MyInfoResult
 	Logout(userUid uint)
@@ -41,8 +41,8 @@ func (s *TsboardAuthService) CheckEmailExists(id string) bool {
 }
 
 // 이름 중복 체크
-func (s *TsboardAuthService) CheckNameExists(name string) bool {
-	return s.repos.User.IsNameDuplicated(name)
+func (s *TsboardAuthService) CheckNameExists(name string, userUid uint) bool {
+	return s.repos.User.IsNameDuplicated(name, userUid)
 }
 
 // 사용자 권한 확인하기
@@ -123,7 +123,7 @@ func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.Signup
 	}
 
 	name := utils.Escape(param.Name)
-	isDupName := s.repos.User.IsNameDuplicated(name)
+	isDupName := s.repos.User.IsNameDuplicated(name, 0)
 	if isDupName {
 		return signupResult, fmt.Errorf("name(%s) is already in use", name)
 	}

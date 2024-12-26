@@ -130,3 +130,13 @@ func (s ImageSize) Number() uint {
 	}
 	return uint(size)
 }
+
+// HTTP 요청 크기 제한값 가져오기
+func GetFileSizeLimit() int {
+	size, err := strconv.ParseInt(Env.FileSizeLimit, 10, 32)
+	if err != nil {
+		return 10485760 /* 10MB */
+	}
+	return int(size)
+}
+

@@ -93,12 +93,13 @@ func initSanitizePolicy() {
 	sanitizePolicy = bluemonday.NewPolicy()
 	sanitizePolicy.AllowElements(
 		"h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "a",
-		"ul", "ol", "nl", "li", "b", "i", "strong", "em",
+		"ul", "ol", "nl", "li", "b", "i", "strong", "em", "mark", "span",
 		"strike", "code", "hr", "br", "div", "table",
 		"thead", "caption", "tbody", "tr", "th", "td", "pre", "img",
 	)
 	sanitizePolicy.AllowAttrs("href", "name", "target").OnElements("a")
 	sanitizePolicy.AllowAttrs("src", "alt").OnElements("img")
+	sanitizePolicy.AllowAttrs("style").OnElements("span")
 }
 
 // 게시글/댓글 상태값 반환

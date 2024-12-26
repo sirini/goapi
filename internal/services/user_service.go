@@ -53,32 +53,35 @@ func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter
 	}
 	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
 
-	file, err := param.Profile.Open()
-	if err == nil {
-		defer file.Close()
-	}
-
-	if param.Profile.Size > 0 {
-		tempPath, err := utils.SaveUploadedFile(file, param.Profile.Filename)
-		if err != nil {
-			return err
-		}
-		profilePath, err := utils.SaveProfileImage(tempPath)
-		if err != nil {
-			os.Remove(tempPath)
-			return err
+	if param.Profile != nil {
+		file, err := param.Profile.Open()
+		if err == nil {
+			defer file.Close()
 		}
 
-		s.repos.User.UpdateUserProfile(param.UserUid, profilePath[1:])
-		err = os.Remove("." + param.OldProfile)
-		if err != nil {
-			return err
-		}
-		err = os.Remove(tempPath)
-		if err != nil {
-			return err
+		if param.Profile.Size > 0 {
+			tempPath, err := utils.SaveUploadedFile(file, param.Profile.Filename)
+			if err != nil {
+				return err
+			}
+			profilePath, err := utils.SaveProfileImage(tempPath)
+			if err != nil {
+				os.Remove(tempPath)
+				return err
+			}
+
+			s.repos.User.UpdateUserProfile(param.UserUid, profilePath[1:])
+			err = os.Remove("." + param.OldProfile)
+			if err != nil {
+				return err
+			}
+			err = os.Remove(tempPath)
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 

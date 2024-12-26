@@ -553,11 +553,13 @@ func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter
 	}
 
 	whereQuery := ""
-	if param.Option == models.SEARCH_REPORT_TO || param.Option == models.SEARCH_REPORT_FROM {
-		writerUid := r.FindWriterUidByName(param.Keyword)
-		whereQuery = fmt.Sprintf("AND %s_uid = %d", param.Option.String(), writerUid)
-	} else if param.Option == models.SEARCH_REPORT_REQUEST {
-		whereQuery = "AND request LIKE %" + param.Keyword + "%"
+	if len(param.Keyword) > 0 {
+		if param.Option == models.SEARCH_REPORT_TO || param.Option == models.SEARCH_REPORT_FROM {
+			writerUid := r.FindWriterUidByName(param.Keyword)
+			whereQuery = fmt.Sprintf("AND %s_uid = %d", param.Option.String(), writerUid)
+		} else if param.Option == models.SEARCH_REPORT_REQUEST {
+			whereQuery = "AND request LIKE %" + param.Keyword + "%"
+		}
 	}
 
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch

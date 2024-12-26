@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -148,7 +149,10 @@ func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 
 // 해시태그 추천 목록 반환하는 핸들러
 func (h *TsboardEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
-	input := c.FormValue("tag")
+	input, err := url.QueryUnescape(c.FormValue("tag"))
+	if err != nil {
+		return utils.Err(c, "Invalid tag name")
+	}
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid limit, not a valid number")

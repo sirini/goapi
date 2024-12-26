@@ -19,7 +19,7 @@ type UserRepository interface {
 	InsertUserPermission(userUid uint, perm models.UserPermissionResult) error
 	InsertReportResponse(actionUserUid uint, targetUserUid uint, response string) error
 	IsEmailDuplicated(id string) bool
-	IsNameDuplicated(name string) bool
+	IsNameDuplicated(name string, userUid uint) bool
 	IsBlocked(userUid uint) bool
 	IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool
 	IsPermissionAdded(userUid uint) bool
@@ -117,7 +117,7 @@ func (r *TsboardUserRepository) InsertReportUser(actionUserUid uint, targetUserU
 // 신규 회원 등록
 func (r *TsboardUserRepository) InsertNewUser(id string, pw string, name string) uint {
 	isDupId := r.IsEmailDuplicated(id)
-	isDupName := r.IsNameDuplicated(name)
+	isDupName := r.IsNameDuplicated(name, 0)
 	if isDupId || isDupName {
 		return models.FAILED
 	}
@@ -163,11 +163,11 @@ func (r *TsboardUserRepository) IsEmailDuplicated(id string) bool {
 }
 
 // (회원가입 시) 이름이 중복되는지 확인
-func (r *TsboardUserRepository) IsNameDuplicated(name string) bool {
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1",
+func (r *TsboardUserRepository) IsNameDuplicated(name string, userUid uint) bool {
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? AND uid != ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
 	var uid uint
-	r.db.QueryRow(query, name).Scan(&uid)
+	r.db.QueryRow(query, name, userUid).Scan(&uid)
 	return uid > 0
 }
 

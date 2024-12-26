@@ -760,7 +760,7 @@ func (h *TsboardAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid point, not a valid number")
 	}
 	name := utils.Escape(c.FormValue("name"))
-	if isDup := h.service.Auth.CheckNameExists(name); isDup {
+	if isDup := h.service.Auth.CheckNameExists(name, userUid); isDup {
 		return utils.Err(c, "Duplicated name, please choose another one")
 	}
 	signature := utils.Escape(c.FormValue("signature"))
