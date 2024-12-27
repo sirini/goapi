@@ -46,14 +46,19 @@ func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 	if err != nil {
 		return result, err
 	}
+
 	title := Escape(c.FormValue("title"))
 	if len(title) < 2 {
 		return result, fmt.Errorf("invalid title, too short")
 	}
+	title = CutString(title, 299)
+
 	content := Sanitize(c.FormValue("content"))
 	if len(content) < 2 {
 		return result, fmt.Errorf("invalid content, too short")
 	}
+	content = CutString(content, 16000)
+
 	tags := c.FormValue("tags")
 	tagArr := strings.Split(tags, ",")
 
@@ -86,6 +91,18 @@ func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 		IsSecret:    isSecret,
 	}
 	return result, nil
+}
+
+// (한글 포함) 문자열 안전하게 자르기
+func CutString(s string, max int) string {
+	runeCount := 0
+	for i := range s {
+		runeCount++
+		if runeCount > max {
+			return s[:i]
+		}
+	}
+	return s
 }
 
 // Sanitize 정책 초기화

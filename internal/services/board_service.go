@@ -441,7 +441,7 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 			fileUid := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
 				BoardUid: boardUid,
 				PostUid:  postUid,
-				Name:     file.Filename,
+				Name:     utils.CutString(file.Filename, 100),
 				Path:     savedPath[1:],
 			})
 

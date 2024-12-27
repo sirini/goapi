@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -440,7 +441,11 @@ func (h *TsboardAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
 
 // 관리자 변경 시 후보군 출력하는 핸들러
 func (h *TsboardAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
-	name := utils.Escape(c.FormValue("name"))
+	name, err := url.QueryUnescape(c.FormValue("name"))
+	if err != nil {
+		return utils.Err(c, "Invalid name, failed to unescape")
+	}
+	name = utils.Escape(name)
 	if len(name) < 2 {
 		return utils.Err(c, "Invalid name, too short")
 	}
@@ -510,7 +515,11 @@ func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid option, not a valid number")
 	}
-	keyword := utils.Escape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
 
 	parameter := models.AdminLatestParameter{
 		Page:    uint(page),
@@ -552,7 +561,11 @@ func (h *TsboardAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid option, not a valid number")
 	}
-	keyword := utils.Escape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
 
 	parameter := models.AdminLatestParameter{
 		Page:    uint(page),
@@ -672,7 +685,11 @@ func (h *TsboardAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid parameter(isSolved), unable to convert bool type")
 	}
-	keyword := utils.Escape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
 
 	parameter := models.AdminReportParameter{
 		AdminLatestParameter: models.AdminLatestParameter{

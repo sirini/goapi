@@ -2,9 +2,12 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/templates"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -162,6 +165,25 @@ func (s *TsboardCommentService) Write(param models.CommentWriteParameter) (uint,
 			PostUid:       param.PostUid,
 			CommentUid:    insertId,
 		})
+
+		if len(configs.Env.GmailAppPassword) > 0 {
+			go func() {
+				writerInfo := s.repos.Auth.FindMyInfoByUid(targetUserUid)
+				commenterInfo := s.repos.Admin.FindWriterByUid(param.UserUid)
+				config := s.repos.Board.GetBoardConfig(param.BoardUid)
+
+				body := strings.ReplaceAll(templates.NoticeCommentBody, "{{Host}}", configs.Env.URL)
+				body = strings.ReplaceAll(body, "{{Name}}", utils.Unescape(writerInfo.Name))
+				body = strings.ReplaceAll(body, "{{Commenter}}", utils.Unescape(commenterInfo.Name))
+				body = strings.ReplaceAll(body, "{{Comment}}", param.Content)
+				body = strings.ReplaceAll(body, "{{Link}}", fmt.Sprintf("%s%s/board/%s/%d", configs.Env.URL, configs.Env.URLPrefix, config.Id, param.PostUid))
+				body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
+				subject := fmt.Sprintf("[%s] %s has just commented on your post!", config.Name, commenterInfo.Name)
+
+				utils.SendMail(writerInfo.Id, subject, body)
+			}()
+		}
 	}
+
 	return insertId, nil
 }

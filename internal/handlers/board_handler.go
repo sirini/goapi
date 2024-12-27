@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -34,7 +35,12 @@ func NewTsboardBoardHandler(service *services.Service) *TsboardBoardHandler {
 func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	id := c.FormValue("id")
-	keyword := c.FormValue("keyword")
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
+	
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid page, not a valid number")
@@ -134,7 +140,12 @@ func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
 func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	id := c.FormValue("id")
-	keyword := c.FormValue("keyword")
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
+
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid since uid, not a valid number")

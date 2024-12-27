@@ -58,9 +58,9 @@ func LoadConfig() {
 	}
 
 	Env = Config{
-		Version:           getEnv("GOAPI_VERSION", "1.0.0-beta1"),
+		Version:           getEnv("GOAPI_VERSION", ""),
 		Port:              getEnv("GOAPI_PORT", "3003"),
-		URL:               getEnv("GOAPI_URL", "http://localhost:3003"),
+		URL:               getEnv("GOAPI_URL", "http://localhost"),
 		URLPrefix:         getEnv("GOAPI_URL_PREFIX", ""),
 		Title:             getEnv("GOAPI_TITLE", "TSBOARD"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),
@@ -139,4 +139,3 @@ func GetFileSizeLimit() int {
 	}
 	return int(size)
 }
-

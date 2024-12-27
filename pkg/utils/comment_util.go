@@ -21,6 +21,7 @@ func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
 		return result, err
 	}
 	content := Sanitize(c.FormValue("content"))
+	content = CutString(content, 9999)
 	if len(content) < 2 {
 		return result, fmt.Errorf("invalid content, too short")
 	}

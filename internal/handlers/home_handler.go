@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"html/template"
+	"net/url"
 	"strconv"
 	texttemplate "text/template"
 	"time"
@@ -79,7 +80,11 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid option, not a valid number")
 	}
-	keyword := utils.Escape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword")
+	}
+	keyword = utils.Escape(keyword)
 
 	sinceUid := uint(sinceUid64)
 	if sinceUid < 1 {
