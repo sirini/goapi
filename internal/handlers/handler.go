@@ -7,6 +7,7 @@ type Handler struct {
 	Admin   AdminHandler
 	Auth    AuthHandler
 	Board   BoardHandler
+	Blog    BlogHandler
 	Chat    ChatHandler
 	Comment CommentHandler
 	Editor  EditorHandler
@@ -22,6 +23,7 @@ func NewHandler(s *services.Service) *Handler {
 		Admin:   NewTsboardAdminHandler(s),
 		Auth:    NewTsboardAuthHandler(s),
 		Board:   NewTsboardBoardHandler(s),
+		Blog:    NewTsboardBlogHandler(s),
 		Chat:    NewTsboardChatHandler(s),
 		Comment: NewTsboardCommentHandler(s),
 		Editor:  NewTsboardEditorHandler(s),

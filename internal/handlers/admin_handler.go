@@ -574,8 +574,8 @@ func (h *TsboardAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
-	posts := h.service.Admin.GetSearchedPosts(parameter)
-	return utils.Ok(c, posts)
+	result := h.service.Admin.GetSearchedPosts(parameter)
+	return utils.Ok(c, result)
 }
 
 // 게시판에 특정 카테고리 제거하기 핸들러
@@ -815,7 +815,11 @@ func (h *TsboardAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid option, not a valid number")
 	}
-	keyword := utils.Escape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	if err != nil {
+		return utils.Err(c, "Invalid keyword, failed to unescape")
+	}
+	keyword = utils.Escape(keyword)
 
 	parameter := models.AdminUserParameter{
 		AdminLatestParameter: models.AdminLatestParameter{

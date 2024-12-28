@@ -355,7 +355,7 @@ func (r *TsboardAdminRepository) GetCommentList(param models.AdminLatestParamete
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
 	if param.Option == models.SEARCH_CONTENT {
-		whereQuery = "AND content LIKE %" + param.Keyword + "%"
+		whereQuery = "AND content LIKE '%" + param.Keyword + "%'"
 	}
 
 	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
@@ -558,7 +558,7 @@ func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter
 			writerUid := r.FindWriterUidByName(param.Keyword)
 			whereQuery = fmt.Sprintf("AND %s_uid = %d", param.Option.String(), writerUid)
 		} else if param.Option == models.SEARCH_REPORT_REQUEST {
-			whereQuery = "AND request LIKE %" + param.Keyword + "%"
+			whereQuery = "AND request LIKE '%" + param.Keyword + "%'"
 		}
 	}
 
@@ -626,7 +626,7 @@ func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) 
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
 	if param.Option == models.SEARCH_TITLE || param.Option == models.SEARCH_CONTENT {
-		whereQuery = fmt.Sprintf("AND %s LIKE %s", param.Option.String(), "%"+param.Keyword+"%")
+		whereQuery = fmt.Sprintf("AND %s LIKE %s", param.Option.String(), "'%"+param.Keyword+"%'")
 	} else if param.Option == models.SEARCH_WRITER {
 		writer := r.FindWriterUidByName(param.Keyword)
 		whereQuery = fmt.Sprintf("AND user_uid = %d", writer)
@@ -743,9 +743,9 @@ func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []
 
 	whereQuery := ""
 	if param.Option == models.SEARCH_USER_NAME {
-		whereQuery = "AND name LIKE %" + param.Keyword + "%"
+		whereQuery = "AND name LIKE '%" + param.Keyword + "%'"
 	} else if param.Option == models.SEARCH_USER_ID {
-		whereQuery = "AND id LIKE %" + param.Keyword + "%"
+		whereQuery = "AND id LIKE '%" + param.Keyword + "%'"
 	} else if param.Option == models.SEARCH_USER_LEVEL {
 		whereQuery = "AND level = " + param.Keyword
 	}

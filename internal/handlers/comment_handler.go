@@ -99,7 +99,7 @@ func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, err.Error())
 	}
-	commentUid, err := strconv.ParseUint(c.FormValue("modifyTargetUid"), 10, 32)
+	commentUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid modify target uid, not a valid number")
 	}
@@ -139,7 +139,7 @@ func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, err.Error())
 	}
-	replyTargetUid, err := strconv.ParseUint(c.FormValue("replyTargetUid"), 10, 32)
+	replyTargetUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid reply target uid, not a valid number")
 	}

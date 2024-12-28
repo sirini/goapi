@@ -68,7 +68,7 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 
 	parameter.Bunch = config.RowCount
 	parameter.Option = models.Search(option)
-	parameter.Keyword = utils.Escape(keyword)
+	parameter.Keyword = keyword
 	parameter.UserUid = actionUserUid
 	parameter.Page = uint(page)
 	parameter.Direction = models.Paging(paging)
@@ -173,7 +173,7 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 
 	parameter.Bunch = config.RowCount
 	parameter.Option = models.Search(option)
-	parameter.Keyword = utils.Escape(keyword)
+	parameter.Keyword = keyword
 	parameter.UserUid = actionUserUid
 	parameter.Page = uint(page)
 	parameter.Direction = models.Paging(paging)
