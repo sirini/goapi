@@ -15,6 +15,7 @@ import (
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type OAuth2Handler interface {
@@ -30,7 +31,11 @@ type OAuth2Handler interface {
 }
 
 type TsboardOAuth2Handler struct {
-	service *services.Service
+	service          *services.Service
+	googleConfig     oauth2.Config
+	naverRedirectURL string
+	naverConfig      oauth2.Config
+	kakaoConfig      oauth2.Config
 }
 
 // services.Service 주입 받기
@@ -43,34 +48,40 @@ func (h *TsboardOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
 
-	cfg := models.GoogleOAuth2Config
-	url := cfg.AuthCodeURL(state)
+	h.googleConfig = oauth2.Config{
+		RedirectURL:  fmt.Sprintf("%s%s/goapi/auth/google/callback", configs.Env.URL, configs.Env.URLPrefix),
+		ClientID:     configs.Env.OAuthGoogleID,
+		ClientSecret: configs.Env.OAuthGoogleSecret,
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
+	}
+	url := h.googleConfig.AuthCodeURL(state)
 	return c.Redirect().To(url)
 }
 
 // 구글 OAuth 콜백 핸들러
 func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
+	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthGoogleID == "" {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
-	cfg := models.GoogleOAuth2Config
-	token, err := utils.OAuth2ExchangeToken(c, cfg)
+	token, err := utils.OAuth2ExchangeToken(c, h.googleConfig)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
-	client := cfg.Client(context.Background(), token)
+	client := h.googleConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.GoogleUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	id := userInfo.Email
@@ -78,24 +89,22 @@ func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 	profile := userInfo.Picture
 	userUid := h.UtilRegisterUser(id, name, profile)
 	if userUid < 1 {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	return h.UtilFinishLogin(c, userUid)
 }
-
-var naverRedirectURL string
 
 // 네이버 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
 
-	naverRedirectURL = fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.URL)
+	h.naverRedirectURL = fmt.Sprintf("%s%s/goapi/auth/naver/callback", configs.Env.URL, configs.Env.URLPrefix)
 	url := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
 		configs.Env.OAuthNaverID,
-		naverRedirectURL,
+		h.naverRedirectURL,
 		state,
 	)
 	return c.Redirect().To(url)
@@ -103,8 +112,9 @@ func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 
 // 네이버 OAuth 콜백 핸들러
 func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
+	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthNaverID == "" {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	code := c.FormValue("code")
@@ -112,20 +122,20 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 
 	cookie := c.Cookies("tsboard_oauth_state")
 	if cookie != state {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	apiURL := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=%s&client_secret=%s&redirect_uri=%s&code=%s&state=%s",
 		configs.Env.OAuthNaverID,
 		configs.Env.OAuthNaverSecret,
-		url.QueryEscape(naverRedirectURL),
+		url.QueryEscape(h.naverRedirectURL),
 		code,
 		state,
 	)
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	req.Header.Set("X-Naver-Client-Id", configs.Env.OAuthNaverID)
 	req.Header.Set("X-Naver-Client-Secret", configs.Env.OAuthNaverSecret)
@@ -133,35 +143,45 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	defer resp.Body.Close()
 
 	var tokenResp map[string]interface{}
 	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	accessToken, ok := tokenResp["access_token"].(string)
 	if !ok || accessToken == "" {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
-	cfg := models.NaverOAuth2Config
-	client = cfg.Client(context.Background(), &oauth2.Token{
+	h.naverConfig = oauth2.Config{
+		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", redirectPath),
+		ClientID:     configs.Env.OAuthNaverID,
+		ClientSecret: configs.Env.OAuthNaverSecret,
+		Scopes:       []string{},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://nid.naver.com/oauth2.0/authorize",
+			TokenURL: "https://nid.naver.com/oauth2.0/token",
+		},
+	}
+
+	client = h.naverConfig.Client(context.Background(), &oauth2.Token{
 		AccessToken: accessToken,
 	})
 
 	resp, err = client.Get("https://openapi.naver.com/v1/nid/me")
 	if err != nil || resp.StatusCode != http.StatusOK {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.NaverUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	id := userInfo.Response.Email
@@ -169,7 +189,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	profile := userInfo.Response.ProfileImage
 	userUid := h.UtilRegisterUser(id, name, profile)
 	if userUid < 1 {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	return h.UtilFinishLogin(c, userUid)
@@ -180,34 +200,44 @@ func (h *TsboardOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
 
-	cfg := models.KakaoOAuth2Config
-	url := cfg.AuthCodeURL(state)
+	h.kakaoConfig = oauth2.Config{
+		RedirectURL:  fmt.Sprintf("%s%s/goapi/auth/kakao/callback", configs.Env.URL, configs.Env.URLPrefix),
+		ClientID:     configs.Env.OAuthKakaoID,
+		ClientSecret: configs.Env.OAuthKakaoSecret,
+		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://kauth.kakao.com/oauth/authorize",
+			TokenURL: "https://kauth.kakao.com/oauth/token",
+		},
+	}
+
+	url := h.kakaoConfig.AuthCodeURL(state)
 	return c.Redirect().To(url)
 }
 
 // 카카오 OAuth 콜백 핸들러
 func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
+	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthKakaoID == "" {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
-	cfg := models.KakaoOAuth2Config
-	token, err := utils.OAuth2ExchangeToken(c, cfg)
+	token, err := utils.OAuth2ExchangeToken(c, h.kakaoConfig)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
-	client := cfg.Client(context.Background(), token)
+	client := h.kakaoConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://kapi.kakao.com/v2/user/me")
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.KakaoUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 
 	id := userInfo.KakaoAccount.Email
@@ -215,7 +245,7 @@ func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 	profile := userInfo.KakaoAccount.Profile.ProfileImageUrl
 	userUid := h.UtilRegisterUser(id, name, profile)
 	if userUid < 1 {
-		return c.Redirect().To(configs.Env.URL)
+		return c.Redirect().To(redirectPath)
 	}
 	return h.UtilFinishLogin(c, userUid)
 }
@@ -264,5 +294,5 @@ func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error 
 		return err
 	}
 	utils.SaveCookie(c, "tsboard_myinfo", myinfo, 1)
-	return c.Redirect().To(fmt.Sprintf("%s/login/oauth", configs.Env.URL))
+	return c.Redirect().To(fmt.Sprintf("%s%s/login/oauth", configs.Env.URL, configs.Env.URLPrefix))
 }
