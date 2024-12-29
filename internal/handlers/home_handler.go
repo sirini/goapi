@@ -82,13 +82,13 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword")
+		return utils.Err(c, "Invalid keyword, failed to unescape")
 	}
 	keyword = utils.Escape(keyword)
 
 	sinceUid := uint(sinceUid64)
 	if sinceUid < 1 {
-		sinceUid = h.service.Board.GetMaxUid()
+		sinceUid = h.service.Board.GetMaxUid() + 1
 	}
 	parameter := models.HomePostParameter{
 		SinceUid: sinceUid,
@@ -98,10 +98,12 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 		UserUid:  uint(actionUserUid),
 		BoardUid: 0,
 	}
+
 	result, err := h.service.Home.GetLatestPosts(parameter)
 	if err != nil {
 		return utils.Err(c, "Failed to get latest posts")
 	}
+
 	return utils.Ok(c, result)
 }
 

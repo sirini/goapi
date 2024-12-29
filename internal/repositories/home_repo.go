@@ -61,16 +61,16 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomeP
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
 	}
 	option := param.Option.String()
-	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, 
-												title, content, submitted, modified, hit, status 
-												FROM %s%s WHERE status != ? %s AND %s LIKE ? 
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status 
+												FROM %s%s WHERE uid < ? AND status != ? %s AND %s LIKE ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
 
-	rows, err := r.db.Query(query, models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	return r.AppendItem(rows)
 }
@@ -87,13 +87,12 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.Home
 		table = models.TABLE_BOARD_CAT
 	}
 	uid := r.board.GetUidByTable(table, param.Keyword)
-	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid,
-												title, content, submitted, modified, hit, status
-												FROM %s%s WHERE status != ? %s AND %s = ?
+	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status
+												FROM %s%s WHERE uid < ? AND status != ? %s AND %s = ?
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
 
-	rows, err := r.db.Query(query, models.CONTENT_REMOVED, uid, param.Bunch)
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_REMOVED, uid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
