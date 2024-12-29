@@ -384,7 +384,7 @@ func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) err
 	s.repos.BoardView.RemovePostTags(param.PostUid)
 	s.repos.BoardEdit.UpdatePost(param)
 	s.SaveTags(param.BoardUid, param.PostUid, param.Tags)
-	go s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
+	s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
 	return nil
 }
 
@@ -432,38 +432,46 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 
 // 첨부파일들을 저장하기
 func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader) {
+	var wg sync.WaitGroup
 	for _, file := range files {
-		savedPath, err := utils.SaveAttachmentFile(file)
-		if err != nil {
-			return
-		}
-		fileUid := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
-			BoardUid: boardUid,
-			PostUid:  postUid,
-			Name:     utils.CutString(file.Filename, 100),
-			Path:     savedPath[1:],
-		})
+		wg.Add(1)
 
-		if utils.IsImage(file.Filename) {
-			thumb, err := utils.SaveThumbnailImage(savedPath)
+		go func(f *multipart.FileHeader) {
+			defer wg.Done()
+
+			savedPath, err := utils.SaveAttachmentFile(f)
 			if err != nil {
 				return
 			}
-			s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
-				BoardThumbnail: models.BoardThumbnail{
-					Large: thumb.Large[1:],
-					Small: thumb.Small[1:],
-				},
-				FileUid: fileUid,
-				PostUid: postUid,
+			fileUid := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
+				BoardUid: boardUid,
+				PostUid:  postUid,
+				Name:     utils.CutString(f.Filename, 100),
+				Path:     savedPath[1:],
 			})
-			exif := utils.ExtractExif(savedPath)
-			s.repos.BoardEdit.InsertExif(fileUid, postUid, exif)
-			if imgDesc, err := utils.AskImageDescription(thumb.Small); err == nil {
-				s.repos.BoardEdit.InsertImageDescription(fileUid, postUid, imgDesc)
+
+			if utils.IsImage(f.Filename) {
+				thumb, err := utils.SaveThumbnailImage(savedPath)
+				if err != nil {
+					return
+				}
+				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
+					BoardThumbnail: models.BoardThumbnail{
+						Large: thumb.Large[1:],
+						Small: thumb.Small[1:],
+					},
+					FileUid: fileUid,
+					PostUid: postUid,
+				})
+				exif := utils.ExtractExif(savedPath)
+				s.repos.BoardEdit.InsertExif(fileUid, postUid, exif)
+				if imgDesc, err := utils.AskImageDescription(thumb.Small); err == nil {
+					s.repos.BoardEdit.InsertImageDescription(fileUid, postUid, imgDesc)
+				}
 			}
-		}
+		}(file)
 	}
+	wg.Wait()
 }
 
 // 해시태그들 저장하기
@@ -528,10 +536,11 @@ func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, ima
 
 	for _, header := range images {
 		wg.Add(1)
-		go func(header *multipart.FileHeader) {
+
+		go func(h *multipart.FileHeader) {
 			defer wg.Done()
 
-			file, err := header.Open()
+			file, err := h.Open()
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, err)
@@ -540,7 +549,7 @@ func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, ima
 			}
 			defer file.Close()
 
-			tempPath, err := utils.SaveUploadedFile(file, header.Filename)
+			tempPath, err := utils.SaveUploadedFile(file, h.Filename)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, err)
@@ -607,7 +616,7 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 
 	postUid := s.repos.BoardEdit.InsertPost(param)
 	s.SaveTags(param.BoardUid, postUid, param.Tags)
-	go s.SaveAttachments(param.BoardUid, postUid, param.Files)
+	s.SaveAttachments(param.BoardUid, postUid, param.Files)
 
 	return postUid, nil
 }

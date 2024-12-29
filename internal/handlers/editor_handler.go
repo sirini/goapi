@@ -174,7 +174,7 @@ func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Failed to parse form")
 	}
-	images := form.File["images"]
+	images := form.File["images[]"]
 	if len(images) < 1 {
 		return utils.Err(c, "No files uploaded")
 	}

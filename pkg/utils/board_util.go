@@ -67,7 +67,7 @@ func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 	if err != nil {
 		return result, err
 	}
-	attachments := form.File["attachments"]
+	attachments := form.File["attachments[]"]
 	if len(attachments) > 0 {
 		var totalFileSize int64
 		for _, fileHeader := range attachments {

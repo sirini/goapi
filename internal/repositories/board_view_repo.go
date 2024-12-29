@@ -434,7 +434,7 @@ func (r *TsboardBoardViewRepository) RemovePostTags(postUid uint) {
 	defer rows.Close()
 
 	query = fmt.Sprintf("UPDATE %s%s SET used = used - 1 WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_POST_HASHTAG)
+		configs.Env.Prefix, models.TABLE_HASHTAG)
 	stmtUpdate, err := r.db.Prepare(query)
 	if err != nil {
 		return
