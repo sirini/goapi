@@ -22,8 +22,7 @@ import (
 //                                                                //
 // 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현   //
 // macOS(homebrew): brew install vips                             //
-// Ubuntu Linux: sudo apt install libvips                         //
-// Windows: https://www.libvips.org/install.html                  //
+// Ubuntu Linux: sudo apt install libvips-dev                     //
 //                                                                //
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
@@ -69,7 +68,7 @@ func AskImageDescription(path string) (string, error) {
 	return result.Choices[0].Message.Content, nil
 }
 
-// URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .avif 형식으로 저장
+// URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .webp 형식으로 저장
 func DownloadImage(imageUrl string, outputPath string, width uint) error {
 	resp, err := http.Get(imageUrl)
 	if err != nil {
@@ -198,11 +197,11 @@ func MakeTempJpeg(path string) (string, error) {
 		return "", err
 	}
 
-	jpgTempPath := strings.ReplaceAll(path, ".avif", ".jpg")
+	jpgTempPath := strings.ReplaceAll(path, ".webp", ".jpg")
 	options := bimg.Options{
 		Width:   int(configs.SIZE_PROFILE.Number()),
 		Height:  0,
-		Quality: 70,
+		Quality: 60,
 		Type:    bimg.JPEG,
 	}
 
@@ -217,7 +216,7 @@ func MakeTempJpeg(path string) (string, error) {
 	return jpgTempPath, nil
 }
 
-// 이미지를 주어진 크기로 줄여서 .avif 형식으로 저장하기
+// 이미지를 주어진 크기로 줄여서 .webp 형식으로 저장하기
 func ResizeImage(inputPath string, outputPath string, width uint) error {
 	buffer, err := bimg.Read(inputPath)
 	if err != nil {
@@ -227,13 +226,13 @@ func ResizeImage(inputPath string, outputPath string, width uint) error {
 	return nil
 }
 
-// 바이트 버퍼 이미지를 지정된 크기로 줄여서 .avif 형식으로 저장
+// 바이트 버퍼 이미지를 지정된 크기로 줄여서 .webp 형식으로 저장
 func SaveImage(inputBuffer []byte, outputPath string, width uint) error {
 	options := bimg.Options{
 		Width:   int(width),
 		Height:  0,
-		Quality: 100,
-		Type:    bimg.AVIF,
+		Quality: 90,
+		Type:    bimg.WEBP,
 	}
 
 	processed, err := bimg.NewImage(inputBuffer).Process(options)
@@ -256,7 +255,7 @@ func SaveInsertImage(inputPath string) (string, error) {
 		return result, err
 	}
 
-	result = fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
+	result = fmt.Sprintf("%s/%s.webp", savePath, uuid.New().String()[:8])
 	err = ResizeImage(inputPath, result, configs.SIZE_CONTENT_INSERT.Number())
 	if err != nil {
 		return result, err
@@ -272,7 +271,7 @@ func SaveProfileImage(inputPath string) (string, error) {
 		return result, err
 	}
 
-	result = fmt.Sprintf("%s/%s.avif", savePath, uuid.New().String()[:8])
+	result = fmt.Sprintf("%s/%s.webp", savePath, uuid.New().String()[:8])
 	err = ResizeImage(inputPath, result, configs.SIZE_PROFILE.Number())
 	if err != nil {
 		return result, err
@@ -289,8 +288,8 @@ func SaveThumbnailImage(inputPath string) (models.BoardThumbnail, error) {
 	}
 
 	randName := uuid.New().String()[:8]
-	result.Small = fmt.Sprintf("%s/t%s.avif", savePath, randName)
-	result.Large = fmt.Sprintf("%s/f%s.avif", savePath, randName)
+	result.Small = fmt.Sprintf("%s/t%s.webp", savePath, randName)
+	result.Large = fmt.Sprintf("%s/f%s.webp", savePath, randName)
 
 	err = ResizeImage(inputPath, result.Small, configs.SIZE_THUMBNAIL.Number())
 	if err != nil {

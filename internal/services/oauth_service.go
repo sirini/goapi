@@ -34,7 +34,7 @@ func (s *TsboardOAuthService) SaveProfileImage(userUid uint, profile string) {
 	if err != nil {
 		return
 	}
-	newSavePath := fmt.Sprintf("%s/%s.avif", dirPath, uuid.New().String())
+	newSavePath := fmt.Sprintf("%s/%s.webp", dirPath, uuid.New().String())
 	utils.DownloadImage(profile, newSavePath, configs.SIZE_PROFILE.Number())
 	s.repos.User.UpdateUserProfile(userUid, newSavePath[1:])
 }
