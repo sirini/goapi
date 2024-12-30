@@ -3,6 +3,7 @@ package services
 import (
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type SyncService interface {
@@ -67,8 +68,8 @@ func (s *TsboardSyncService) GetLatestPosts(bunch uint) []models.SyncPostItem {
 		item := models.SyncPostItem{
 			Id:        config.Id,
 			No:        post.Uid,
-			Title:     post.Title,
-			Content:   post.Content,
+			Title:     utils.Unescape(post.Title),
+			Content:   utils.Unescape(post.Content),
 			Submitted: post.Submitted,
 			Name:      writer.Name,
 			Tags:      tags,
