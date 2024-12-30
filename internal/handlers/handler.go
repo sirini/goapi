@@ -14,6 +14,7 @@ type Handler struct {
 	Home    HomeHandler
 	Noti    NotiHandler
 	OAuth2  OAuth2Handler
+	Sync    SyncHandler
 	User    UserHandler
 }
 
@@ -30,6 +31,7 @@ func NewHandler(s *services.Service) *Handler {
 		Home:    NewTsboardHomeHandler(s),
 		Noti:    NewTsboardNotiHandler(s),
 		OAuth2:  NewTsboardOAuth2Handler(s),
+		Sync:    NewTsboardSyncHandler(s),
 		User:    NewTsboardUserHandler(s),
 	}
 }

@@ -13,6 +13,7 @@ type Service struct {
 	Home    HomeService
 	Noti    NotiService
 	OAuth   OAuthService
+	Sync    SyncService
 	User    UserService
 }
 
@@ -28,6 +29,7 @@ func NewService(repos *repositories.Repository) *Service {
 		Home:    NewTsboardHomeService(repos),
 		Noti:    NewTsboardNotiService(repos),
 		OAuth:   NewTsboardOAuthService(repos),
+		Sync:    NewTsboardSyncService(repos),
 		User:    NewTsboardUserService(repos),
 	}
 }
