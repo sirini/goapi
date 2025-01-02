@@ -134,19 +134,17 @@ func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.Signup
 			return signupResult, fmt.Errorf("failed to add a new user")
 		}
 	} else {
-		go func() {
-			code := uuid.New().String()[:6]
-			body := strings.ReplaceAll(templates.VerificationBody, "{{Host}}", param.Hostname)
-			body = strings.ReplaceAll(body, "{{Name}}", name)
-			body = strings.ReplaceAll(body, "{{Code}}", code)
-			body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-			subject := fmt.Sprintf("[%s] Your verification code: %s", param.Hostname, code)
+		code := uuid.New().String()[:6]
+		body := strings.ReplaceAll(templates.VerificationBody, "{{Host}}", param.Hostname)
+		body = strings.ReplaceAll(body, "{{Name}}", name)
+		body = strings.ReplaceAll(body, "{{Code}}", code)
+		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
+		subject := fmt.Sprintf("[%s] Your verification code: %s", param.Hostname, code)
 
-			result := utils.SendMail(param.ID, subject, body)
-			if result {
-				target = s.repos.Auth.SaveVerificationCode(param.ID, code)
-			}
-		}()
+		result := utils.SendMail(param.ID, subject, body)
+		if result {
+			target = s.repos.Auth.SaveVerificationCode(param.ID, code)
+		}
 	}
 
 	signupResult = models.SignupResult{

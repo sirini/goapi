@@ -52,7 +52,7 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 	arrow, _ := param.Direction.Query()
 	query := fmt.Sprintf(`SELECT uid, reply_uid, user_uid, content, submitted, modified, status 
 												FROM %s%s WHERE post_uid = ? AND status != ? AND uid %s ?
-												ORDER BY reply_uid ASC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT, arrow)
+												ORDER BY reply_uid ASC, uid ASC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT, arrow)
 
 	rows, err := r.db.Query(query, param.PostUid, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
 	if err != nil {

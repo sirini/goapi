@@ -20,6 +20,7 @@ func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
 	if err != nil {
 		return result, err
 	}
+
 	content := Sanitize(c.FormValue("content"))
 	content = CutString(content, 9999)
 	if len(content) < 2 {
