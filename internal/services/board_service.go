@@ -235,6 +235,7 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 	if err != nil {
 		return result, err
 	}
+	items = append(items, notices...)
 
 	result = models.BoardListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
