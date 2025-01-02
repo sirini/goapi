@@ -235,11 +235,11 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 	if err != nil {
 		return result, err
 	}
-	items = append(items, notices...)
 
 	result = models.BoardListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
 		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
+		Notices:        notices,
 		Posts:          items,
 		BlackList:      s.repos.User.GetUserBlackList(param.UserUid),
 		IsAdmin:        s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid),
@@ -280,11 +280,6 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	if err != nil {
 		return result, err
 	}
-	if post.Status == models.CONTENT_SECRET {
-		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
-			return result, fmt.Errorf("you don't have permission to open this post")
-		}
-	}
 
 	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	result.Config = config
@@ -308,6 +303,17 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 
 	if param.UpdateHit {
 		s.repos.BoardView.UpdatePostHit(param.PostUid)
+	}
+
+	if post.Status == models.CONTENT_SECRET {
+		isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
+		isWriter := post.Writer.UserUid == param.UserUid
+
+		if !isAdmin && !isWriter {
+			result.Post.Content = ""
+			result.Files = make([]models.BoardAttachment, 0)
+			result.Images = make([]models.BoardAttachedImage, 0)
+		}
 	}
 
 	result.Tags = s.repos.BoardView.GetTags(param.PostUid)

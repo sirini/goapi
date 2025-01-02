@@ -191,6 +191,7 @@ type BoardListParameter struct {
 type BoardListResult struct {
 	TotalPostCount uint            `json:"totalPostCount"`
 	Config         BoardConfig     `json:"config"`
+	Notices        []BoardListItem `json:"notices"`
 	Posts          []BoardListItem `json:"posts"`
 	BlackList      []uint          `json:"blackList"`
 	IsAdmin        bool            `json:"isAdmin"`

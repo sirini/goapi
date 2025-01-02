@@ -62,11 +62,11 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomeP
 	}
 	option := param.Option.String()
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status 
-												FROM %s%s WHERE uid < ? AND status != ? %s AND %s LIKE ? 
+												FROM %s%s WHERE uid < ? AND status = ? %s AND %s LIKE ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
 
-	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_REMOVED, "%"+param.Keyword+"%", param.Bunch)
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_NORMAL, "%"+param.Keyword+"%", param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +88,11 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.Home
 	}
 	uid := r.board.GetUidByTable(table, param.Keyword)
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status
-												FROM %s%s WHERE uid < ? AND status != ? %s AND %s = ?
+												FROM %s%s WHERE uid < ? AND status = ? %s AND %s = ?
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
 
-	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_REMOVED, uid, param.Bunch)
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_NORMAL, uid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +110,12 @@ func (r *TsboardHomeRepository) FindLatestPostsByTag(param models.HomePostParame
 	query := fmt.Sprintf(`SELECT p.uid, p.board_uid, p.user_uid, p.category_uid, 
 												p.title, p.content, p.submitted, p.modified, p.hit, p.status 
 												FROM %s%s AS p JOIN %s%s AS ph ON p.uid = ph.post_uid 
-												WHERE p.status != ? %s AND uid < ? AND ph.hashtag_uid IN (%s) 
+												WHERE p.status = ? %s AND uid < ? AND ph.hashtag_uid IN (%s) 
 												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?) 
 												ORDER BY p.uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, whereBoard, tagUidStr)
 
-	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, tagCount, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_NORMAL, param.SinceUid, tagCount, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
@@ -224,11 +224,11 @@ func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) (
 	}
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, 
 												title, content, submitted, modified, hit, status
-												FROM %s%s WHERE status != ? %s AND uid < ? 
+												FROM %s%s WHERE status = ? %s AND uid < ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard)
 
-	rows, err := r.db.Query(query, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
+	rows, err := r.db.Query(query, models.CONTENT_NORMAL, param.SinceUid, param.Bunch)
 	if err != nil {
 		return nil, err
 	}

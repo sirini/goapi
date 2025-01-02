@@ -40,7 +40,7 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid keyword, failed to unescape")
 	}
 	keyword = utils.Escape(keyword)
-	
+
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid page, not a valid number")
@@ -88,7 +88,7 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid post uid, not a valid number")
 	}
-	updateHit, err := strconv.ParseUint(c.FormValue("needUpdateHit"), 10, 32)
+	updateHit, err := strconv.ParseBool(c.FormValue("needUpdateHit"))
 	if err != nil {
 		return utils.Err(c, "Invalid need update hit, not a valid number")
 	}
@@ -107,7 +107,7 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 			PostUid:  uint(postUid),
 			UserUid:  actionUserUid,
 		},
-		UpdateHit: updateHit > 0,
+		UpdateHit: updateHit,
 		Limit:     uint(limit),
 	}
 
