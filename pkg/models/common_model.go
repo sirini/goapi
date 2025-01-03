@@ -4,6 +4,7 @@ package models
 type ResponseCommon struct {
 	Success bool        `json:"success"`
 	Error   string      `json:"error"`
+	Code    Code        `json:"code"`
 	Result  interface{} `json:"result"`
 }
 

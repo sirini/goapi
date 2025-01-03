@@ -254,17 +254,17 @@ func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 func (h *TsboardOAuth2Handler) RequestUserInfoHandler(c fiber.Ctx) error {
 	myinfo := c.Cookies("tsboard_myinfo")
 	if myinfo == "" {
-		return utils.Err(c, "Unable to read your data from cookie")
+		return utils.Err(c, "Unable to read your data from cookie", models.CODE_FAILED_OPERATION)
 	}
 	data, err := base64.URLEncoding.DecodeString(myinfo)
 	if err != nil {
-		return utils.Err(c, "Unable to decode data")
+		return utils.Err(c, "Unable to decode data", models.CODE_FAILED_OPERATION)
 	}
 
 	var info models.MyInfoResult
 	err = json.Unmarshal([]byte(data), &info)
 	if err != nil {
-		return utils.Err(c, "Unable to unmarshal")
+		return utils.Err(c, "Unable to unmarshal", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, info)
 }

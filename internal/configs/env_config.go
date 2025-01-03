@@ -29,6 +29,8 @@ type Config struct {
 	DBMaxIdle         string
 	DBMaxOpen         string
 	JWTSecretKey      string
+	JWTAccessHours    string
+	JWTRefreshDays    string
 	GmailID           string
 	GmailAppPassword  string
 	OAuthGoogleID     string
@@ -78,6 +80,8 @@ func LoadConfig() {
 		DBMaxIdle:         getEnv("DB_MAX_IDLE", "10"),
 		DBMaxOpen:         getEnv("DB_MAX_OPEN", "10"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
+		JWTAccessHours:    getEnv("JWT_ACCESS_HOURS", "2"),
+		JWTRefreshDays:    getEnv("JWT_REFRESH_DAYS", "30"),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),
 		GmailAppPassword:  getEnv("GMAIL_APP_PASSWORD", ""),
 		OAuthGoogleID:     getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
@@ -138,4 +142,22 @@ func GetFileSizeLimit() int {
 		return 10485760 /* 10MB */
 	}
 	return int(size)
+}
+
+// JWT 유효 기간 (access: hours, refresh: days) 반환
+func GetJWTAccessRefresh() (int, int) {
+	var access, refresh int
+
+	accessHours, err := strconv.ParseInt(Env.JWTAccessHours, 10, 32)
+	if err != nil {
+		access = 2
+	}
+	access = int(accessHours)
+
+	refreshDays, err := strconv.ParseInt(Env.JWTRefreshDays, 10, 32)
+	if err != nil {
+		refresh = 30
+	}
+	refresh = int(refreshDays)
+	return access, refresh
 }

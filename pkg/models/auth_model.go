@@ -61,3 +61,12 @@ type SignupParameter struct {
 type ContextKey string
 
 var JwtClaimsKey = ContextKey("jwtClaims")
+
+// JWT 오류 코드 정의
+const (
+	JWT_EMPTY_TOKEN = -10 + iota
+	JWT_NOT_BEARER
+	JWT_INVALID_TOKEN
+	JWT_NO_CLAIMS
+	JWT_NO_UID
+)

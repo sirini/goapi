@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/pkg/models"
 	"golang.org/x/oauth2"
 )
 
@@ -35,45 +36,45 @@ func GetHashedString(input string) string {
 	return hex.EncodeToString(hashBytes)
 }
 
-// 액세스 토큰 생성하기
-func GenerateAccessToken(userUid uint, hours time.Duration) (string, error) {
+// 액세스 토큰 생성하기 (유효시간 기입 필요)
+func GenerateAccessToken(userUid uint, hours int) (string, error) {
 	auth := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"uid": userUid,
-		"exp": time.Now().Add(time.Hour * hours).Unix(),
+		"exp": time.Now().Add(time.Hour * time.Duration(hours)).Unix(),
 	})
 	return auth.SignedString([]byte(configs.Env.JWTSecretKey))
 }
 
-// 리프레시 토큰 생성하기
-func GenerateRefreshToken(months int) (string, error) {
+// 리프레시 토큰 생성하기 (유효일자 기입 필요)
+func GenerateRefreshToken(days int) (string, error) {
 	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"exp": time.Now().AddDate(0, months, 0).Unix(),
+		"exp": time.Now().AddDate(0, 0, days).Unix(),
 	})
 	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
 }
 
 // 헤더로 넘어온 Authorization 문자열 추출해서 사용자 고유 번호 반환
-func ExtractUserUid(authorization string) uint {
+func ExtractUserUid(authorization string) int {
 	if authorization == "" {
-		return 0
+		return models.JWT_EMPTY_TOKEN
 	}
 	parts := strings.Split(authorization, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		return 0
+		return models.JWT_NOT_BEARER
 	}
 	token, err := ValidateJWT(parts[1])
 	if err != nil {
-		return 0
+		return models.JWT_INVALID_TOKEN
 	}
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return 0
+		return models.JWT_NO_CLAIMS
 	}
 	uidFloat, ok := claims["uid"].(float64)
 	if !ok {
-		return 0
+		return models.JWT_NO_UID
 	}
-	return uint(uidFloat)
+	return int(uidFloat)
 }
 
 // 아이디가 이메일 형식에 부합하는지 확인
@@ -81,6 +82,16 @@ func IsValidEmail(email string) bool {
 	const regexPattern = `^(?i)[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$`
 	re := regexp.MustCompile(regexPattern)
 	return re.MatchString(email)
+}
+
+// 인증 실패 코드에 맞춰서 클라이언트에 리턴
+func ResponseAuthFail(c fiber.Ctx, userUid int) error {
+	switch userUid {
+	case models.JWT_INVALID_TOKEN:
+		return Err(c, "Invalid token, your token might be expired", models.CODE_INVALID_TOKEN)
+	default:
+		return Err(c, "Unauthorized access, login required", models.CODE_NO_PERMISSION)
+	}
 }
 
 // 리프레시 토큰을 쿠키에 저장

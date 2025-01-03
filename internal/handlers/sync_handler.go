@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
+	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -27,11 +28,11 @@ func (h *TsboardSyncHandler) SyncPostHandler(c fiber.Ctx) error {
 	key := c.FormValue("key")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil || bunch < 1 || bunch > 100 {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	if key != configs.Env.JWTSecretKey {
-		return utils.Err(c, "Invalid key, unauthorized access")
+		return utils.Err(c, "Invalid key, unauthorized access", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Sync.GetLatestPosts(uint(bunch))

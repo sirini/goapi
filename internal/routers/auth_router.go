@@ -12,13 +12,14 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Post("/signin", h.Auth.SigninHandler)
 	auth.Post("/signup", h.Auth.SignupHandler)
 	auth.Post("/reset/password", h.Auth.ResetPasswordHandler)
+	auth.Post("/refresh", h.Auth.RefreshAccessTokenHandler)
 	auth.Post("/checkemail", h.Auth.CheckEmailHandler)
 	auth.Post("/checkname", h.Auth.CheckNameHandler)
 	auth.Post("/verify", h.Auth.VerifyCodeHandler)
 
 	auth.Get("/load", h.Auth.LoadMyInfoHandler, middlewares.JWTMiddleware())
-	auth.Patch("/update", h.Auth.UpdateMyInfoHandler, middlewares.JWTMiddleware())
 	auth.Post("/logout", h.Auth.LogoutHandler, middlewares.JWTMiddleware())
+	auth.Patch("/update", h.Auth.UpdateMyInfoHandler, middlewares.JWTMiddleware())
 
 	// OAuth용 라우터들
 	auth.Get("/google/request", h.OAuth2.GoogleOAuthRequestHandler)

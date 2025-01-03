@@ -60,7 +60,7 @@ func (h *TsboardHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
 func (h *TsboardHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 	links, err := h.service.Home.GetSidebarLinks()
 	if err != nil {
-		return utils.Err(c, "Unable to load group/board links")
+		return utils.Err(c, "Unable to load group/board links", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, links)
 }
@@ -70,19 +70,19 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number")
+		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil || bunch < 1 || bunch > 100 {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
@@ -101,7 +101,7 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 
 	result, err := h.service.Home.GetLatestPosts(parameter)
 	if err != nil {
-		return utils.Err(c, "Failed to get latest posts")
+		return utils.Err(c, "Failed to get latest posts", models.CODE_FAILED_OPERATION)
 	}
 
 	return utils.Ok(c, result)
@@ -116,19 +116,19 @@ func (h *TsboardHomeHandler) LoadMainPageHandler(c fiber.Ctx) error {
 
 	articles, err := h.service.Home.LoadMainPage(50)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	main.Articles = articles
 
 	c.Set("Content-Type", "text/html")
 	tmpl, err := template.New("main").Parse(templates.MainPageBody)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	err = tmpl.Execute(c.Response().BodyWriter(), main)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return nil
 }
@@ -139,12 +139,12 @@ func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil || bunch < 1 || bunch > 100 {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
-		return utils.Err(c, "Invalid board id, unable to find board")
+		return utils.Err(c, "Invalid board id, unable to find board", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.HomePostParameter{
@@ -157,7 +157,7 @@ func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	}
 	items, err := h.service.Home.GetLatestPosts(parameter)
 	if err != nil {
-		return utils.Err(c, "Failed to get latest posts from specific board")
+		return utils.Err(c, "Failed to get latest posts from specific board", models.CODE_FAILED_OPERATION)
 	}
 
 	config := h.service.Board.GetBoardConfig(boardUid)
@@ -184,12 +184,12 @@ func (h *TsboardHomeHandler) LoadSitemapHandler(c fiber.Ctx) error {
 	c.Set("Content-Type", "application/xml")
 	tmpl, err := texttemplate.New("sitemap").Parse(templates.SitemapBody)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	err = tmpl.Execute(c.Response().BodyWriter(), urls)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return nil
 }

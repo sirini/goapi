@@ -81,7 +81,7 @@ func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 
 	result = models.EditorWriteParameter{
 		BoardUid:    uint(boardUid),
-		UserUid:     actionUserUid,
+		UserUid:     uint(actionUserUid),
 		CategoryUid: uint(categoryUid),
 		Title:       title,
 		Content:     content,

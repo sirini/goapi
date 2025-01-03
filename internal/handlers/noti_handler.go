@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
+	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -25,29 +26,21 @@ func NewTsboardNotiHandler(service *services.Service) *TsboardNotiHandler {
 // 알림 모두 확인하기 처리
 func (h *TsboardNotiHandler) CheckedAllNotiHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
-	if actionUserUid < 1 {
-		return utils.Err(c, "Unable to get an user uid from token")
-	}
-
-	h.service.Noti.CheckedAllNoti(actionUserUid, 10)
+	h.service.Noti.CheckedAllNoti(uint(actionUserUid), 10)
 	return utils.Ok(c, nil)
 }
 
 // 알림 목록 가져오기
 func (h *TsboardNotiHandler) LoadNotiListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
-	if actionUserUid < 1 {
-		return utils.Err(c, "Unable to get an user uid from token")
-	}
-
 	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	notis, err := h.service.Noti.GetUserNoti(actionUserUid, uint(limit))
+	notis, err := h.service.Noti.GetUserNoti(uint(actionUserUid), uint(limit))
 	if err != nil {
-		return utils.Err(c, "Failed to load your notifications")
+		return utils.Err(c, "Failed to load your notifications", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, notis)
 }

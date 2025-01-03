@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
@@ -19,6 +18,7 @@ type AuthService interface {
 	CheckNameExists(name string, userUid uint) bool
 	CheckUserPermission(userUid uint, action models.UserAction) bool
 	GetMyInfo(userUid uint) models.MyInfoResult
+	GetUpdatedAccessToken(userUid uint, refreshToken string) (string, bool)
 	Logout(userUid uint)
 	ResetPassword(id string, hostname string) bool
 	Signin(id string, pw string) models.MyInfoResult
@@ -53,6 +53,20 @@ func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.Use
 // 로그인 한 내 정보 가져오기
 func (s *TsboardAuthService) GetMyInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
+}
+
+// 리프레시 토큰이 유효할 경우 새로운 액세스 토큰 발급하기
+func (s *TsboardAuthService) GetUpdatedAccessToken(userUid uint, refreshToken string) (string, bool) {
+	if isValid := s.repos.Auth.CheckRefreshToken(userUid, refreshToken); !isValid {
+		return "", false
+	}
+
+	accessHours, _ := configs.GetJWTAccessRefresh()
+	newAccessToken, err := utils.GenerateAccessToken(userUid, accessHours)
+	if err != nil {
+		return "", false
+	}
+	return newAccessToken, true
 }
 
 // 로그아웃하기
@@ -94,14 +108,13 @@ func (s *TsboardAuthService) Signin(id string, pw string) models.MyInfoResult {
 		return user
 	}
 
-	var twoHours time.Duration = 2
-	accessToken, err := utils.GenerateAccessToken(user.Uid, twoHours)
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
+	accessToken, err := utils.GenerateAccessToken(user.Uid, accessHours)
 	if err != nil {
 		return user
 	}
 
-	oneMonth := 1
-	refreshToken, err := utils.GenerateRefreshToken(oneMonth)
+	refreshToken, err := utils.GenerateRefreshToken(refreshDays)
 	if err != nil {
 		return user
 	}

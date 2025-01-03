@@ -37,25 +37,25 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	paging, err := strconv.ParseInt(c.FormValue("pagingDirection"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid direction of paging, not a valid number")
+		return utils.Err(c, "Invalid direction of paging, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number")
+		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.BoardListParameter{}
@@ -69,13 +69,13 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	parameter.Bunch = config.RowCount
 	parameter.Option = models.Search(option)
 	parameter.Keyword = keyword
-	parameter.UserUid = actionUserUid
+	parameter.UserUid = uint(actionUserUid)
 	parameter.Page = uint(page)
 	parameter.Direction = models.Paging(paging)
 
 	result, err := h.service.Board.GetListItem(parameter)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -86,26 +86,26 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	updateHit, err := strconv.ParseBool(c.FormValue("needUpdateHit"))
 	if err != nil {
-		return utils.Err(c, "Invalid need update hit, not a valid number")
+		return utils.Err(c, "Invalid need update hit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	limit, err := strconv.ParseUint(c.FormValue("latestLimit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid latest limit, not a valid number")
+		return utils.Err(c, "Invalid latest limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
-		return utils.Err(c, "Invalid board id, cannot find a board")
+		return utils.Err(c, "Invalid board id, cannot find a board", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.BoardViewParameter{
 		BoardViewCommonParameter: models.BoardViewCommonParameter{
 			BoardUid: boardUid,
 			PostUid:  uint(postUid),
-			UserUid:  actionUserUid,
+			UserUid:  uint(actionUserUid),
 		},
 		UpdateHit: updateHit,
 		Limit:     uint(limit),
@@ -113,7 +113,7 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 
 	result, err := h.service.Board.GetViewItem(parameter)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -123,15 +123,15 @@ func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	result, err := h.service.Board.Download(uint(boardUid), uint(fileUid), actionUserUid)
+	result, err := h.service.Board.Download(uint(boardUid), uint(fileUid), uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -142,25 +142,25 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number")
+		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	paging, err := strconv.ParseInt(c.FormValue("pagingDirection"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid direction of paging, not a valid number")
+		return utils.Err(c, "Invalid direction of paging, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.BoardListParameter{}
@@ -174,7 +174,7 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 	parameter.Bunch = config.RowCount
 	parameter.Option = models.Search(option)
 	parameter.Keyword = keyword
-	parameter.UserUid = actionUserUid
+	parameter.UserUid = uint(actionUserUid)
 	parameter.Page = uint(page)
 	parameter.Direction = models.Paging(paging)
 
@@ -188,12 +188,12 @@ func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("no"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	boardUid := h.service.Board.GetBoardUid(id)
-	result, err := h.service.Board.GetGalleryPhotos(boardUid, uint(postUid), actionUserUid)
+	result, err := h.service.Board.GetGalleryPhotos(boardUid, uint(postUid), uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -203,22 +203,22 @@ func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	liked, err := strconv.ParseUint(c.FormValue("liked"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid liked value, not a valid number")
+		return utils.Err(c, "Invalid liked value, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.BoardViewLikeParameter{
 		BoardViewCommonParameter: models.BoardViewCommonParameter{
 			BoardUid: uint(boardUid),
 			PostUid:  uint(postUid),
-			UserUid:  actionUserUid,
+			UserUid:  uint(actionUserUid),
 		},
 		Liked: liked > 0,
 	}
@@ -232,12 +232,12 @@ func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	boards, err := h.service.Board.GetBoardList(uint(boardUid), actionUserUid)
+	boards, err := h.service.Board.GetBoardList(uint(boardUid), uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, boards)
 }
@@ -247,22 +247,22 @@ func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	targetBoardUid, err := strconv.ParseUint(c.FormValue("targetBoardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target board uid, not a valid number")
+		return utils.Err(c, "Invalid target board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Board.MovePost(models.BoardMovePostParameter{
 		BoardViewCommonParameter: models.BoardViewCommonParameter{
 			BoardUid: uint(boardUid),
 			PostUid:  uint(postUid),
-			UserUid:  actionUserUid,
+			UserUid:  uint(actionUserUid),
 		},
 		TargetBoardUid: uint(targetBoardUid),
 	})
@@ -274,13 +274,13 @@ func (h *TsboardBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemovePost(uint(boardUid), uint(postUid), actionUserUid)
+	h.service.Board.RemovePost(uint(boardUid), uint(postUid), uint(actionUserUid))
 	return utils.Ok(c, nil)
 }

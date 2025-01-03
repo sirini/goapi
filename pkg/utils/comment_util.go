@@ -30,7 +30,7 @@ func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
 	result = models.CommentWriteParameter{
 		BoardUid: uint(boardUid),
 		PostUid:  uint(postUid),
-		UserUid:  actionUserUid,
+		UserUid:  uint(actionUserUid),
 		Content:  content,
 	}
 	return result, nil

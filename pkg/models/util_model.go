@@ -17,3 +17,19 @@ type Triple struct {
 	Pair
 	Id string `json:"id"`
 }
+
+// 에러 코드 정의
+type Code uint
+
+// 에러 타입 상수 정의
+const (
+	CODE_SUCCESS Code = iota
+	CODE_NOT_ADMIN
+	CODE_INVALID_TOKEN
+	CODE_INVALID_PARAMETER
+	CODE_FAILED_OPERATION
+	CODE_DUPLICATED_VALUE
+	CODE_NO_PERMISSION
+	CODE_EXCEED_SIZE
+	CODE_EXPIRED_TOKEN
+)

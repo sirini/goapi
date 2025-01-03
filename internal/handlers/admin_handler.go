@@ -68,12 +68,12 @@ func NewTsboardAdminHandler(service *services.Service) *TsboardAdminHandler {
 func (h *TsboardAdminHandler) AddBoardCategoryHandler(c fiber.Ctx) error {
 	uid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	categoryName := c.FormValue("newCategory")
 	if len(categoryName) < 2 {
-		return utils.Err(c, "Invalid category name, too short")
+		return utils.Err(c, "Invalid category name, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	insertId := h.service.Admin.AddBoardCategory(uint(uid), categoryName)
@@ -85,11 +85,11 @@ func (h *TsboardAdminHandler) BoardGeneralLoadHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
-		return utils.Err(c, "Invalid board ID")
+		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
 	}
 	config := h.service.Board.GetBoardConfig(boardUid)
 	if config.Uid < 1 {
-		return utils.Err(c, "Failed to load configuration")
+		return utils.Err(c, "Failed to load configuration", models.CODE_FAILED_OPERATION)
 	}
 
 	pairs := make([]models.Pair, 0)
@@ -113,12 +113,12 @@ func (h *TsboardAdminHandler) BoardLevelLoadHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
-		return utils.Err(c, "Invalid board ID")
+		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
 	}
 
 	perm, err := h.service.Admin.GetBoardLevelPolicy(boardUid)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, perm)
 }
@@ -128,12 +128,12 @@ func (h *TsboardAdminHandler) BoardPointLoadHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
-		return utils.Err(c, "Invalid board ID")
+		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
 	}
 
 	policy, err := h.service.Admin.GetBoardPointPolicy(boardUid)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, policy)
 }
@@ -142,17 +142,17 @@ func (h *TsboardAdminHandler) BoardPointLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardAdminHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	newAdminUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number")
+		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	err = h.service.Admin.ChangeBoardAdmin(uint(boardUid), uint(newAdminUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -162,12 +162,12 @@ func (h *TsboardAdminHandler) ChangeBoardGroupHandler(c fiber.Ctx) error {
 	groupUid := c.FormValue("groupUid")
 	_, err := strconv.ParseUint(groupUid, 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid group uid, not a valid number")
+		return utils.Err(c, "Invalid group uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "group_uid", groupUid)
@@ -178,12 +178,12 @@ func (h *TsboardAdminHandler) ChangeBoardGroupHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardInfoHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	info := utils.Escape(c.FormValue("newInfo"))
 	if len(info) < 2 {
-		return utils.Err(c, "Invalid info, too short")
+		return utils.Err(c, "Invalid info, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "info", info)
@@ -194,32 +194,32 @@ func (h *TsboardAdminHandler) ChangeBoardInfoHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardLevelHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	listLevel, err := strconv.ParseInt(c.FormValue("list"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid list level, not a valid number")
+		return utils.Err(c, "Invalid list level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	viewLevel, err := strconv.ParseInt(c.FormValue("view"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid view level, not a valid number")
+		return utils.Err(c, "Invalid view level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	writeLevel, err := strconv.ParseInt(c.FormValue("write"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid write level, not a valid number")
+		return utils.Err(c, "Invalid write level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	commentLevel, err := strconv.ParseInt(c.FormValue("comment"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid comment level, not a valid number")
+		return utils.Err(c, "Invalid comment level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	downloadLevel, err := strconv.ParseInt(c.FormValue("download"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid download level, not a valid number")
+		return utils.Err(c, "Invalid download level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	level := models.BoardActionLevel{
@@ -234,7 +234,7 @@ func (h *TsboardAdminHandler) ChangeBoardLevelHandler(c fiber.Ctx) error {
 
 	err = h.service.Admin.ChangeBoardLevelPolicy(uint(boardUid), level)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -243,12 +243,12 @@ func (h *TsboardAdminHandler) ChangeBoardLevelHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardNameHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	name := utils.Escape(c.FormValue("newName"))
 	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short")
+		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "name", name)
@@ -259,27 +259,27 @@ func (h *TsboardAdminHandler) ChangeBoardNameHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardPointHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	viewPoint, err := strconv.ParseInt(c.FormValue("view"), 10, 32)
 	if err != nil || viewPoint < -10000 || viewPoint > 10000 {
-		return utils.Err(c, "Invalid view point, not a valid number")
+		return utils.Err(c, "Invalid view point, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	writePoint, err := strconv.ParseInt(c.FormValue("write"), 10, 32)
 	if err != nil || writePoint < -10000 || writePoint > 10000 {
-		return utils.Err(c, "Invalid write point, not a valid number")
+		return utils.Err(c, "Invalid write point, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	commentPoint, err := strconv.ParseInt(c.FormValue("comment"), 10, 32)
 	if err != nil || commentPoint < -10000 || commentPoint > 10000 {
-		return utils.Err(c, "Invalid comment point, not a valid number")
+		return utils.Err(c, "Invalid comment point, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	downloadPoint, err := strconv.ParseInt(c.FormValue("download"), 10, 32)
 	if err != nil || downloadPoint < -10000 || downloadPoint > 10000 {
-		return utils.Err(c, "Invalid download point, not a valid number")
+		return utils.Err(c, "Invalid download point, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	point := models.BoardActionPoint{
@@ -291,7 +291,7 @@ func (h *TsboardAdminHandler) ChangeBoardPointHandler(c fiber.Ctx) error {
 
 	err = h.service.Admin.ChangeBoardPointPolicy(uint(boardUid), point)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -300,13 +300,13 @@ func (h *TsboardAdminHandler) ChangeBoardPointHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardRowHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	rowCount := c.FormValue("newRows")
 	_, err = strconv.ParseUint(rowCount, 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid row, not a valid number")
+		return utils.Err(c, "Invalid row, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "row_count", rowCount)
@@ -317,13 +317,13 @@ func (h *TsboardAdminHandler) ChangeBoardRowHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardTypeHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	boardType := c.FormValue("newType")
 	_, err = strconv.ParseUint(boardType, 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid type, not a valid number")
+		return utils.Err(c, "Invalid type, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "type", boardType)
@@ -334,13 +334,13 @@ func (h *TsboardAdminHandler) ChangeBoardTypeHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeBoardWidthHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	width := c.FormValue("newWidth")
 	_, err = strconv.ParseUint(width, 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid width, not a valid number")
+		return utils.Err(c, "Invalid width, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "width", width)
@@ -351,16 +351,16 @@ func (h *TsboardAdminHandler) ChangeBoardWidthHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeGroupAdminHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid group uid, not a valid number")
+		return utils.Err(c, "Invalid group uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	newAdminUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number")
+		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	err = h.service.Admin.ChangeGroupAdmin(uint(groupUid), uint(newAdminUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -369,13 +369,13 @@ func (h *TsboardAdminHandler) ChangeGroupAdminHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ChangeGroupIdHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid group uid, not a valid number")
+		return utils.Err(c, "Invalid group uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	newGroupId := c.FormValue("changeGroupId")
 
 	err = h.service.Admin.ChangeGroupId(uint(groupUid), newGroupId)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -384,11 +384,11 @@ func (h *TsboardAdminHandler) ChangeGroupIdHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid group uid, not a valid number")
+		return utils.Err(c, "Invalid group uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	newBoardId := c.FormValue("newId")
 	if len(newBoardId) < 2 {
-		return utils.Err(c, "Invalid id, too short")
+		return utils.Err(c, "Invalid id, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Admin.CreateNewBoard(uint(groupUid), newBoardId)
@@ -399,7 +399,7 @@ func (h *TsboardAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
 	newGroupId := c.FormValue("newId")
 	if len(newGroupId) < 2 {
-		return utils.Err(c, "Invalid id, too short")
+		return utils.Err(c, "Invalid id, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Admin.CreateNewGroup(newGroupId)
@@ -410,7 +410,7 @@ func (h *TsboardAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	items := h.service.Admin.GetDashboardItems(uint(bunch))
@@ -421,7 +421,7 @@ func (h *TsboardAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	latests := h.service.Admin.GetDashboardLatests(uint(bunch))
@@ -432,7 +432,7 @@ func (h *TsboardAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	statistics := h.service.Admin.GetDashboardStatistics(uint(bunch))
@@ -443,20 +443,20 @@ func (h *TsboardAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 	name, err := url.QueryUnescape(c.FormValue("name"))
 	if err != nil {
-		return utils.Err(c, "Invalid name, failed to unescape")
+		return utils.Err(c, "Invalid name, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	name = utils.Escape(name)
 	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short")
+		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	candidates, err := h.service.Admin.GetBoardAdminCandidates(name, uint(bunch))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, candidates)
 }
@@ -483,11 +483,11 @@ func (h *TsboardAdminHandler) GroupListLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.AdminLatestParameter{
@@ -505,19 +505,19 @@ func (h *TsboardAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
@@ -536,11 +536,11 @@ func (h *TsboardAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) LatestPostLoadHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	posts := h.service.Admin.GetLatestPosts(uint(page), uint(bunch))
@@ -551,19 +551,19 @@ func (h *TsboardAdminHandler) LatestPostLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
@@ -582,12 +582,12 @@ func (h *TsboardAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	catUid, err := strconv.ParseUint(c.FormValue("categoryUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid category uid, not a valid number")
+		return utils.Err(c, "Invalid category uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.RemoveBoardCategory(uint(boardUid), uint(catUid))
@@ -598,12 +598,12 @@ func (h *TsboardAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) RemoveBoardHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	err = h.service.Admin.RemoveBoard(uint(boardUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -614,7 +614,7 @@ func (h *TsboardAdminHandler) RemoveCommentHandler(c fiber.Ctx) error {
 	for _, target := range targets {
 		commentUid, err := strconv.ParseUint(target, 10, 32)
 		if err != nil {
-			return utils.Err(c, err.Error())
+			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 		}
 		h.service.Admin.RemoveComment(uint(commentUid))
 	}
@@ -627,7 +627,7 @@ func (h *TsboardAdminHandler) RemovePostHandler(c fiber.Ctx) error {
 	for _, target := range targets {
 		postUid, err := strconv.ParseUint(target, 10, 32)
 		if err != nil {
-			return utils.Err(c, err.Error())
+			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 		}
 		h.service.Admin.RemovePost(uint(postUid))
 	}
@@ -638,12 +638,12 @@ func (h *TsboardAdminHandler) RemovePostHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid group uid, not a valid number")
+		return utils.Err(c, "Invalid group uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	err = h.service.Admin.RemoveGroup(uint(groupUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -652,15 +652,15 @@ func (h *TsboardAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ReportListLoadHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
 	if err != nil {
-		return utils.Err(c, "Invalid parameter(isSolved), unable to convert bool type")
+		return utils.Err(c, "Invalid isSolved, unable to convert bool type", models.CODE_INVALID_PARAMETER)
 	}
 
 	reports := h.service.Admin.GetReportList(uint(page), uint(bunch), isSolved)
@@ -671,23 +671,23 @@ func (h *TsboardAdminHandler) ReportListLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
 	if err != nil {
-		return utils.Err(c, "Invalid parameter(isSolved), unable to convert bool type")
+		return utils.Err(c, "Invalid isSolved, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 
@@ -710,7 +710,7 @@ func (h *TsboardAdminHandler) ShowSimilarBoardIdHandler(c fiber.Ctx) error {
 	boardId := c.FormValue("id")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	list := h.service.Admin.GetExistBoardIds(boardId, uint(bunch))
@@ -722,7 +722,7 @@ func (h *TsboardAdminHandler) ShowSimilarGroupIdHandler(c fiber.Ctx) error {
 	groupId := c.FormValue("id")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	list := h.service.Admin.GetExistGroupIds(groupId, uint(bunch))
@@ -733,13 +733,13 @@ func (h *TsboardAdminHandler) ShowSimilarGroupIdHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) UseBoardCategoryHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	use := c.FormValue("useCategory")
 	_, err = strconv.ParseBool(use)
 	if err != nil {
-		return utils.Err(c, "Invalid use category, it should be 0 or 1")
+		return utils.Err(c, "Invalid use category, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Admin.UpdateBoardSetting(uint(boardUid), "use_category", use)
@@ -750,7 +750,7 @@ func (h *TsboardAdminHandler) UseBoardCategoryHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
 	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid user uid, not a valid number")
+		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	info := h.service.Admin.GetUserInfo(uint(userUid))
@@ -761,24 +761,24 @@ func (h *TsboardAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
 	userUid64, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid user uid, not a valid number")
+		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	userUid := uint(userUid64)
 	userInfo, err := h.service.User.GetUserInfo(userUid)
 	if err != nil {
-		return utils.Err(c, "Unable to find user's information")
+		return utils.Err(c, "Unable to find user's information", models.CODE_FAILED_OPERATION)
 	}
 	level, err := strconv.ParseUint(c.FormValue("level"), 10, 32)
 	if err != nil || level > 9 {
-		return utils.Err(c, "Invalid level, not a valid number")
+		return utils.Err(c, "Invalid level, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	point, err := strconv.ParseUint(c.FormValue("point"), 10, 32)
 	if err != nil || point > math.MaxUint {
-		return utils.Err(c, "Invalid point, not a valid number")
+		return utils.Err(c, "Invalid point, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	name := utils.Escape(c.FormValue("name"))
 	if isDup := h.service.Auth.CheckNameExists(name, userUid); isDup {
-		return utils.Err(c, "Duplicated name, please choose another one")
+		return utils.Err(c, "Duplicated name, please choose another one", models.CODE_DUPLICATED_VALUE)
 	}
 	signature := utils.Escape(c.FormValue("signature"))
 	password := c.FormValue("password")
@@ -801,23 +801,23 @@ func (h *TsboardAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
 func (h *TsboardAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	isBlocked, err := strconv.ParseBool(c.FormValue("isBlocked"))
 	if err != nil {
-		return utils.Err(c, "Invalid parameter(isBlocked), unable to be a boolean type")
+		return utils.Err(c, "Invalid isBlocked, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
 	}
 	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number")
+		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape")
+		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
 	}
 	keyword = utils.Escape(keyword)
 

@@ -14,6 +14,7 @@ type AuthRepository interface {
 	CheckAdminPermission(table models.Table, userUid uint) bool
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.UserAction) bool
+	CheckRefreshToken(userUid uint, refreshToken string) bool
 	CheckVerificationCode(param models.VerifyParameter) bool
 	ClearRefreshToken(userUid uint)
 	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
@@ -80,6 +81,25 @@ func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action mo
 		return true // 별도 기록이 없다면 기본 허용
 	}
 	return actionValue > 0
+}
+
+// 리프레시 토큰이 유효한지 확인
+func (r *TsboardAuthRepository) CheckRefreshToken(userUid uint, refreshToken string) bool {
+	var timestamp int64
+	query := fmt.Sprintf("SELECT timestamp FROM %s%s WHERE user_uid = ? AND refresh = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER_TOKEN)
+
+	hashed := utils.GetHashedString(refreshToken)
+	err := r.db.QueryRow(query, userUid, hashed).Scan(&timestamp)
+	if err != nil {
+		return false
+	}
+
+	_, refreshDays := configs.GetJWTAccessRefresh()
+	now := time.Now().UnixMilli()
+	validTerm := timestamp + int64(refreshDays*86400000)
+
+	return validTerm > now
 }
 
 // 인증 코드가 유효한지 확인
@@ -188,25 +208,6 @@ func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 	return userUid
 }
 
-// 로그인 시 리프레시 토큰 저장하기
-func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
-	now := time.Now().UnixMilli()
-	hashed := utils.GetHashedString(refreshToken)
-	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_USER_TOKEN)
-
-	var uid uint
-	err := r.db.QueryRow(query, userUid).Scan(&uid)
-
-	if err == sql.ErrNoRows {
-		query = fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
-			configs.Env.Prefix, models.TABLE_USER_TOKEN)
-		r.db.Exec(query, userUid, hashed, now)
-	} else {
-		r.UpdateRefreshToken(userUid, hashed)
-	}
-}
-
 // 사용자의 리프레시 토큰 추가하기
 func (r *TsboardAuthRepository) InsertRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
@@ -226,6 +227,25 @@ func (r *TsboardAuthRepository) InsertVerificationCode(id string, code string) u
 		return models.FAILED
 	}
 	return uint(insertId)
+}
+
+// 로그인 시 리프레시 토큰 저장하기
+func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
+	now := time.Now().UnixMilli()
+	hashed := utils.GetHashedString(refreshToken)
+	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER_TOKEN)
+
+	var uid uint
+	err := r.db.QueryRow(query, userUid).Scan(&uid)
+
+	if err == sql.ErrNoRows {
+		query = fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
+			configs.Env.Prefix, models.TABLE_USER_TOKEN)
+		r.db.Exec(query, userUid, hashed, now)
+	} else {
+		r.UpdateRefreshToken(userUid, hashed)
+	}
 }
 
 // (회원가입 시) 인증 코드 보관해놓기

@@ -37,7 +37,7 @@ func (h *TsboardEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
-	result := h.service.Board.GetEditorConfig(boardUid, actionUserUid)
+	result := h.service.Board.GetEditorConfig(boardUid, uint(actionUserUid))
 	return utils.Ok(c, result)
 }
 
@@ -46,26 +46,26 @@ func (h *TsboardEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	lastUid, err := strconv.ParseUint(c.FormValue("lastUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid last uid, not a valid number")
+		return utils.Err(c, "Invalid last uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.EditorInsertImageParameter{
 		BoardUid: uint(boardUid),
 		LastUid:  uint(lastUid),
-		UserUid:  actionUserUid,
+		UserUid:  uint(actionUserUid),
 		Bunch:    uint(bunch),
 	}
 	result, err := h.service.Board.GetInsertedImages(parameter)
 	if err != nil {
-		return utils.Err(c, "Unable to load a list of inserted images")
+		return utils.Err(c, "Unable to load a list of inserted images", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -75,16 +75,16 @@ func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	result, err := h.service.Board.LoadPost(uint(boardUid), uint(postUid), actionUserUid)
+	result, err := h.service.Board.LoadPost(uint(boardUid), uint(postUid), uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -93,11 +93,11 @@ func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 func (h *TsboardEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	parameter, err := utils.CheckWriteParameters(c)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	err = h.service.Board.ModifyPost(models.EditorModifyParameter{
@@ -105,7 +105,7 @@ func (h *TsboardEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
 		PostUid:              uint(postUid),
 	})
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -115,10 +115,10 @@ func (h *TsboardEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	imageUid, err := strconv.ParseUint(c.FormValue("imageUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid image uid, not a valid number")
+		return utils.Err(c, "Invalid image uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemoveInsertedImage(uint(imageUid), actionUserUid)
+	h.service.Board.RemoveInsertedImage(uint(imageUid), uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
 
@@ -127,22 +127,22 @@ func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid file uid, not a valid number")
+		return utils.Err(c, "Invalid file uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Board.RemoveAttachedFile(models.EditorRemoveAttachedParameter{
 		BoardUid: uint(boardUid),
 		PostUid:  uint(postUid),
 		FileUid:  uint(fileUid),
-		UserUid:  actionUserUid,
+		UserUid:  uint(actionUserUid),
 	})
 	return utils.Ok(c, nil)
 }
@@ -151,11 +151,11 @@ func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 func (h *TsboardEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
 	input, err := url.QueryUnescape(c.FormValue("tag"))
 	if err != nil {
-		return utils.Err(c, "Invalid tag name")
+		return utils.Err(c, "Invalid tag name", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number")
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	suggestions := h.service.Board.GetSuggestionTags(input, uint(bunch))
@@ -167,16 +167,16 @@ func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	fileSizeLimit, _ := strconv.ParseInt(configs.Env.FileSizeLimit, 10, 32)
 	form, err := c.MultipartForm()
 	if err != nil {
-		return utils.Err(c, "Failed to parse form")
+		return utils.Err(c, "Failed to parse form", models.CODE_FAILED_OPERATION)
 	}
 	images := form.File["images[]"]
 	if len(images) < 1 {
-		return utils.Err(c, "No files uploaded")
+		return utils.Err(c, "No files uploaded", models.CODE_INVALID_PARAMETER)
 	}
 
 	var totalFileSize int64
@@ -184,12 +184,12 @@ func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 		totalFileSize += fileHeader.Size
 	}
 	if totalFileSize > fileSizeLimit {
-		return utils.Err(c, "Uploaded files exceed size limitation")
+		return utils.Err(c, "Uploaded files exceed size limitation", models.CODE_EXCEED_SIZE)
 	}
 
-	uploadedImages, err := h.service.Board.UploadInsertImage(uint(boardUid), actionUserUid, images)
+	uploadedImages, err := h.service.Board.UploadInsertImage(uint(boardUid), uint(actionUserUid), images)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, uploadedImages)
 }
@@ -198,12 +198,12 @@ func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 func (h *TsboardEditorHandler) WritePostHandler(c fiber.Ctx) error {
 	parameter, err := utils.CheckWriteParameters(c)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	postUid, err := h.service.Board.WritePost(parameter)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, postUid)
 }

@@ -33,37 +33,37 @@ func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number")
+		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number")
+		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number")
+		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	sinceUid, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number")
+		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	paging, err := strconv.ParseInt(c.FormValue("pagingDirection"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid direction of paging, not a valid number")
+		return utils.Err(c, "Invalid direction of paging, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	boardUid := h.service.Board.GetBoardUid(id)
 	result, err := h.service.Comment.LoadList(models.CommentListParameter{
 		BoardUid:  boardUid,
 		PostUid:   uint(postUid),
-		UserUid:   actionUserUid,
+		UserUid:   uint(actionUserUid),
 		Page:      uint(page),
 		Bunch:     uint(bunch),
 		SinceUid:  uint(sinceUid),
 		Direction: models.Paging(paging),
 	})
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
@@ -73,21 +73,21 @@ func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	commentUid, err := strconv.ParseUint(c.FormValue("commentUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid comment uid, not a valid number")
+		return utils.Err(c, "Invalid comment uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	liked, err := strconv.ParseBool(c.FormValue("liked"))
 	if err != nil {
-		return utils.Err(c, "Invalid liked, not a boolean type")
+		return utils.Err(c, "Invalid liked, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Comment.Like(models.CommentLikeParameter{
 		BoardUid:   uint(boardUid),
 		CommentUid: uint(commentUid),
-		UserUid:    actionUserUid,
+		UserUid:    uint(actionUserUid),
 		Liked:      liked,
 	})
 	return utils.Ok(c, nil)
@@ -97,11 +97,11 @@ func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 	parameter, err := utils.CheckCommentParameters(c)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	commentUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid modify target uid, not a valid number")
+		return utils.Err(c, "Invalid modify target uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	err = h.service.Comment.Modify(models.CommentModifyParameter{
@@ -109,7 +109,7 @@ func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 		CommentUid:            uint(commentUid),
 	})
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -119,16 +119,16 @@ func (h *TsboardCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number")
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 	commentUid, err := strconv.ParseUint(c.FormValue("removeTargetUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid comment uid, not a valid number")
+		return utils.Err(c, "Invalid comment uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	err = h.service.Comment.Remove(uint(commentUid), uint(boardUid), actionUserUid)
+	err = h.service.Comment.Remove(uint(commentUid), uint(boardUid), uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
@@ -137,11 +137,11 @@ func (h *TsboardCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 	parameter, err := utils.CheckCommentParameters(c)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	replyTargetUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid reply target uid, not a valid number")
+		return utils.Err(c, "Invalid reply target uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
 	insertId, err := h.service.Comment.Reply(models.CommentReplyParameter{
@@ -149,7 +149,7 @@ func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 		ReplyTargetUid:        uint(replyTargetUid),
 	})
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, insertId)
 }
@@ -158,12 +158,12 @@ func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 func (h *TsboardCommentHandler) WriteCommentHandler(c fiber.Ctx) error {
 	parameter, err := utils.CheckCommentParameters(c)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	insertId, err := h.service.Comment.Write(parameter)
 	if err != nil {
-		return utils.Err(c, err.Error())
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, insertId)
 }

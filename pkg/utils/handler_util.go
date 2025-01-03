@@ -6,10 +6,11 @@ import (
 )
 
 // 에러 메시지에 대한 응답
-func Err(c fiber.Ctx, msg string) error {
+func Err(c fiber.Ctx, msg string, code models.Code) error {
 	return c.JSON(models.ResponseCommon{
 		Success: false,
 		Error:   msg,
+		Code:    code,
 	})
 }
 
@@ -18,5 +19,7 @@ func Ok(c fiber.Ctx, result interface{}) error {
 	return c.JSON(models.ResponseCommon{
 		Success: true,
 		Result:  result,
+		Error:   "",
+		Code:    models.CODE_SUCCESS,
 	})
 }
