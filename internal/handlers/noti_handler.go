@@ -26,7 +26,7 @@ func NewTsboardNotiHandler(service *services.Service) *TsboardNotiHandler {
 // 알림 모두 확인하기 처리
 func (h *TsboardNotiHandler) CheckedAllNotiHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
-	h.service.Noti.CheckedAllNoti(uint(actionUserUid), 10)
+	h.service.Noti.CheckedAllNoti(uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
 

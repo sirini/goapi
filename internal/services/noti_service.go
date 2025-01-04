@@ -6,7 +6,7 @@ import (
 )
 
 type NotiService interface {
-	CheckedAllNoti(userUid uint, limit uint)
+	CheckedAllNoti(userUid uint)
 	GetUserNoti(userUid uint, limit uint) ([]models.NotificationItem, error)
 	SaveNewNoti(param models.InsertNotificationParameter)
 }
@@ -21,13 +21,13 @@ func NewTsboardNotiService(repos *repositories.Repository) *TsboardNotiService {
 }
 
 // 모든 알람 확인 처리하기
-func (s *TsboardNotiService) CheckedAllNoti(userUid uint, limit uint) {
-	s.repos.Noti.UpdateAllChecked(userUid, limit)
+func (s *TsboardNotiService) CheckedAllNoti(userUid uint) {
+	s.repos.Noti.UpdateAllChecked(userUid)
 }
 
 // 사용자의 알림 내역 가져오기
 func (s *TsboardNotiService) GetUserNoti(userUid uint, limit uint) ([]models.NotificationItem, error) {
-	return s.repos.Noti.LoadNotification(userUid, limit)
+	return s.repos.Noti.FindNotificationByUserUid(userUid, limit)
 }
 
 // 새로운 알림 저장하기

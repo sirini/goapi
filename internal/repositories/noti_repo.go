@@ -10,13 +10,13 @@ import (
 )
 
 type NotiRepository interface {
-	FindBoardUidByPostUidForLoop(stmt *sql.Stmt, postUid uint) uint
-	GetBoardIdTypeForLoop(stmt *sql.Stmt, boardUint uint) (string, models.Board)
-	GetUserNameProfileForLoop(stmt *sql.Stmt, userUid uint) (string, string)
+	FindBoardIdTypeByUid(boardUid uint) (string, models.Board)
+	FindBoardUidByPostUid(postUid uint) uint
+	FindNotificationByUserUid(userUid uint, limit uint) ([]models.NotificationItem, error)
+	FindUserNameProfileByUid(userUid uint) (string, string)
 	InsertNotification(param models.InsertNotificationParameter)
 	IsNotiAdded(param models.InsertNotificationParameter) bool
-	LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error)
-	UpdateAllChecked(userUid uint, limit uint)
+	UpdateAllChecked(userUid uint)
 }
 
 type TsboardNotiRepository struct {
@@ -28,25 +28,61 @@ func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
 	return &TsboardNotiRepository{db: db}
 }
 
-// 게시판 고유 번호 가져오기
-func (r *TsboardNotiRepository) FindBoardUidByPostUidForLoop(stmt *sql.Stmt, postUid uint) uint {
-	var boardUid uint
-	stmt.QueryRow(postUid).Scan(&boardUid)
-	return boardUid
-}
-
-// 게시판 아이디와 타입 가져오기
-func (r *TsboardNotiRepository) GetBoardIdTypeForLoop(stmt *sql.Stmt, boardUid uint) (string, models.Board) {
+// 게시판 아이디, 타입 가져오기
+func (r *TsboardNotiRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
 	var id string
 	var boardType models.Board
-	stmt.QueryRow(boardUid).Scan(&id, &boardType)
+	query := fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
+	r.db.QueryRow(query, boardUid).Scan(&id, &boardType)
 	return id, boardType
 }
 
-// 사용자의 이름과 프로필 이미지 가져오기
-func (r *TsboardNotiRepository) GetUserNameProfileForLoop(stmt *sql.Stmt, userUid uint) (string, string) {
+// 게시판 고유 번호 가져오기
+func (r *TsboardNotiRepository) FindBoardUidByPostUid(postUid uint) uint {
+	var boardUid uint
+	query := fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST)
+	r.db.QueryRow(query, postUid).Scan(&boardUid)
+	return boardUid
+}
+
+// 나에게 온 알림들 가져오기
+func (r *TsboardNotiRepository) FindNotificationByUserUid(userUid uint, limit uint) ([]models.NotificationItem, error) {
+	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
+												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_NOTI)
+
+	rows, err := r.db.Query(query, userUid, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.NotificationItem, 0)
+	for rows.Next() {
+		item := models.NotificationItem{}
+		var checked uint8
+		err = rows.Scan(&item.Uid, &item.FromUser.UserUid, &item.Type, &item.PostUid, &checked, &item.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		item.Checked = checked > 0
+
+		boardUid := r.FindBoardUidByPostUid(item.PostUid)
+		if boardUid > 0 {
+			item.Id, item.BoardType = r.FindBoardIdTypeByUid(boardUid)
+		}
+		item.FromUser.Name, item.FromUser.Profile = r.FindUserNameProfileByUid(item.FromUser.UserUid)
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+// 사용자 이름, 프로필 이미지 경로 반환하기
+func (r *TsboardNotiRepository) FindUserNameProfileByUid(userUid uint) (string, string) {
 	var name, profile string
-	stmt.QueryRow(userUid).Scan(&name, &profile)
+	query := fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	r.db.QueryRow(query, userUid).Scan(&name, &profile)
 	return name, profile
 }
 
@@ -69,73 +105,10 @@ func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParam
 	return uid > 0
 }
 
-// 나에게 온 알림들 가져오기
-func (r *TsboardNotiRepository) LoadNotification(userUid uint, limit uint) ([]models.NotificationItem, error) {
-	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
-												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_NOTI)
-
-	rows, err := r.db.Query(query, userUid, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// 게시판 고유 번호 가져오는 쿼리 준비
-	query = fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_POST)
-	stmtPost, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtPost.Close()
-
-	// 게시판 아이디, 타입 가져오는 쿼리 준비
-	query = fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_BOARD)
-	stmtBoard, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtBoard.Close()
-
-	// 사용자 이름과 프로필 가져오는 쿼리 준비
-	query = fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_USER)
-	stmtUser, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtUser.Close()
-
-	items := make([]models.NotificationItem, 0)
-	for rows.Next() {
-		item := models.NotificationItem{}
-		var checked uint8
-		err = rows.Scan(&item.Uid, &item.FromUser.UserUid, &item.Type, &item.PostUid, &checked, &item.Timestamp)
-		if err != nil {
-			return nil, err
-		}
-		item.Checked = checked > 0
-
-		boardUid := r.FindBoardUidByPostUidForLoop(stmtPost, item.PostUid)
-		if boardUid > 0 {
-			item.Id, item.BoardType = r.GetBoardIdTypeForLoop(stmtBoard, boardUid)
-		}
-		item.FromUser.Name, item.FromUser.Profile = r.GetUserNameProfileForLoop(stmtUser, userUid)
-		items = append(items, item)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
-	}
-	return items, nil
-}
-
 // 모든 알람 확인하기
-func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint, limit uint) {
-	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE to_uid = ? LIMIT ?",
+func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE to_uid = ?",
 		configs.Env.Prefix, models.TABLE_NOTI)
 
-	r.db.Exec(query, 1, userUid, limit)
+	r.db.Exec(query, 1, userUid)
 }
