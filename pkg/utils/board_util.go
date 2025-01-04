@@ -57,7 +57,6 @@ func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 	if len(content) < 2 {
 		return result, fmt.Errorf("invalid content, too short")
 	}
-	content = CutString(content, 16000)
 
 	tags := c.FormValue("tags")
 	tagArr := strings.Split(tags, ",")
@@ -114,9 +113,10 @@ func initSanitizePolicy() {
 		"strike", "code", "hr", "br", "div", "table",
 		"thead", "caption", "tbody", "tr", "th", "td", "pre", "img",
 	)
-	sanitizePolicy.AllowAttrs("href", "name", "target").OnElements("a")
-	sanitizePolicy.AllowAttrs("src", "alt").OnElements("img")
-	sanitizePolicy.AllowAttrs("style").OnElements("span")
+	sanitizePolicy.AllowAttrs("href", "name", "target", "style", "class").OnElements("a")
+	sanitizePolicy.AllowAttrs("src", "alt", "style", "class").OnElements("img")
+	sanitizePolicy.AllowAttrs("style", "class").OnElements("span")
+	sanitizePolicy.AllowAttrs("class").OnElements("code")
 }
 
 // 게시글/댓글 상태값 반환
