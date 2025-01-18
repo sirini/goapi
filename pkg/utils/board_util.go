@@ -108,7 +108,7 @@ func CutString(s string, max int) string {
 func initSanitizePolicy() {
 	sanitizePolicy = bluemonday.NewPolicy()
 	sanitizePolicy.AllowElements(
-		"h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "a",
+		"h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "a", "s",
 		"ul", "ol", "nl", "li", "b", "i", "strong", "em", "mark", "span",
 		"strike", "code", "hr", "br", "div", "table",
 		"thead", "caption", "tbody", "tr", "th", "td", "pre", "img",
