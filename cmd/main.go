@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	_ "net/http/pprof"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
@@ -24,6 +25,10 @@ func main() {
 	configs.LoadConfig()
 	db := models.Connect(&configs.Env)
 	defer db.Close()
+
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		configs.Update(db, configs.Env.Prefix)
+	}
 
 	repo := repositories.NewRepository(db)
 	service := services.NewService(repo)

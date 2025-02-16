@@ -98,6 +98,32 @@ func Install() bool {
 	return true
 }
 
+// 바이너리 실행 시 "update" 인자가 넘어오면 업데이트 진행
+func Update(db *sql.DB, prefix string) {
+	red := color.New(color.FgRed).SprintFunc()
+	yellow := color.New(color.FgYellow).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+	
+	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
+	fmt.Printf(" → Update from ~v1.0.3 to %s\n", yellow("v1.0.4"))
+	
+	if err := createTradeProductTable(db, prefix); err != nil {
+		fmt.Printf("%s\n", red(err.Error()))
+	}
+	if err := createTradeReviewTable(db, prefix); err != nil {
+		fmt.Printf("%s\n", red(err.Error()))
+	}
+	if err := createTradeFavoriteTable(db, prefix); err != nil {
+		fmt.Printf("%s\n", red(err.Error()))
+	}
+
+	fmt.Printf(" → created a new table: %s\n", green("trade_product"))
+	fmt.Printf(" → created a new table: %s\n", green("trade_review"))
+	fmt.Printf(" → created a new table: %s\n", green("trade_favorite"))
+	fmt.Println(` → Now tsboard starts a backend service`)
+	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
+}
+
 // .env 파일이 존재하는지 확인하기
 func isAlreadyInstalled() bool {
 	info, err := os.Stat(".env")
@@ -400,6 +426,9 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createNotificationTable(db, dbInfo.Prefix)
 	createExifTable(db, dbInfo.Prefix)
 	createImageDescriptionTable(db, dbInfo.Prefix)
+	createTradeProductTable(db, dbInfo.Prefix)
+	createTradeReviewTable(db, dbInfo.Prefix)
+	createTradeFavoriteTable(db, dbInfo.Prefix)
 }
 
 // 기본 레코드들 추가하기
@@ -420,12 +449,12 @@ func createUserTable(db *sql.DB, prefix string) {
   name VARCHAR(30) NOT NULL DEFAULT '',
   password CHAR(64) NOT NULL DEFAULT '',
   profile VARCHAR(300) NOT NULL DEFAULT '',
-  level TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  point INT UNSIGNED NOT NULL DEFAULT '0',
+  level TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  point INT UNSIGNED NOT NULL DEFAULT 0,
   signature VARCHAR(300) NOT NULL DEFAULT '',
-  signup BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  signin BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  blocked TINYINT UNSIGNED NOT NULL DEFAULT '0',
+  signup BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  signin BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  blocked TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
@@ -434,9 +463,9 @@ func createUserTable(db *sql.DB, prefix string) {
 // user_token 테이블 생성
 func createUserTokenTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_token (
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   refresh CHAR(64) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   KEY (user_uid),
   CONSTRAINT fk_ut FOREIGN KEY (user_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
@@ -447,7 +476,7 @@ func createUserTokenTable(db *sql.DB, prefix string) {
 func createUserPermissionTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_permission (
   uid INT UNSIGNED NOT NULL auto_increment,
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   write_post TINYINT UNSIGNED NOT NULL DEFAULT '1',
   write_comment TINYINT UNSIGNED NOT NULL DEFAULT '1',
   send_chat TINYINT UNSIGNED NOT NULL DEFAULT '1',
@@ -465,7 +494,7 @@ func createUserVerificationTable(db *sql.DB, prefix string) {
   uid INT UNSIGNED NOT NULL auto_increment,
   email VARCHAR(100) NOT NULL DEFAULT '',
   code CHAR(6) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
@@ -475,8 +504,8 @@ func createUserVerificationTable(db *sql.DB, prefix string) {
 func createUserAccessLogTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_access_log (
   uid INT UNSIGNED NOT NULL auto_increment,
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
@@ -485,8 +514,8 @@ func createUserAccessLogTable(db *sql.DB, prefix string) {
 // user_black_list 테이블 생성
 func createUserBlackListTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_black_list (
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  black_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  black_uid INT UNSIGNED NOT NULL DEFAULT 0,
   KEY (user_uid),
   CONSTRAINT fk_ubl FOREIGN KEY (user_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
@@ -497,12 +526,12 @@ func createUserBlackListTable(db *sql.DB, prefix string) {
 func createReportTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sreport (
   uid INT UNSIGNED NOT NULL auto_increment,
-  to_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  from_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  to_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  from_uid INT UNSIGNED NOT NULL DEFAULT 0,
   request VARCHAR(1000) NOT NULL DEFAULT '',
   response VARCHAR(1000) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  solved TINYINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  solved TINYINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (solved)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
@@ -513,10 +542,10 @@ func createReportTable(db *sql.DB, prefix string) {
 func createChatTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %schat (
   uid INT UNSIGNED NOT NULL auto_increment,
-  to_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  from_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  to_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  from_uid INT UNSIGNED NOT NULL DEFAULT 0,
   message VARCHAR(1000) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (to_uid),
   KEY (from_uid),
@@ -531,8 +560,8 @@ func createGroupTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sgroup (
   uid INT UNSIGNED NOT NULL auto_increment,
   id VARCHAR(30) NOT NULL DEFAULT '',
-  admin_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  admin_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
@@ -543,23 +572,23 @@ func createBoardTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sboard (
   uid INT UNSIGNED NOT NULL auto_increment,
   id VARCHAR(30) NOT NULL DEFAULT '',
-  group_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  admin_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  type TINYINT NOT NULL DEFAULT '0',
+  group_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  admin_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  type TINYINT NOT NULL DEFAULT 0,
   name VARCHAR(20) NOT NULL DEFAULT '',
   info VARCHAR(100) NOT NULL DEFAULT '',
   row_count TINYINT UNSIGNED NOT NULL DEFAULT '20',
   width INT UNSIGNED NOT NULL DEFAULT '1000',
-  use_category TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  level_list TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  level_view TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  level_write TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  level_comment TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  level_download TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  point_view INT NOT NULL DEFAULT '0',
-  point_write INT NOT NULL DEFAULT '0',
-  point_comment INT NOT NULL DEFAULT '0',
-  point_download INT NOT NULL DEFAULT '0',
+  use_category TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level_list TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level_view TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level_write TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level_comment TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  level_download TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  point_view INT NOT NULL DEFAULT 0,
+  point_write INT NOT NULL DEFAULT 0,
+  point_comment INT NOT NULL DEFAULT 0,
+  point_download INT NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   CONSTRAINT fk_bg FOREIGN KEY (group_uid) REFERENCES %sgroup(uid),
   CONSTRAINT fk_ba FOREIGN KEY (admin_uid) REFERENCES %suser(uid)
@@ -571,7 +600,7 @@ func createBoardTable(db *sql.DB, prefix string) {
 func createBoardCategoryTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sboard_category (
   uid INT UNSIGNED NOT NULL auto_increment,
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(30) NOT NULL DEFAULT '',
   PRIMARY KEY (uid),
   KEY (board_uid)
@@ -583,10 +612,10 @@ func createBoardCategoryTable(db *sql.DB, prefix string) {
 func createPointHistoryTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spoint_history (
   uid INT UNSIGNED NOT NULL auto_increment,
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  action TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  point INT NOT NULL DEFAULT '0',
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  action TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  point INT NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (user_uid),
   CONSTRAINT fk_ph_u FOREIGN KEY (user_uid) REFERENCES %suser(uid),
@@ -599,15 +628,15 @@ func createPointHistoryTable(db *sql.DB, prefix string) {
 func createPostTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spost (
   uid INT UNSIGNED NOT NULL auto_increment,
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  category_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  category_uid INT UNSIGNED NOT NULL DEFAULT 0,
   title VARCHAR(300) NOT NULL DEFAULT '',
   content TEXT,
-  submitted BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  modified BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  hit INT UNSIGNED NOT NULL DEFAULT '0',
-  status TINYINT NOT NULL DEFAULT '0',
+  submitted BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  modified BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  hit INT UNSIGNED NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (board_uid),
   KEY (user_uid),
@@ -627,8 +656,8 @@ func createHashtagTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %shashtag (
   uid INT UNSIGNED NOT NULL auto_increment,
   name VARCHAR(30) NOT NULL DEFAULT '',
-  used INT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  used INT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
@@ -637,9 +666,9 @@ func createHashtagTable(db *sql.DB, prefix string) {
 // post_hashtag 테이블 생성
 func createPostHashtagTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spost_hashtag (
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  hashtag_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  hashtag_uid INT UNSIGNED NOT NULL DEFAULT 0,
   KEY (board_uid),
   KEY (post_uid),
   KEY (hashtag_uid),
@@ -653,11 +682,11 @@ func createPostHashtagTable(db *sql.DB, prefix string) {
 // post_like 테이블 생성
 func createPostLikeTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spost_like (
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  liked TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  liked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   KEY (post_uid),
   KEY (user_uid),
   KEY (liked),
@@ -672,14 +701,14 @@ func createPostLikeTable(db *sql.DB, prefix string) {
 func createCommentTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %scomment (
   uid INT UNSIGNED NOT NULL auto_increment,
-  reply_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  reply_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   content VARCHAR(10000) NOT NULL DEFAULT '',
-  submitted BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  modified BIGINT UNSIGNED NOT NULL DEFAULT '0',
-  status TINYINT NOT NULL DEFAULT '0',
+  submitted BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  modified BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  status TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (reply_uid),
   KEY (board_uid),
@@ -697,11 +726,11 @@ func createCommentTable(db *sql.DB, prefix string) {
 // comment_like 테이블 생성
 func createCommentLikeTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %scomment_like (
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  comment_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  liked TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  comment_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  liked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   KEY (comment_uid),
   KEY (user_uid),
   KEY (liked),
@@ -716,11 +745,11 @@ func createCommentLikeTable(db *sql.DB, prefix string) {
 func createFileTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sfile (
   uid INT UNSIGNED NOT NULL auto_increment,
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   name VARCHAR(100) NOT NULL DEFAULT '',
   path VARCHAR(300) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (post_uid),
   CONSTRAINT fk_fb FOREIGN KEY (board_uid) REFERENCES %sboard(uid),
@@ -733,8 +762,8 @@ func createFileTable(db *sql.DB, prefix string) {
 func createFileThumbnailTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sfile_thumbnail (
   uid INT UNSIGNED NOT NULL auto_increment,
-  file_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  file_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   path VARCHAR(300) NOT NULL DEFAULT '',
   full_path VARCHAR(300) NOT NULL DEFAULT '',
   PRIMARY KEY (uid),
@@ -750,10 +779,10 @@ func createFileThumbnailTable(db *sql.DB, prefix string) {
 func createImageTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %simage (
   uid INT UNSIGNED NOT NULL auto_increment,
-  board_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  user_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  board_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   path VARCHAR(300) NOT NULL DEFAULT '',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (user_uid),
   CONSTRAINT fk_ib FOREIGN KEY (board_uid) REFERENCES %sboard(uid),
@@ -766,13 +795,13 @@ func createImageTable(db *sql.DB, prefix string) {
 func createNotificationTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %snotification (
   uid INT UNSIGNED NOT NULL auto_increment,
-  to_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  from_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  type TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  comment_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  checked TINYINT UNSIGNED NOT NULL DEFAULT '0',
-  timestamp BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  to_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  from_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  comment_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  checked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (to_uid),
   KEY (from_uid),
@@ -788,17 +817,17 @@ func createNotificationTable(db *sql.DB, prefix string) {
 func createExifTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sexif (
   uid INT UNSIGNED NOT NULL auto_increment,
-  file_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  file_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   make VARCHAR(20) NOT NULL DEFAULT '',
   model VARCHAR(20) NOT NULL DEFAULT '',
-  aperture INT UNSIGNED NOT NULL DEFAULT '0',
-  iso INT UNSIGNED NOT NULL DEFAULT '0',
-  focal_length INT UNSIGNED NOT NULL DEFAULT '0',
-  exposure INT UNSIGNED NOT NULL DEFAULT '0',
-  width INT UNSIGNED NOT NULL DEFAULT '0',
-  height INT UNSIGNED NOT NULL DEFAULT '0',
-  date BIGINT UNSIGNED NOT NULL DEFAULT '0',
+  aperture INT UNSIGNED NOT NULL DEFAULT 0,
+  iso INT UNSIGNED NOT NULL DEFAULT 0,
+  focal_length INT UNSIGNED NOT NULL DEFAULT 0,
+  exposure INT UNSIGNED NOT NULL DEFAULT 0,
+  width INT UNSIGNED NOT NULL DEFAULT 0,
+  height INT UNSIGNED NOT NULL DEFAULT 0,
+  date BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (file_uid),
   KEY (post_uid),
@@ -812,8 +841,8 @@ func createExifTable(db *sql.DB, prefix string) {
 func createImageDescriptionTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %simage_description (
   uid INT UNSIGNED NOT NULL auto_increment,
-  file_uid INT UNSIGNED NOT NULL DEFAULT '0',
-  post_uid INT UNSIGNED NOT NULL DEFAULT '0',
+  file_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   description VARCHAR(500) NOT NULL DEFAULT '',
   PRIMARY KEY (uid),
   KEY (file_uid),
@@ -822,6 +851,71 @@ func createImageDescriptionTable(db *sql.DB, prefix string) {
   CONSTRAINT fk_idp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
 	db.Exec(query)
+}
+
+// trade_product 테이블 생성
+func createTradeProductTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_product (
+	uid INT UNSIGNED NOT NULL auto_increment,
+	post_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	brand VARCHAR(100) NOT NULL DEFAULT '',
+	category VARCHAR(100) NOT NULL DEFAULT '',
+	price INT UNSIGNED NOT NULL DEFAULT 0,
+	product_condition TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	location VARCHAR(100) NOT NULL DEFAULT '',
+	shipping_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	status TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	completed BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (uid),
+	KEY (post_uid),
+	KEY (status),
+	CONSTRAINT fk_tpp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+ 	_, err := db.Exec(query)
+	return err
+}
+
+
+// trade_review 테이블 생성 (v1.0.4)
+func createTradeReviewTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_review (
+	uid INT UNSIGNED NOT NULL auto_increment,
+	trade_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	seller_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	buyer_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	buyer_rating TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	buyer_comment VARCHAR(1000) NOT NULL DEFAULT '',
+	submitted BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (uid),
+	KEY (trade_uid),
+	KEY (seller_uid),
+	KEY (buyer_uid),
+	KEY (buyer_rating),
+	CONSTRAINT fk_trt FOREIGN KEY (trade_uid) REFERENCES %strade_product(uid),
+	CONSTRAINT fk_trs FOREIGN KEY (seller_uid) REFERENCES %suser(uid),
+	CONSTRAINT fk_trb FOREIGN KEY (buyer_uid) REFERENCES %suser(uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix, prefix)
+	_, err := db.Exec(query)
+	return err
+}
+
+// trade_favorite 테이블 생성 (v1.0.4)
+func createTradeFavoriteTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_favorite (
+	uid INT UNSIGNED NOT NULL auto_increment,
+	user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	trade_uid INT UNSIGNED NOT NULL DEFAULT 0,
+	favorited TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (uid),
+	KEY (user_uid),
+	KEY (trade_uid),
+	KEY (favorited),
+	CONSTRAINT fk_tfu FOREIGN KEY (user_uid) REFERENCES %suser(uid),
+	CONSTRAINT fk_tft FOREIGN KEY (trade_uid) REFERENCES %strade_product(uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
+ 	_, err := db.Exec(query)
+	return err
 }
 
 // 기본 그룹 생성
