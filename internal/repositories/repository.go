@@ -14,6 +14,7 @@ type Repository struct {
 	Home      HomeRepository
 	Noti      NotiRepository
 	Sync      SyncRepository
+	Trade     TradeRepository
 	User      UserRepository
 }
 
@@ -31,6 +32,7 @@ func NewRepository(db *sql.DB) *Repository {
 		Home:      NewTsboardHomeRepository(db, board),
 		Noti:      NewTsboardNotiRepository(db),
 		Sync:      NewTsboardSyncRepository(db),
+		Trade:     NewTsboardTradeRepository(db),
 		User:      NewTsboardUserRepository(db),
 	}
 }

@@ -14,6 +14,7 @@ type Service struct {
 	Noti    NotiService
 	OAuth   OAuthService
 	Sync    SyncService
+	Trade   TradeService
 	User    UserService
 }
 
@@ -30,6 +31,7 @@ func NewService(repos *repositories.Repository) *Service {
 		Noti:    NewTsboardNotiService(repos),
 		OAuth:   NewTsboardOAuthService(repos),
 		Sync:    NewTsboardSyncService(repos),
+		Trade:   NewTsboardTradeService(repos),
 		User:    NewTsboardUserService(repos),
 	}
 }
