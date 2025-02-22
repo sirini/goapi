@@ -859,7 +859,7 @@ func createTradeProductTable(db *sql.DB, prefix string) error {
 	uid INT UNSIGNED NOT NULL auto_increment,
 	post_uid INT UNSIGNED NOT NULL DEFAULT 0,
 	brand VARCHAR(100) NOT NULL DEFAULT '',
-	category VARCHAR(100) NOT NULL DEFAULT '',
+	category TINYINT UNSIGNED NOT NULL DEFAULT 0,
 	price INT UNSIGNED NOT NULL DEFAULT 0,
 	product_condition TINYINT UNSIGNED NOT NULL DEFAULT 0,
 	location VARCHAR(100) NOT NULL DEFAULT '',
