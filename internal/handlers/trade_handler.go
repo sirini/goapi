@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
+	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 type TradeHandler interface {
@@ -52,14 +55,30 @@ func (h *TsboardTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
 
 // 거래 보기 핸들러
 func (h *TsboardTradeHandler) TradeViewHandler(c fiber.Ctx) error {
-	// TODO
-	return fmt.Errorf("not implemented yet")
+	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
+	if err != nil {
+		return err
+	}
+	info, err := h.service.Trade.GetTradeItem(uint(postUid), uint(actionUserUid))
+	if err != nil {
+		return err
+	}
+	return utils.Ok(c, info)
 }
 
 // 새 거래 작성하기 핸들러
 func (h *TsboardTradeHandler) TradeWriteHandler(c fiber.Ctx) error {
-	// TODO
-	return fmt.Errorf("not implemented yet")
+	parameter, err := utils.CheckTradeWriteParameters(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	err = h.service.Trade.WritePost(parameter)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
 }
 
 // 거래 상태 변경 핸들러
