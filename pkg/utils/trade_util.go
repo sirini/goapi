@@ -11,7 +11,7 @@ import (
 // 물품 거래 글 작성/수정 시 파라미터 검사 및 타입 변환
 func CheckTradeWriteParameters(c fiber.Ctx) (models.TradeWriterParameter, error) {
 	result := models.TradeWriterParameter{}
-	actionUserUid := ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
 		return result, err

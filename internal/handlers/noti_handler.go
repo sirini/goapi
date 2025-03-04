@@ -25,14 +25,14 @@ func NewTsboardNotiHandler(service *services.Service) *TsboardNotiHandler {
 
 // 알림 모두 확인하기 처리
 func (h *TsboardNotiHandler) CheckedAllNotiHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	h.service.Noti.CheckedAllNoti(uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
 
 // 알림 목록 가져오기
 func (h *TsboardNotiHandler) LoadNotiListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)

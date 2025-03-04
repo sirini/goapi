@@ -29,7 +29,7 @@ func NewTsboardCommentHandler(service *services.Service) *TsboardCommentHandler 
 
 // 댓글 목록 가져오기 핸들러
 func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
@@ -70,7 +70,7 @@ func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
 
 // 댓글에 좋아요 누르기 핸들러
 func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -116,7 +116,7 @@ func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 
 // 댓글 삭제하기 핸들러
 func (h *TsboardCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)

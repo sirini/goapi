@@ -29,7 +29,7 @@ func Abs(n int) int {
 // 글 작성/수정 시 파라미터 검사 및 타입 변환
 func CheckWriteParameters(c fiber.Ctx) (models.EditorWriteParameter, error) {
 	result := models.EditorWriteParameter{}
-	actionUserUid := ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return result, err

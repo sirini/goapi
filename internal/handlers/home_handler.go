@@ -67,7 +67,7 @@ func (h *TsboardHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
 func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -135,7 +135,7 @@ func (h *TsboardHomeHandler) LoadMainPageHandler(c fiber.Ctx) error {
 
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
 func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil || bunch < 1 || bunch > 100 {

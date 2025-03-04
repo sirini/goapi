@@ -63,7 +63,7 @@ func (h *TsboardUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
 
 // 사용자 권한 및 리포트 응답 가져오기
 func (h *TsboardUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -75,7 +75,7 @@ func (h *TsboardUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
 
 // 사용자 권한 수정하기
 func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -123,7 +123,7 @@ func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 
 // 사용자 신고하기
 func (h *TsboardUserHandler) ReportUserHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	content := c.FormValue("content")
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {

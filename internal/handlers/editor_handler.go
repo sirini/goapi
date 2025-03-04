@@ -34,7 +34,7 @@ func NewTsboardEditorHandler(service *services.Service) *TsboardEditorHandler {
 
 // 에디터에서 게시판 설정, 카테고리 목록, 관리자 여부 가져오기
 func (h *TsboardEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
 	result := h.service.Board.GetEditorConfig(boardUid, uint(actionUserUid))
@@ -43,7 +43,7 @@ func (h *TsboardEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
 
 // 게시글에 내가 삽입한 이미지들 불러오기 핸들러
 func (h *TsboardEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -72,7 +72,7 @@ func (h *TsboardEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
 
 // 글 수정을 위해 내가 작성한 게시글 정보 불러오기
 func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -112,7 +112,7 @@ func (h *TsboardEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
 
 // 게시글에 삽입한 이미지 삭제하기 핸들러
 func (h *TsboardEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	imageUid, err := strconv.ParseUint(c.FormValue("imageUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid image uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -124,7 +124,7 @@ func (h *TsboardEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
 
 // 기존에 첨부했던 파일을 글 수정에서 삭제하기
 func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -164,7 +164,7 @@ func (h *TsboardEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
 
 // 게시글 내용에 이미지 삽입하는 핸들러
 func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)

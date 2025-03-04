@@ -2,6 +2,9 @@ package models
 
 import "mime/multipart"
 
+// Authorization 키 값 지정
+const AUTH_KEY = "Authorization"
+
 // (공개된) 사용자 정보
 type UserInfoResult struct {
 	Uid       uint   `json:"uid"`

@@ -33,7 +33,7 @@ func NewTsboardBoardHandler(service *services.Service) *TsboardBoardHandler {
 
 // 게시글 목록 가져오기 핸들러
 func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
@@ -82,7 +82,7 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 
 // 게시글 보기 핸들러
 func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
@@ -120,7 +120,7 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 
 // 첨부파일 다운로드 핸들러
 func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -138,7 +138,7 @@ func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
 
 // 갤러리 리스트 핸들러
 func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
 	if err != nil {
@@ -184,7 +184,7 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 
 // 갤러리 사진 열람하기 핸들러
 func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("no"), 10, 32)
 	if err != nil {
@@ -200,7 +200,7 @@ func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 
 // 게시글 좋아하기 핸들러
 func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -229,7 +229,7 @@ func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
 
 // 게시글 이동 대상 목록 가져오는 핸들러
 func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -244,7 +244,7 @@ func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
 
 // 게시글 이동하기 핸들러
 func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -271,7 +271,7 @@ func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 
 // 게시글 삭제하기 핸들러
 func (h *TsboardBoardHandler) RemovePostHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
@@ -43,8 +44,22 @@ func (h *TsboardTradeHandler) RatingSellerHandler(c fiber.Ctx) error {
 
 // 거래 목록 가져오기 핸들러
 func (h *TsboardTradeHandler) TradeListHandler(c fiber.Ctx) error {
-	// TODO
-	return fmt.Errorf("not implemented yet")
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	postUidStrs := strings.Split(c.FormValue("postUids"), ",")
+	results := make([]models.TradeResult, 0)
+
+	for _, uidStr := range postUidStrs {
+		uid, err := strconv.ParseUint(uidStr, 10, 32)
+		if err != nil {
+			return err
+		}
+		result, err := h.service.Trade.GetTradeItem(uint(uid), uint(actionUserUid))
+		if err != nil {
+			return err
+		}
+		results = append(results, result)
+	}
+	return utils.Ok(c, results)
 }
 
 // 거래 내용 수정하기 핸들러
@@ -55,7 +70,7 @@ func (h *TsboardTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
 
 // 거래 보기 핸들러
 func (h *TsboardTradeHandler) TradeViewHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
 		return err

@@ -63,7 +63,7 @@ func (h *TsboardAuthHandler) CheckNameHandler(c fiber.Ctx) error {
 
 // 로그인 한 사용자의 정보 불러오기
 func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	myinfo := h.service.Auth.GetMyInfo(uint(actionUserUid))
 	if myinfo.Uid < 1 {
 		return utils.Err(c, "Unable to load your information", models.CODE_FAILED_OPERATION)
@@ -73,7 +73,7 @@ func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
 
 // 로그아웃 처리하기
 func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	h.service.Auth.Logout(uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
@@ -188,7 +188,7 @@ func (h *TsboardAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 
 // 로그인 한 사용자 정보 업데이트
 func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get("Authorization"))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	name := html.EscapeString(c.FormValue("name"))
 	signature := html.EscapeString(c.FormValue("signature"))
 	password := c.FormValue("password")
