@@ -110,16 +110,8 @@ func Update(db *sql.DB, prefix string) {
 	if err := createTradeProductTable(db, prefix); err != nil {
 		fmt.Printf("%s\n", red(err.Error()))
 	}
-	if err := createTradeReviewTable(db, prefix); err != nil {
-		fmt.Printf("%s\n", red(err.Error()))
-	}
-	if err := createTradeFavoriteTable(db, prefix); err != nil {
-		fmt.Printf("%s\n", red(err.Error()))
-	}
 
 	fmt.Printf(" → created a new table: %s\n", green("trade_product"))
-	fmt.Printf(" → created a new table: %s\n", green("trade_review"))
-	fmt.Printf(" → created a new table: %s\n", green("trade_favorite"))
 	fmt.Println(` → Now tsboard starts a backend service`)
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
 }
@@ -427,8 +419,6 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createExifTable(db, dbInfo.Prefix)
 	createImageDescriptionTable(db, dbInfo.Prefix)
 	createTradeProductTable(db, dbInfo.Prefix)
-	createTradeReviewTable(db, dbInfo.Prefix)
-	createTradeFavoriteTable(db, dbInfo.Prefix)
 }
 
 // 기본 레코드들 추가하기
@@ -853,7 +843,7 @@ func createImageDescriptionTable(db *sql.DB, prefix string) {
 	db.Exec(query)
 }
 
-// trade_product 테이블 생성
+// trade_product 테이블 생성 (v1.0.4)
 func createTradeProductTable(db *sql.DB, prefix string) error {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_product (
 	uid INT UNSIGNED NOT NULL auto_increment,
@@ -871,49 +861,6 @@ func createTradeProductTable(db *sql.DB, prefix string) error {
 	KEY (status),
 	CONSTRAINT fk_tpp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
- 	_, err := db.Exec(query)
-	return err
-}
-
-
-// trade_review 테이블 생성 (v1.0.4)
-func createTradeReviewTable(db *sql.DB, prefix string) error {
-	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_review (
-	uid INT UNSIGNED NOT NULL auto_increment,
-	trade_uid INT UNSIGNED NOT NULL DEFAULT 0,
-	seller_uid INT UNSIGNED NOT NULL DEFAULT 0,
-	buyer_uid INT UNSIGNED NOT NULL DEFAULT 0,
-	buyer_rating TINYINT UNSIGNED NOT NULL DEFAULT 0,
-	buyer_comment VARCHAR(1000) NOT NULL DEFAULT '',
-	submitted BIGINT UNSIGNED NOT NULL DEFAULT 0,
-	PRIMARY KEY (uid),
-	KEY (trade_uid),
-	KEY (seller_uid),
-	KEY (buyer_uid),
-	KEY (buyer_rating),
-	CONSTRAINT fk_trt FOREIGN KEY (trade_uid) REFERENCES %strade_product(uid),
-	CONSTRAINT fk_trs FOREIGN KEY (seller_uid) REFERENCES %suser(uid),
-	CONSTRAINT fk_trb FOREIGN KEY (buyer_uid) REFERENCES %suser(uid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix, prefix)
-	_, err := db.Exec(query)
-	return err
-}
-
-// trade_favorite 테이블 생성 (v1.0.4)
-func createTradeFavoriteTable(db *sql.DB, prefix string) error {
-	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %strade_favorite (
-	uid INT UNSIGNED NOT NULL auto_increment,
-	user_uid INT UNSIGNED NOT NULL DEFAULT 0,
-	trade_uid INT UNSIGNED NOT NULL DEFAULT 0,
-	favorited TINYINT UNSIGNED NOT NULL DEFAULT 0,
-	timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
-	PRIMARY KEY (uid),
-	KEY (user_uid),
-	KEY (trade_uid),
-	KEY (favorited),
-	CONSTRAINT fk_tfu FOREIGN KEY (user_uid) REFERENCES %suser(uid),
-	CONSTRAINT fk_tft FOREIGN KEY (trade_uid) REFERENCES %strade_product(uid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
  	_, err := db.Exec(query)
 	return err
 }

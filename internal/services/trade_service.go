@@ -8,7 +8,6 @@ import (
 )
 
 type TradeService interface {
-	ChangeFavorite(tradeUid uint, userUid uint, isAdded bool) error
 	GetTradeItem(postUid uint, userUid uint) (models.TradeResult, error)
 	WritePost(param models.TradeWriterParameter) error
 }
@@ -22,22 +21,9 @@ func NewTsboardTradeService(repos *repositories.Repository) *TsboardTradeService
 	return &TsboardTradeService{repos: repos}
 }
 
-// 찜하기에 추가(취소) 하기
-func (s *TsboardTradeService) ChangeFavorite(tradeUid uint, userUid uint, isAdded bool) error {
-	// TODO
-	return fmt.Errorf("not implemented yet")
-}
-
 // 물품 거래 보기
 func (s *TsboardTradeService) GetTradeItem(postUid uint, userUid uint) (models.TradeResult, error) {
-	result, err := s.repos.Trade.GetTradeItem(postUid)
-	if err != nil {
-		return result, err
-	}
-
-	result.Favorites = s.repos.Trade.GetTotalFavorite(result.Uid)
-	result.Favorited = s.repos.Trade.IsFavorited(result.Uid, userUid)
-	return result, nil
+	return s.repos.Trade.GetTradeItem(postUid)
 }
 
 // 물품 거래 게시글 작성하기

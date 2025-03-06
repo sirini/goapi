@@ -23,6 +23,4 @@ type TradeResult struct {
 	TradeCommonItem
 	Uid       uint   `json:"uid"`
 	Completed uint64 `json:"completed"`
-	Favorites uint   `json:"favorites"`
-	Favorited bool   `json:"favorited"`
 }
