@@ -231,10 +231,10 @@ func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (
 	}
 
 	item.Writer = r.board.GetWriterInfo(writerUid)
-	item.Like = r.board.GetCountByTable(models.TABLE_POST_LIKE, postUid)
+	item.Like = r.board.GetLikeCount(postUid)
 	item.Liked = r.board.CheckLikedPost(postUid, actionUserUid)
 	item.Category = r.board.GetCategoryByUid(item.Category.Uid)
-	item.Comment = r.board.GetCountByTable(models.TABLE_COMMENT, postUid)
+	item.Comment = r.board.GetCommentCount(postUid)
 	item.Cover = r.board.GetCoverImage(postUid)
 	return item, nil
 }
@@ -299,7 +299,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 			return nil, err
 		}
 		item.Board = r.GetBasicBoardConfig(boardUid)
-		item.Like = r.board.GetCountByTable(models.TABLE_COMMENT_LIKE, item.PostUid)
+		item.Like = r.board.GetCommentLikeCount(item.PostUid)
 		items = append(items, item)
 	}
 	return items, nil
@@ -326,8 +326,8 @@ func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit u
 			return nil, err
 		}
 		item.Board = r.GetBasicBoardConfig(boardUid)
-		item.Comment = r.board.GetCountByTable(models.TABLE_COMMENT, item.PostUid)
-		item.Like = r.board.GetCountByTable(models.TABLE_COMMENT_LIKE, item.PostUid)
+		item.Comment = r.board.GetCommentCount(item.PostUid)
+		item.Like = r.board.GetLikeCount(item.PostUid)
 		items = append(items, item)
 	}
 	return items, nil

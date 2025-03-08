@@ -24,3 +24,11 @@ type TradeResult struct {
 	Uid       uint   `json:"uid"`
 	Completed uint64 `json:"completed"`
 }
+
+// 거래 상태값 정의
+const (
+	TRADE_OPEN = iota
+	TRADE_IN_PROGRESS
+	TRADE_DONE
+	TRADE_NOT_AVAILABLE
+)

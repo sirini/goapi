@@ -12,8 +12,6 @@ func RegisterTradeRouters(api fiber.Router, h *handlers.Handler) {
 	trade.Get("/list", h.Trade.TradeListHandler)
 	trade.Get("/view", h.Trade.TradeViewHandler)
 
-	trade.Patch("/favorite", h.Trade.AddFavoriteHandler, middlewares.JWTMiddleware())
-	trade.Post("/rating/seller", h.Trade.RatingSellerHandler, middlewares.JWTMiddleware())
 	trade.Post("/modify", h.Trade.TradeModifyHandler, middlewares.JWTMiddleware())
 	trade.Post("/write", h.Trade.TradeWriteHandler, middlewares.JWTMiddleware())
 	trade.Patch("/update/status", h.Trade.UpdateStatusHandler, middlewares.JWTMiddleware())

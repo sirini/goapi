@@ -76,7 +76,7 @@ func (s *TsboardCommentService) LoadList(param models.CommentListParameter) (mod
 
 	result.BoardUid = param.BoardUid
 	result.SinceUid = param.SinceUid
-	result.TotalCommentCount = s.repos.Board.GetCountByTable(models.TABLE_COMMENT, param.PostUid)
+	result.TotalCommentCount = s.repos.Board.GetCommentCount(param.PostUid)
 	comments, err := s.repos.Comment.GetComments(param)
 	if err != nil {
 		return result, err

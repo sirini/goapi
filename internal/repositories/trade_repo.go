@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
@@ -11,6 +12,8 @@ import (
 type TradeRepository interface {
 	GetTradeItem(postUid uint) (models.TradeResult, error)
 	InsertTrade(param models.TradeWriterParameter) error
+	UpdateStatus(postUid uint, newStatus uint) error
+	UpdateTrade(param models.TradeWriterParameter) error
 }
 
 type TsboardTradeRepository struct {
@@ -27,7 +30,7 @@ func (r *TsboardTradeRepository) GetTradeItem(postUid uint) (models.TradeResult,
 	item := models.TradeResult{}
 	query := fmt.Sprintf(`
 		SELECT uid, brand, category, price, product_condition, location, shipping_type, status, completed 
-		FROM %s%s WHERE post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_TRADE_PRODUCT)
+		FROM %s%s WHERE post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_TRADE)
 	err := r.db.QueryRow(query, postUid).Scan(
 		&item.Uid,
 		&item.Brand,
@@ -46,7 +49,7 @@ func (r *TsboardTradeRepository) GetTradeItem(postUid uint) (models.TradeResult,
 func (r *TsboardTradeRepository) InsertTrade(param models.TradeWriterParameter) error {
 	query := fmt.Sprintf(`INSERT INTO %s%s
 		(post_uid, brand, category, price, product_condition, location, shipping_type, status, completed)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_TRADE_PRODUCT)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_TRADE)
 
 	_, err := r.db.Exec(
 		query,
@@ -59,5 +62,35 @@ func (r *TsboardTradeRepository) InsertTrade(param models.TradeWriterParameter) 
 		param.ShippingType,
 		param.Status,
 		0)
+	return err
+}
+
+// 거래 상태 업데이트
+func (r *TsboardTradeRepository) UpdateStatus(postUid uint, newStatus uint) error {
+	completed := ""
+	if newStatus == models.TRADE_DONE {
+		completed = fmt.Sprintf(", completed = %d", time.Now().UnixMilli())
+	}
+
+	query := fmt.Sprintf(`UPDATE %s%s SET status = ? %s WHERE post_uid = ? LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_TRADE, completed)
+	_, err := r.db.Exec(query, newStatus, postUid)
+	return err
+}
+
+// 물품 거래 업데이트
+func (r *TsboardTradeRepository) UpdateTrade(param models.TradeWriterParameter) error {
+	query := fmt.Sprintf(`UPDATE %s%s SET brand = ?, category = ?, price = ?, product_condition = ?, location = ?, shipping_type = ? WHERE post_uid = ? LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_TRADE)
+	_, err := r.db.Exec(
+		query,
+		param.Brand,
+		param.ProductCategory,
+		param.Price,
+		param.ProductCondition,
+		param.Location,
+		param.ShippingType,
+		param.PostUid,
+	)
 	return err
 }

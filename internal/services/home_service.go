@@ -94,9 +94,9 @@ func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]m
 
 		item.Category = s.repos.Board.GetCategoryByUid(post.CategoryUid)
 		item.Cover = s.repos.Board.GetCoverImage(post.Uid)
-		item.Comment = s.repos.Board.GetCountByTable(models.TABLE_COMMENT, post.Uid)
+		item.Comment = s.repos.Board.GetCommentCount(post.Uid)
 		item.Writer = s.repos.Board.GetWriterInfo(post.UserUid)
-		item.Like = s.repos.Board.GetCountByTable(models.TABLE_POST_LIKE, post.Uid)
+		item.Like = s.repos.Board.GetLikeCount(post.Uid)
 		item.Liked = s.repos.Board.CheckLikedPost(post.Uid, param.UserUid)
 
 		items = append(items, item)

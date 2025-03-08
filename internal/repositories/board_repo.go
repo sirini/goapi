@@ -24,7 +24,9 @@ type BoardRepository interface {
 	GetCategoryByUid(categoryUid uint) models.Pair
 	GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string
 	GetCoverImage(postUid uint) string
-	GetCountByTable(table models.Table, postUid uint) uint
+	GetCommentCount(postUid uint) uint
+	GetCommentLikeCount(postUid uint) uint
+	GetLikeCount(postUid uint) uint
 	GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetGroupAdminUid(boardUid uint) uint
 	GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint
@@ -258,12 +260,21 @@ func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 	return path
 }
 
-// 댓글 혹은 좋아요 개수 가져오기
-func (r *TsboardBoardRepository) GetCountByTable(table models.Table, postUid uint) uint {
+// 댓글 개수 가져오기
+func (r *TsboardBoardRepository) GetCommentCount(postUid uint) uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, table)
+	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_COMMENT)
 
 	r.db.QueryRow(query, postUid).Scan(&count)
+	return count
+}
+
+// 댓글에 대한 좋아요 개수 가져오기
+func (r *TsboardBoardRepository) GetCommentLikeCount(postUid uint) uint {
+	var count uint
+	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND liked = ?", configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
+
+	r.db.QueryRow(query, postUid, 1).Scan(&count)
 	return count
 }
 
@@ -283,6 +294,15 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 
 	r.db.QueryRow(query, boardUid).Scan(&adminUid)
 	return adminUid
+}
+
+// 좋아요 개수 가져오기
+func (r *TsboardBoardRepository) GetLikeCount(postUid uint) uint {
+	var count uint
+	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND liked = ?", configs.Env.Prefix, models.TABLE_POST_LIKE)
+
+	r.db.QueryRow(query, postUid, 1).Scan(&count)
+	return count
 }
 
 // 반복문에서 사용하는 게시글의 좋아요 갯수 가져오기

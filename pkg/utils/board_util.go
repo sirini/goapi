@@ -107,16 +107,21 @@ func CutString(s string, max int) string {
 // Sanitize 정책 초기화
 func initSanitizePolicy() {
 	sanitizePolicy = bluemonday.NewPolicy()
-	sanitizePolicy.AllowElements(
+	allowedTags := []string{
 		"h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "a", "s",
 		"ul", "ol", "nl", "li", "b", "i", "strong", "em", "mark", "span",
-		"strike", "code", "hr", "br", "div", "table",
+		"strike", "code", "hr", "br", "div", "table", "iframe",
 		"thead", "caption", "tbody", "tr", "th", "td", "pre", "img",
-	)
-	sanitizePolicy.AllowAttrs("href", "name", "target", "style", "class").OnElements("a")
-	sanitizePolicy.AllowAttrs("src", "alt", "style", "class").OnElements("img")
-	sanitizePolicy.AllowAttrs("style", "class").OnElements("span")
-	sanitizePolicy.AllowAttrs("class").OnElements("code")
+	}
+	sanitizePolicy.AllowElements(allowedTags...)
+	sanitizePolicy.AllowAttrs("style", "class").OnElements(allowedTags...)
+	sanitizePolicy.AllowAttrs("href", "name", "target").OnElements("a")
+	sanitizePolicy.AllowAttrs("src", "alt").OnElements("img")
+	sanitizePolicy.AllowAttrs(
+		"width", "height", "allowfullscreen", "autoplay", "disablekbcontrols",
+		"enableiframeapi", "endtime", "ivloadpolicy", "loop", "modestbranding",
+		"origin", "playlist", "src", "start",
+	).OnElements("iframe")
 }
 
 // 게시글/댓글 상태값 반환
