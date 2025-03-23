@@ -3,7 +3,8 @@
 <p align="center">
     <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=fff&style=for-the-badge"/>
     <img src="https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=fff&style=for-the-badge"/>
-    <img src="https://img.shields.io/badge/TSBOARD-000000.svg?&style=for-the-badge&&logoColor=3178C6"/>
+    <img src="https://img.shields.io/badge/Fiber-159cce.svg?&style=for-the-badge&&logoColor=3178C6"/>
+    <img src="https://img.shields.io/badge/TSBOARD-000000.svg?&style=for-the-badge&&logoColor=3178C6"/>    
 </p>
 
 ## GOAPI는 무엇인가요?
