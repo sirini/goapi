@@ -11,6 +11,7 @@ import (
 
 type NotiHandler interface {
 	CheckedAllNotiHandler(c fiber.Ctx) error
+	CheckedSingleNotiHandler(c fiber.Ctx) error
 	LoadNotiListHandler(c fiber.Ctx) error
 }
 
@@ -27,6 +28,16 @@ func NewTsboardNotiHandler(service *services.Service) *TsboardNotiHandler {
 func (h *TsboardNotiHandler) CheckedAllNotiHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	h.service.Noti.CheckedAllNoti(uint(actionUserUid))
+	return utils.Ok(c, nil)
+}
+
+// 하나의 알림만 확인 처리하기
+func (h *TsboardNotiHandler) CheckedSingleNotiHandler(c fiber.Ctx) error {
+	notiUid, err := strconv.ParseUint(c.Params("notiUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid noti uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+	h.service.Noti.CheckedSingleNoti(uint(notiUid))
 	return utils.Ok(c, nil)
 }
 

@@ -11,4 +11,5 @@ func RegisterNotiRouters(api fiber.Router, h *handlers.Handler) {
 	noti := api.Group("/noti")
 	noti.Get("/load", h.Noti.LoadNotiListHandler, middlewares.JWTMiddleware())
 	noti.Patch("/checked", h.Noti.CheckedAllNotiHandler, middlewares.JWTMiddleware())
+	noti.Patch("/checked/:notiUid", h.Noti.CheckedSingleNotiHandler, middlewares.JWTMiddleware())
 }

@@ -17,6 +17,7 @@ type NotiRepository interface {
 	InsertNotification(param models.InsertNotificationParameter)
 	IsNotiAdded(param models.InsertNotificationParameter) bool
 	UpdateAllChecked(userUid uint)
+	UpdateChecked(notiUid uint)
 }
 
 type TsboardNotiRepository struct {
@@ -111,4 +112,10 @@ func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint) {
 		configs.Env.Prefix, models.TABLE_NOTI)
 
 	r.db.Exec(query, 1, userUid)
+}
+
+// 하나의 알림만 확인 처리하기
+func (r *TsboardNotiRepository) UpdateChecked(notiUid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_NOTI)
+	r.db.Exec(query, 1, notiUid)
 }
