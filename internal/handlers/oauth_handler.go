@@ -19,6 +19,7 @@ import (
 )
 
 type OAuth2Handler interface {
+	AndroidGoogleOAuthHandler(c fiber.Ctx) error
 	GoogleOAuthRequestHandler(c fiber.Ctx) error
 	GoogleOAuthCallbackHandler(c fiber.Ctx) error
 	NaverOAuthRequestHandler(c fiber.Ctx) error
@@ -41,6 +42,38 @@ type TsboardOAuth2Handler struct {
 // services.Service 주입 받기
 func NewTsboardOAuth2Handler(service *services.Service) *TsboardOAuth2Handler {
 	return &TsboardOAuth2Handler{service: service}
+}
+
+// 구글 안드로이드 앱 OAuth 콜백 핸들러
+func (h *TsboardOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
+	idToken := c.FormValue("id_token")
+	if len(idToken) < 1 {
+		return utils.Err(c, "id_token is empty", models.CODE_INVALID_PARAMETER)
+	}
+
+	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return utils.Err(c, "invalid google token", models.CODE_INVALID_TOKEN)
+	}
+	defer resp.Body.Close()
+
+	var userInfo models.GoogleUser
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+
+	userUid := h.UtilRegisterUser(userInfo.Email, userInfo.Name, userInfo.Picture)
+	if userUid < 1 {
+		return utils.Err(c, "failed to registrate a user", models.CODE_FAILED_OPERATION)
+	}
+
+	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
+	h.service.OAuth.SaveRefreshToken(userUid, refresh)
+
+	user := h.service.OAuth.GetUserInfo(userUid)
+	user.Token = auth
+	user.Refresh = refresh
+	return utils.Ok(c, user)
 }
 
 // 구글 OAuth 로그인을 위해 리다이렉트
@@ -84,10 +117,7 @@ func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 		return c.Redirect().To(redirectPath)
 	}
 
-	id := userInfo.Email
-	name := userInfo.Name
-	profile := userInfo.Picture
-	userUid := h.UtilRegisterUser(id, name, profile)
+	userUid := h.UtilRegisterUser(userInfo.Email, userInfo.Name, userInfo.Picture)
 	if userUid < 1 {
 		return c.Redirect().To(redirectPath)
 	}

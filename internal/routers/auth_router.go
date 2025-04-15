@@ -29,4 +29,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Get("/kakao/request", h.OAuth2.KakaoOAuthRequestHandler)
 	auth.Get("/kakao/callback", h.OAuth2.KakaoOAuthCallbackHandler)
 	auth.Get("/oauth/userinfo", h.OAuth2.RequestUserInfoHandler)
+
+	// Android OAuth용 라우터
+	auth.Post("/android/google", h.OAuth2.AndroidGoogleOAuthHandler)
 }
