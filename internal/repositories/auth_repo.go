@@ -148,6 +148,7 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfo
 		return info, err
 	}
 
+	info.Uid = userUid
 	info.Blocked = blocked > 0
 	info.Admin = r.CheckPermissionByUid(userUid, models.FAILED)
 	return info, nil
