@@ -29,7 +29,11 @@ func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid 
 	query := fmt.Sprintf("INSERT INTO %s%s (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_CHAT)
 
-	result, _ := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
+	result, err := r.db.Exec(query, targetUserUid, actionUserUid, message, time.Now().UnixMilli())
+	if err != nil {
+		return models.FAILED
+	}
+
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED
