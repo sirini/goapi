@@ -265,7 +265,7 @@ func (r *TsboardBoardRepository) GetCommentCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND status != ?", configs.Env.Prefix, models.TABLE_COMMENT)
 
-	r.db.QueryRow(query, postUid, -1).Scan(&count)
+	r.db.QueryRow(query, postUid, models.CONTENT_REMOVED).Scan(&count)
 	return count
 }
 
@@ -281,7 +281,7 @@ func (r *TsboardBoardRepository) GetCommentLikeCount(postUid uint) uint {
 // 반복문에서 사용하는 댓글 개수 가져오기
 func (r *TsboardBoardRepository) GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint {
 	var count uint
-	stmt.QueryRow(postUid).Scan(&count)
+	stmt.QueryRow(postUid, models.CONTENT_REMOVED).Scan(&count)
 	return count
 }
 
@@ -433,7 +433,7 @@ func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows
 	defer stmtFileThumb.Close()
 
 	// 댓글 개수 가져오는 쿼리문 준비
-	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ?",
+	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ? AND status = ?",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 	stmtCommmentCount, err := r.db.Prepare(query)
 	if err != nil {
