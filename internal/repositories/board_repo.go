@@ -433,7 +433,7 @@ func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows
 	defer stmtFileThumb.Close()
 
 	// 댓글 개수 가져오는 쿼리문 준비
-	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ? AND status = ?",
+	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ? AND status != ?",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 	stmtCommmentCount, err := r.db.Prepare(query)
 	if err != nil {
