@@ -45,9 +45,6 @@ func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid u
 		CommentUid:    0,
 	}
 	if insertId > 0 {
-		if isDup := s.repos.Noti.IsNotiAdded(parameter); isDup {
-			return insertId
-		}
 		s.repos.Noti.InsertNotification(parameter)
 	}
 	return insertId
