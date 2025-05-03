@@ -263,9 +263,9 @@ func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 // 댓글 개수 가져오기
 func (r *TsboardBoardRepository) GetCommentCount(postUid uint) uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_COMMENT)
+	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND status != ?", configs.Env.Prefix, models.TABLE_COMMENT)
 
-	r.db.QueryRow(query, postUid).Scan(&count)
+	r.db.QueryRow(query, postUid, -1).Scan(&count)
 	return count
 }
 
