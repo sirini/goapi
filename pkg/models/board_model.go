@@ -62,6 +62,7 @@ const (
 	SEARCH_USER_NAME
 	SEARCH_USER_ID
 	SEARCH_USER_LEVEL
+	SEARCH_IMAGE_DESC
 	SEARCH_NONE
 )
 
@@ -91,6 +92,8 @@ func (s Search) String() string {
 		return "id"
 	case SEARCH_USER_LEVEL:
 		return "level"
+	case SEARCH_IMAGE_DESC:
+		return "description"
 	default:
 		return ""
 	}

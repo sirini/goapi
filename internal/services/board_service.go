@@ -229,6 +229,8 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 		case models.SEARCH_CATEGORY:
 		case models.SEARCH_WRITER:
 			items, err = s.repos.Board.FindPostsByNameCategory(param)
+		case models.SEARCH_IMAGE_DESC:
+			items, err = s.repos.Board.FindPostsByImageDescription(param)
 		default:
 			items, err = s.repos.Board.FindPostsByTitleContent(param)
 		}

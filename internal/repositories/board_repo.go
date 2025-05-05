@@ -14,6 +14,7 @@ type BoardRepository interface {
 	CheckLikedPost(postUid uint, userUid uint) bool
 	CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool
 	CheckLikedComment(commentUid uint, userUid uint) bool
+	FindPostsByImageDescription(param models.BoardListParameter) ([]models.BoardListItem, error)
 	FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error)
 	FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error)
 	FindPostsByHashtag(param models.BoardListParameter) ([]models.BoardListItem, error)
@@ -95,6 +96,25 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 	var liked uint8
 	r.db.QueryRow(query, commentUid, userUid, 1).Scan(&liked)
 	return liked > 0
+}
+
+// 게시글에 첨부된 이미지에 대한 AI 분석 내용으로 검색해서 가져오기
+func (r *TsboardBoardRepository) FindPostsByImageDescription(param models.BoardListParameter) ([]models.BoardListItem, error) {
+	option := param.Option.String()
+	keyword := "%" + param.Keyword + "%"
+	arrow, order := param.Direction.Query()
+	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status 
+												FROM %s%s p JOIN %s%s d ON p.uid = d.post_uid 
+												WHERE board_uid = ? AND status = ? AND p.uid %s ? AND d.%s LIKE ? 
+												GROUP BY p.uid ORDER BY p.uid %s LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_IMAGE_DESC, arrow, option, order)
+
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, param.SinceUid, keyword, param.Bunch-param.NoticeCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return r.MakeListItem(param.UserUid, rows)
 }
 
 // 게시글 제목 혹은 내용으로 검색해서 가져오기
