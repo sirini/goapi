@@ -286,9 +286,9 @@ type BoardItem struct {
 
 // 최근 사용된 해시태그 타입 정의
 type BoardTag struct {
-	Uid     uint
-	Name    string
-	PostUid uint
+	Uid     uint   `json:"uid"`
+	Name    string `json:"name"`
+	PostUid uint   `json:"postUid"`
 }
 
 // 썸네일 크기별 종류 정의
