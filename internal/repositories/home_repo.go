@@ -86,7 +86,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.Home
 	if param.Option == models.SEARCH_CATEGORY {
 		table = models.TABLE_BOARD_CAT
 	}
-	uid := r.board.GetUidByTable(table, param.Keyword)
+	uid := r.board.GetUidByTable(table, param.Keyword, false)
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status
 												FROM %s%s WHERE uid < ? AND status = ? %s AND %s = ?
 												ORDER BY uid DESC LIMIT ?`,

@@ -36,7 +36,7 @@ type BoardRepository interface {
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
-	GetUidByTable(table models.Table, name string) uint
+	GetUidByTable(table models.Table, name string, enableLike bool) uint
 	GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter
 	GetWriterInfo(userUid uint) models.BoardWriter
 	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error)
@@ -129,7 +129,7 @@ func (r *TsboardBoardRepository) FindPostsByNameCategory(param models.BoardListP
 	if param.Option == models.SEARCH_CATEGORY {
 		table = models.TABLE_BOARD_CAT
 	}
-	uid := r.GetUidByTable(table, param.Keyword)
+	uid := r.GetUidByTable(table, param.Keyword, true)
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s = ? AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
@@ -412,11 +412,17 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 }
 
 // 이름으로 고유 번호 가져오기 (회원 번호 혹은 카테고리 번호 등)
-func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) uint {
+func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string, enableLike bool) uint {
 	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, table)
+	where := "="
+	value := name
+	if enableLike {
+		where = "LIKE"
+		value = fmt.Sprintf("%%%s%%", name)
+	}
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name %s ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, table, where)
 
-	r.db.QueryRow(query, name).Scan(&uid)
+	r.db.QueryRow(query, value).Scan(&uid)
 	return uid
 }
 
