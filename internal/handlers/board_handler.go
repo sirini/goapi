@@ -12,6 +12,7 @@ import (
 
 type BoardHandler interface {
 	BoardListHandler(c fiber.Ctx) error
+	BoardRecentTagListHandler(c fiber.Ctx) error
 	BoardViewHandler(c fiber.Ctx) error
 	DownloadHandler(c fiber.Ctx) error
 	GalleryListHandler(c fiber.Ctx) error
@@ -74,6 +75,24 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	parameter.Direction = models.Paging(paging)
 
 	result, err := h.service.Board.GetListItem(parameter)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+// 최근 사용된 해시태그 목록 보기 핸들러
+func (h *TsboardBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
+	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+
+	result, err := h.service.Board.GetRecentTags(uint(boardUid), uint(limit))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

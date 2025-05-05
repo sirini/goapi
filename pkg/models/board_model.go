@@ -281,6 +281,13 @@ type BoardItem struct {
 	Info string `json:"info"`
 }
 
+// 최근 사용된 해시태그 타입 정의
+type BoardTag struct {
+	Uid     uint
+	Name    string
+	PostUid uint
+}
+
 // 썸네일 크기별 종류 정의
 type BoardThumbnail struct {
 	Large string `json:"large"`

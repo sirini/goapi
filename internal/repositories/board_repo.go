@@ -24,15 +24,16 @@ type BoardRepository interface {
 	GetCategoryByUid(categoryUid uint) models.Pair
 	GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string
 	GetCoverImage(postUid uint) string
+	GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetCommentCount(postUid uint) uint
 	GetCommentLikeCount(postUid uint) uint
-	GetLikeCount(postUid uint) uint
-	GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetGroupAdminUid(boardUid uint) uint
+	GetLikeCount(postUid uint) uint
 	GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error)
 	GetMaxUid(table models.Table) uint
+	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
 	GetUidByTable(table models.Table, name string) uint
@@ -338,6 +339,34 @@ func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter)
 	}
 	defer rows.Close()
 	return r.MakeListItem(param.UserUid, rows)
+}
+
+// 최근 사용된 해시태그 가져오기
+func (r *TsboardBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
+	items := make([]models.BoardTag, 0)
+	query := fmt.Sprintf(`SELECT h.uid AS hashtag_uid, h.name AS hashtag_name, MAX(p.post_uid) AS latest_post 
+												FROM %s%s p 
+												JOIN %s%s h ON p.hashtag_uid = h.uid 
+												WHERE board_uid = ? 
+												GROUP BY h.uid, h.name 
+												ORDER BY latest_post 
+												DESC limit ?`,
+		configs.Env.Prefix, models.TABLE_POST_HASHTAG, configs.Env.Prefix, models.TABLE_HASHTAG)
+	rows, err := r.db.Query(query, boardUid, limit)
+	if err != nil {
+		return items, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.BoardTag{}
+		err = rows.Scan(&item.Uid, &item.Name, &item.PostUid)
+		if err != nil {
+			return items, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 // 게시판 or 댓글의 현재 uid 값 반환하기
