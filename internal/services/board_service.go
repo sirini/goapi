@@ -125,6 +125,8 @@ func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter
 		case models.SEARCH_CATEGORY:
 		case models.SEARCH_WRITER:
 			posts, err = s.repos.Board.FindPostsByNameCategory(param)
+		case models.SEARCH_IMAGE_DESC:
+			posts, err = s.repos.Board.FindPostsByImageDescription(param)
 		default:
 			posts, err = s.repos.Board.FindPostsByTitleContent(param)
 		}
