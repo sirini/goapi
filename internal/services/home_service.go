@@ -65,6 +65,8 @@ func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]m
 		case models.SEARCH_CATEGORY:
 		case models.SEARCH_WRITER:
 			posts, err = s.repos.Home.FindLatestPostsByUserUidCatUid(param)
+		case models.SEARCH_IMAGE_DESC:
+			posts, err = s.repos.Home.FindLatestPostsByImageDescription(param)
 		default:
 			posts, err = s.repos.Home.FindLatestPostsByTitleContent(param)
 		}

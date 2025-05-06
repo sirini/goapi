@@ -11,6 +11,7 @@ import (
 
 type HomeRepository interface {
 	AppendItem(rows *sql.Rows) ([]models.HomePostItem, error)
+	FindLatestPostsByImageDescription(param models.HomePostParameter) ([]models.HomePostItem, error)
 	FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error)
 	FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error)
 	FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error)
@@ -54,6 +55,29 @@ func (r *TsboardHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostIte
 	return items, nil
 }
 
+// 홈화면에서 게시글에 첨부된 이미지에 대한 AI 분석 내용으로 검색해서 가져오기
+func (r *TsboardHomeRepository) FindLatestPostsByImageDescription(param models.HomePostParameter) ([]models.HomePostItem, error) {
+	whereBoard := ""
+	if param.BoardUid > 0 {
+		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
+	}
+	option := param.Option.String()
+	keyword := "%" + param.Keyword + "%"
+	query := fmt.Sprintf(`SELECT p.uid, p.board_uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status 
+												FROM %s%s p JOIN %s%s d ON p.uid = d.post_uid 
+												WHERE p.uid < ? AND p.status = ? %s AND d.%s LIKE ? 
+												GROUP BY p.uid ORDER BY p.uid DESC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_IMAGE_DESC, whereBoard, option)
+
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_NORMAL, keyword, param.Bunch)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	return r.AppendItem(rows)
+}
+
 // 홈화면에서 게시글 제목 혹은 내용 일부를 검색해서 가져오기
 func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error) {
 	whereBoard := ""
@@ -61,12 +85,13 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomeP
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
 	}
 	option := param.Option.String()
+	keyword := "%" + param.Keyword + "%"
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status 
 												FROM %s%s WHERE uid < ? AND status = ? %s AND %s LIKE ? 
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereBoard, option)
 
-	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_NORMAL, "%"+param.Keyword+"%", param.Bunch)
+	rows, err := r.db.Query(query, param.SinceUid, models.CONTENT_NORMAL, keyword, param.Bunch)
 	if err != nil {
 		return nil, err
 	}
