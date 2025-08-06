@@ -15,8 +15,5 @@ func SendMail(to string, subject string, body string) bool {
 	d := gomail.NewDialer("smtp.gmail.com", 587, configs.Env.GmailID, configs.Env.GmailAppPassword)
 
 	err := d.DialAndSend(m)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
