@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"log"
-
 	"github.com/sirini/goapi/internal/configs"
 	"gopkg.in/gomail.v2"
 )
@@ -18,7 +16,6 @@ func SendMail(to string, subject string, body string) bool {
 
 	err := d.DialAndSend(m)
 	if err != nil {
-		log.Fatal(err)
 		return false
 	}
 	return true
