@@ -59,7 +59,7 @@ const (
 	BOARD_SHOP    = 3
 )
 
-// TSBOARD 백엔드 실행 시 설치 여부 검사 후 필요 시 설치 진행
+// NUBO 백엔드 실행 시 설치 여부 검사 후 필요 시 설치 진행
 func Install() bool {
 	if isInstalled := isAlreadyInstalled(); isInstalled {
 		return true
@@ -112,7 +112,7 @@ func Update(db *sql.DB, prefix string) {
 	}
 
 	fmt.Printf(" → created a new table: %s\n", green("trade"))
-	fmt.Println(` → Now tsboard starts a backend service`)
+	fmt.Println(` → Now NUBO (goapi) starts a backend service`)
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
 }
 
@@ -125,21 +125,22 @@ func isAlreadyInstalled() bool {
 	return !info.IsDir()
 }
 
-// TSBOARD 설치 웰컴 메시지 보여주기
+// NUBO (TSBOARD) 설치 웰컴 메시지 보여주기
 func welcome() {
 	fmt.Print(`
- _________  ________  ________  ________  ________  ________  ________     
-|\___   ___\\   ____\|\   __  \|\   __  \|\   __  \|\   __  \|\   ___ \    
-\|___ \  \_\ \  \___|\ \  \|\ /\ \  \|\  \ \  \|\  \ \  \|\  \ \  \_|\ \   
-     \ \  \ \ \_____  \ \   __  \ \  \\\  \ \   __  \ \   _  _\ \  \ \\ \  
-      \ \  \ \|____|\  \ \  \|\  \ \  \\\  \ \  \ \  \ \  \\  \\ \  \_\\ \ 
-       \ \__\  ____\_\  \ \_______\ \_______\ \__\ \__\ \__\\ _\\ \_______\
-        \|__| |\_________\|_______|\|_______|\|__|\|__|\|__|\|__|\|_______|
-              \|_________|                                                 
+.:::     .::.::     .::.:: .::       .::::     
+.: .::   .::.::     .::.:    .::   .::    .::  
+.:: .::  .::.::     .::.:     .::.::        .::
+.::  .:: .::.::     .::.::: .:   .::        .::
+.::   .: .::.::     .::.:     .::.::        .::
+.::    .: ::.::     .::.:      .:  .::     .:: 
+.::      .::  .:::::   .:::: .::     .::::     
+                                                                               
+Networked Utilities & Builtin Options | https://nubohub.org                                              
 `)
 }
 
-// TSBOARD에서 DB정보 사용을 위한 정보 확인하기
+// NUBO (TSBOARD)에서 DB정보 사용을 위한 정보 확인하기
 func askDBInfo() DBInfo {
 	dbInfo := DBInfo{}
 	reader := bufio.NewReader(os.Stdin)
@@ -149,8 +150,8 @@ func askDBInfo() DBInfo {
 
 	fmt.Println("")
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-	fmt.Printf(" TSBOARD is %s.\n We will now proceed with the installation process.\n\n", red("not installed yet"))
-	fmt.Printf(" Before installing TSBOARD, make sure that\n `%s` is already installed on your server.\n\n", yellow("libvips"))
+	fmt.Printf(" NUBO is %s.\n We will now proceed with the installation process.\n\n", red("not installed yet"))
+	fmt.Printf(" Before installing NUBO, make sure that\n `%s` is already installed on your server.\n\n", yellow("libvips"))
 	fmt.Printf(" During the installation process,\n you will need the connection details\n for a pre-installed `%s` on your server.\n", yellow("MySQL(Mariadb)"))
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
 	fmt.Println("")
@@ -250,7 +251,7 @@ func askDBInfo() DBInfo {
 			dbInfo.MaxOpen = maxOpen
 
 			if isConn := testConnDB(dbInfo); !isConn {
-				fmt.Printf(" %s The TSBOARD %s to the database with the information you provided.\n", red("🞬"), red("could not connect"))
+				fmt.Printf(" %s The NUBO %s to the database with the information you provided.\n", red("🞬"), red("could not connect"))
 				fmt.Printf(" %s Please try again.\n\n", red("🞬"))
 				continue
 			} else {
@@ -259,7 +260,7 @@ func askDBInfo() DBInfo {
 		} else if answer == "n" || answer == "no" {
 			continue
 		} else {
-			fmt.Printf(" %s The TSBOARD will now exit. To install or reinstall the TSBOARD, please delete the %s file first and then run this binary again.\n", red("🞬"), yellow(".env"))
+			fmt.Printf(" %s The NUBO will now exit. To install or reinstall the NUBO, please delete the %s file first and then run this binary again.\n", red("🞬"), yellow(".env"))
 			return DBInfo{}
 		}
 	}
