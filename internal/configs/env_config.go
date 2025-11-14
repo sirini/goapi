@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Version           string
 	Port              string
+	OAuthUrl          string
 	URL               string
 	URLPrefix         string
 	Title             string
@@ -61,8 +62,9 @@ func LoadConfig() {
 
 	Env = Config{
 		Version:           getEnv("GOAPI_VERSION", ""),
-		Port:              getEnv("GOAPI_PORT", "3003"),
-		URL:               getEnv("GOAPI_URL", "http://localhost"),
+		Port:              getEnv("GOAPI_PORT", "3006"),
+		OAuthUrl:          getEnv("GOAPI_OAUTH_URL", "http://localhost:3006/goapi/auth"),
+		URL:               getEnv("GOAPI_URL", "http://localhost:3000"),
 		URLPrefix:         getEnv("GOAPI_URL_PREFIX", ""),
 		Title:             getEnv("GOAPI_TITLE", "TSBOARD"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),

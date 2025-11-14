@@ -75,6 +75,14 @@ func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
 func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	h.service.Auth.Logout(uint(actionUserUid))
+
+	c.ClearCookie(
+		"nubo-oauth-access",
+		"nubo-oauth-refresh",
+		"auth-token",
+		"auth-refresh",
+	)
+
 	return utils.Ok(c, nil)
 }
 
