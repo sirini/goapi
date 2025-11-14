@@ -316,13 +316,8 @@ func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error 
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)
 
-	user := h.service.OAuth.GetUserInfo(userUid)
-	user.Token = auth
-	user.Refresh = refresh
-	myinfo, err := utils.ConvJsonString(user)
-	if err != nil {
-		return err
-	}
-	utils.SaveCookie(c, "nubo_myinfo", myinfo, 1)
-	return c.Redirect().To(fmt.Sprintf("%s%s/auth/oauth", configs.Env.URL, configs.Env.URLPrefix))
+	utils.SaveCookie(c, "nubo_auth", auth, 1)
+	utils.SaveCookie(c, "nubo_refresh", refresh, 15)
+
+	return c.Redirect().To(fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix))
 }
