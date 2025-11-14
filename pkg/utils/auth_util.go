@@ -124,7 +124,7 @@ func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 
 // 상태 검사 및 토큰 교환 후 토큰 반환
 func OAuth2ExchangeToken(c fiber.Ctx, cfg oauth2.Config) (*oauth2.Token, error) {
-	cookie := c.Cookies("tsboard_oauth_state")
+	cookie := c.Cookies("nubo_oauth_state")
 	if cookie != c.FormValue("state") {
 		c.Redirect().To(configs.Env.URL)
 		return nil, fmt.Errorf("empty oauth state from cookie")

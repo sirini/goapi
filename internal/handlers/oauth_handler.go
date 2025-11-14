@@ -79,7 +79,7 @@ func (h *TsboardOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 // 구글 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
+	utils.SaveCookie(c, "nubo_oauth_state", state, 1)
 
 	h.googleConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s%s/goapi/auth/google/callback", configs.Env.URL, configs.Env.URLPrefix),
@@ -128,7 +128,7 @@ func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 // 네이버 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
+	utils.SaveCookie(c, "nubo_oauth_state", state, 1)
 
 	h.naverRedirectURL = fmt.Sprintf("%s%s/goapi/auth/naver/callback", configs.Env.URL, configs.Env.URLPrefix)
 	url := fmt.Sprintf(
@@ -150,7 +150,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	code := c.FormValue("code")
 	state := c.FormValue("state")
 
-	cookie := c.Cookies("tsboard_oauth_state")
+	cookie := c.Cookies("nubo_oauth_state")
 	if cookie != state {
 		return c.Redirect().To(redirectPath)
 	}
@@ -228,7 +228,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 // 카카오 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "tsboard_oauth_state", state, 1)
+	utils.SaveCookie(c, "nubo_oauth_state", state, 1)
 
 	h.kakaoConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s%s/goapi/auth/kakao/callback", configs.Env.URL, configs.Env.URLPrefix),
@@ -282,7 +282,7 @@ func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 
 // 쿠키에 저장해둔 회원 정보 내려받기
 func (h *TsboardOAuth2Handler) RequestUserInfoHandler(c fiber.Ctx) error {
-	myinfo := c.Cookies("tsboard_myinfo")
+	myinfo := c.Cookies("nubo_myinfo")
 	if myinfo == "" {
 		return utils.Err(c, "Unable to read your data from cookie", models.CODE_FAILED_OPERATION)
 	}
@@ -323,6 +323,6 @@ func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error 
 	if err != nil {
 		return err
 	}
-	utils.SaveCookie(c, "tsboard_myinfo", myinfo, 1)
-	return c.Redirect().To(fmt.Sprintf("%s%s/login/oauth", configs.Env.URL, configs.Env.URLPrefix))
+	utils.SaveCookie(c, "nubo_myinfo", myinfo, 1)
+	return c.Redirect().To(fmt.Sprintf("%s%s/auth/oauth", configs.Env.URL, configs.Env.URLPrefix))
 }
