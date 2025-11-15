@@ -295,7 +295,7 @@ func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error 
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)
 
-	utils.SaveCookie(c, "nubo-oauth-access", auth, 1)
+	utils.SaveCookie(c, "nubo-oauth-token", auth, 1)
 	utils.SaveCookie(c, "nubo-oauth-refresh", refresh, 15)
 
 	return c.Redirect().To(fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix))

@@ -81,10 +81,10 @@ func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	h.service.Auth.Logout(uint(actionUserUid))
 
 	c.ClearCookie(
-		"nubo-oauth-access",
+		"nubo-oauth-token",
 		"nubo-oauth-refresh",
-		"auth-token",
-		"auth-refresh",
+		"nubo-auth-token",
+		"nubo-auth-refresh",
 	)
 
 	return utils.Ok(c, nil)

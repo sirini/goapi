@@ -196,8 +196,8 @@ func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) error
 		return err
 	}
 
-	utils.SaveCookie(c, "auth-token", authToken, 1)
-	utils.SaveCookie(c, "auth-refresh", refreshToken, refreshDays)
+	utils.SaveCookie(c, "nubo-auth-token", authToken, 1)
+	utils.SaveCookie(c, "nubo-auth-refresh", refreshToken, refreshDays)
 	return nil
 }
 
