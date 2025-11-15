@@ -94,14 +94,21 @@ func ResponseAuthFail(c fiber.Ctx, userUid int) error {
 	}
 }
 
-// 리프레시 토큰을 쿠키에 저장
+// 쿠키에 저장
 func SaveCookie(c fiber.Ctx, name string, value string, days int) {
+	isSecure := false
+	if strings.HasPrefix(configs.Env.URL, "https://") {
+		isSecure = true
+	}
+
 	c.Cookie(&fiber.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		MaxAge:   86400 * days,
 		HTTPOnly: true,
+		SameSite: fiber.CookieSameSiteLaxMode,
+		Secure:   isSecure,
 	})
 }
 
