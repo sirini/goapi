@@ -186,7 +186,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	}
 
 	h.naverConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", redirectPath),
+		RedirectURL:  fmt.Sprintf("%s/naver/callback", configs.Env.OAuthUrl),
 		ClientID:     configs.Env.OAuthNaverID,
 		ClientSecret: configs.Env.OAuthNaverSecret,
 		Scopes:       []string{},
