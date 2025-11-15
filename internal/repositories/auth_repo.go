@@ -22,6 +22,7 @@ type AuthRepository interface {
 	FindMyInfoByUid(userUid uint) models.MyInfoResult
 	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
 	FindUserUidById(id string) uint
+	FindUserPasswordByUid(userUid uint) string
 	InsertRefreshToken(userUid uint, token string)
 	InsertVerificationCode(id string, code string) uint
 	SaveVerificationCode(id string, code string) uint
@@ -29,6 +30,7 @@ type AuthRepository interface {
 	UpdateRefreshToken(userUid uint, token string)
 	UpdateVerificationCode(id string, code string, uid uint)
 	UpdateUserSignin(userUid uint)
+	UpdateUserPasswordHash(userUid uint, newBcryptHash string)
 }
 
 type TsboardAuthRepository struct {
@@ -209,6 +211,18 @@ func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 	return userUid
 }
 
+// 사용자의 비밀번호(해시값) 반환
+func (r *TsboardAuthRepository) FindUserPasswordByUid(userUid uint) string {
+	var hash string
+	query := fmt.Sprintf("SELECT password FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+
+	err := r.db.QueryRow(query, userUid).Scan(&hash)
+	if err != nil {
+		return ""
+	}
+	return hash
+}
+
 // 사용자의 리프레시 토큰 추가하기
 func (r *TsboardAuthRepository) InsertRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
@@ -285,4 +299,10 @@ func (r *TsboardAuthRepository) UpdateUserSignin(userUid uint) {
 		configs.Env.Prefix, models.TABLE_USER)
 
 	r.db.Exec(query, time.Now().UnixMilli(), userUid)
+}
+
+// 사용자의 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 업데이트
+func (r *TsboardAuthRepository) UpdateUserPasswordHash(userUid uint, newBcryptHash string) {
+	query := fmt.Sprintf("UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
+	r.db.Exec(query, newBcryptHash, userUid)
 }

@@ -1,14 +1,18 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"html"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler interface {
@@ -123,15 +127,42 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 // 로그인 하기
 func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
 	id := c.FormValue("id")
-	pw := c.FormValue("password")
+	pw := c.FormValue("password") // 일반 문자열
 
-	if len(pw) != 64 || !utils.IsValidEmail(id) {
+	if len(pw) < 1 || !utils.IsValidEmail(id) {
 		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
 	}
 
-	user := h.service.Auth.Signin(id, pw)
+	user, storedHash := h.service.Auth.GetUserAndHash(id)
 	if user.Uid < 1 {
 		return utils.Err(c, "Unable to get an information, invalid ID or password", models.CODE_FAILED_OPERATION)
+	}
+
+	if len(storedHash) == 60 && strings.HasPrefix(storedHash, "$2") { // NUBO 이후 암호화
+		err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(pw))
+		if err != nil {
+			return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
+		}
+
+	} else if len(storedHash) == 64 { // TSBOARD 시절 암호화
+		oldHash := sha256.Sum256([]byte(pw))
+		deprecatedHash := hex.EncodeToString(oldHash[:])
+
+		if deprecatedHash != storedHash {
+			return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
+		}
+
+		newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+		if err == nil {
+			h.service.Auth.ChangeHashForPassword(user.Uid, string(newBcryptHash))
+		}
+	} else {
+		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
+	}
+
+	err := h.service.Auth.SaveTokensInCookie(c, user.Uid)
+	if err != nil {
+		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
 	return utils.Ok(c, user)

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
@@ -17,12 +18,15 @@ type AuthService interface {
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string, userUid uint) bool
 	CheckUserPermission(userUid uint, action models.UserAction) bool
+	ChangeHashForPassword(userUid uint, newBcryptHash string)
 	GetMyInfo(userUid uint) models.MyInfoResult
 	GetUpdatedAccessToken(userUid uint, refreshToken string) (string, bool)
+	GetUserAndHash(id string) (models.MyInfoResult, string)
 	Logout(userUid uint)
 	ResetPassword(id string, hostname string) bool
 	Signin(id string, pw string) models.MyInfoResult
 	Signup(param models.SignupParameter) (models.SignupResult, error)
+	SaveTokensInCookie(c fiber.Ctx, userUid uint) error
 	VerifyEmail(param models.VerifyParameter) bool
 }
 
@@ -50,6 +54,11 @@ func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.Use
 	return s.repos.Auth.CheckPermissionForAction(userUid, action)
 }
 
+// 사용자 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 변경하기
+func (s *TsboardAuthService) ChangeHashForPassword(userUid uint, newBcryptHash string) {
+	s.repos.Auth.UpdateUserPasswordHash(userUid, newBcryptHash)
+}
+
 // 로그인 한 내 정보 가져오기
 func (s *TsboardAuthService) GetMyInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
@@ -67,6 +76,14 @@ func (s *TsboardAuthService) GetUpdatedAccessToken(userUid uint, refreshToken st
 		return "", false
 	}
 	return newAccessToken, true
+}
+
+// 사용자의 정보와 함께 기존에 저장된 비밀번호 해시값 가져오기
+func (s *TsboardAuthService) GetUserAndHash(id string) (models.MyInfoResult, string) {
+	userUid := s.repos.Auth.FindUserUidById(id)
+	userInfo := s.repos.Auth.FindMyInfoByUid(userUid)
+	storedHash := s.repos.Auth.FindUserPasswordByUid(userUid)
+	return userInfo, storedHash
 }
 
 // 로그아웃하기
@@ -165,6 +182,23 @@ func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.Signup
 		Target:   target,
 	}
 	return signupResult, nil
+}
+
+// 로그인 성공 시 액세스 토큰과 리프레시 토큰들을 쿠키에 보관하기
+func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) error {
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
+	authToken, err := utils.GenerateAccessToken(userUid, accessHours)
+	if err != nil {
+		return err
+	}
+	refreshToken, err := utils.GenerateRefreshToken(refreshDays)
+	if err != nil {
+		return err
+	}
+
+	utils.SaveCookie(c, "auth-token", authToken, 1)
+	utils.SaveCookie(c, "auth-refresh", refreshToken, refreshDays)
+	return nil
 }
 
 // 이메일 인증 완료하기
