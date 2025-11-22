@@ -16,7 +16,8 @@ func RegisterEditorRouters(api fiber.Router, h *handlers.Handler) {
 	editor.Patch("/modify", h.Editor.ModifyPostHandler, middlewares.JWTMiddleware())
 	editor.Delete("/remove/attached", h.Editor.RemoveAttachedFileHandler, middlewares.JWTMiddleware())
 	editor.Delete("/remove/image", h.Editor.RemoveInsertImageHandler, middlewares.JWTMiddleware())
-	editor.Get("/tag/suggestion", h.Editor.SuggestionHashtagHandler, middlewares.JWTMiddleware())
+	editor.Get("/suggestion/title", h.Editor.SuggestionTitleHandler, middlewares.JWTMiddleware())
+	editor.Get("/suggestion/tag", h.Editor.SuggestionHashtagHandler, middlewares.JWTMiddleware())
 	editor.Post("/upload/images", h.Editor.UploadInsertImageHandler, middlewares.JWTMiddleware())
 	editor.Post("/write", h.Editor.WritePostHandler, middlewares.JWTMiddleware())
 }

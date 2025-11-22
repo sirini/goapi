@@ -18,6 +18,7 @@ type EditorHandler interface {
 	ModifyPostHandler(c fiber.Ctx) error
 	RemoveInsertImageHandler(c fiber.Ctx) error
 	RemoveAttachedFileHandler(c fiber.Ctx) error
+	SuggestionTitleHandler(c fiber.Ctx) error
 	SuggestionHashtagHandler(c fiber.Ctx) error
 	UploadInsertImageHandler(c fiber.Ctx) error
 	WritePostHandler(c fiber.Ctx) error
@@ -145,6 +146,21 @@ func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 		UserUid:  uint(actionUserUid),
 	})
 	return utils.Ok(c, nil)
+}
+
+// 글제목 추천 목록 반환하는 핸들러
+func (h *TsboardEditorHandler) SuggestionTitleHandler(c fiber.Ctx) error {
+	input, err := url.QueryUnescape(c.FormValue("title"))
+	if err != nil {
+		return utils.Err(c, "Invalid title", models.CODE_INVALID_PARAMETER)
+	}
+	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+
+	titles := h.service.Board.GetSuggestionTitles(input, uint(bunch))
+	return utils.Ok(c, titles)
 }
 
 // 해시태그 추천 목록 반환하는 핸들러

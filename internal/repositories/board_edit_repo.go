@@ -16,6 +16,7 @@ type BoardEditRepository interface {
 	FindAttachedPathByUid(fileUid uint) string
 	GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error)
 	GetMaxImageUid(boardUid uint, actionUserUid uint) uint
+	GetSuggestionTitles(input string, bunch uint) []string
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetTotalImageCount(boardUid uint, actionUserUid uint) uint
 	InsertExif(fileUid uint, postUid uint, exif models.BoardExif)
@@ -101,6 +102,25 @@ func (r *TsboardBoardEditRepository) GetMaxImageUid(boardUid uint, actionUserUid
 
 	r.db.QueryRow(query, boardUid, actionUserUid).Scan(&uid)
 	return uid
+}
+
+// 유사 제목들 가져오기
+func (r *TsboardBoardEditRepository) GetSuggestionTitles(input string, bunch uint) []string {
+	items := make([]string, 0)
+	query := fmt.Sprintf("SELECT title FROM %s%s WHERE title LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_POST)
+
+	rows, err := r.db.Query(query, "%"+input+"%", bunch)
+	if err != nil {
+		return items
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var item string
+		rows.Scan(&item)
+		items = append(items, item)
+	}
+	return items
 }
 
 // 태그 추천하기 목록 가져오기

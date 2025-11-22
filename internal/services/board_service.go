@@ -24,6 +24,7 @@ type BoardService interface {
 	GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error)
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
+	GetSuggestionTitles(input string, bunch uint) []string
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
@@ -255,6 +256,11 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 // 최근 사용된 해시태그 가져오기
 func (s *TsboardBoardService) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
 	return s.repos.Board.GetRecentTags(boardUid, limit)
+}
+
+// 유사 제목들 가져오기
+func (s *TsboardBoardService) GetSuggestionTitles(input string, bunch uint) []string {
+	return s.repos.BoardEdit.GetSuggestionTitles(input, bunch)
 }
 
 // 추천할 태그 목록들 가져오기
