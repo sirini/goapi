@@ -1,18 +1,13 @@
 package handlers
 
 import (
-	"fmt"
-	"html/template"
 	"net/url"
 	"strconv"
-	texttemplate "text/template"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
-	"github.com/sirini/goapi/pkg/templates"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -21,9 +16,7 @@ type HomeHandler interface {
 	CountingVisitorHandler(c fiber.Ctx) error
 	LoadSidebarLinkHandler(c fiber.Ctx) error
 	LoadAllPostsHandler(c fiber.Ctx) error
-	LoadMainPageHandler(c fiber.Ctx) error
 	LoadPostsByIdHandler(c fiber.Ctx) error
-	LoadSitemapHandler(c fiber.Ctx) error
 }
 
 type TsboardHomeHandler struct {
@@ -107,32 +100,6 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	return utils.Ok(c, result)
 }
 
-// 검색엔진을 위한 메인 페이지 가져오는 핸들러
-func (h *TsboardHomeHandler) LoadMainPageHandler(c fiber.Ctx) error {
-	main := models.HomeMainPage{}
-	main.Version = configs.Env.Version
-	main.PageTitle = configs.Env.Title
-	main.PageUrl = configs.Env.URL
-
-	articles, err := h.service.Home.LoadMainPage(50)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	main.Articles = articles
-
-	c.Set("Content-Type", "text/html")
-	tmpl, err := template.New("main").Parse(templates.MainPageBody)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-
-	err = tmpl.Execute(c.Response().BodyWriter(), main)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return nil
-}
-
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
 func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
@@ -165,31 +132,4 @@ func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 		Items:  items,
 		Config: config,
 	})
-}
-
-// 사이트맵 xml 내용 반환하기 핸들러
-func (h *TsboardHomeHandler) LoadSitemapHandler(c fiber.Ctx) error {
-	urls := []models.HomeSitemapURL{
-		{
-			Loc:        fmt.Sprintf("%s/goapi/seo/main.html", configs.Env.URL),
-			LastMod:    time.Now().Format("2006-01-02"),
-			ChangeFreq: "daily",
-			Priority:   "1.0",
-		},
-	}
-
-	boards := h.service.Home.GetBoardIDsForSitemap()
-	urls = append(urls, boards...)
-
-	c.Set("Content-Type", "application/xml")
-	tmpl, err := texttemplate.New("sitemap").Parse(templates.SitemapBody)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-
-	err = tmpl.Execute(c.Response().BodyWriter(), urls)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return nil
 }
