@@ -70,3 +70,9 @@ const (
 	JWT_NO_CLAIMS
 	JWT_NO_UID
 )
+
+// 로그인 시 입력 구조 정의
+type SigninParameter struct {
+	ID       string `json:"id"`
+	Password string `json:"password"`
+}

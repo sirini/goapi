@@ -124,8 +124,13 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 
 // 로그인 하기
 func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
-	id := c.FormValue("id")
-	pw := c.FormValue("password") // 일반 문자열
+	form := models.SigninParameter{}
+	if err := c.Bind().Body(&form); err != nil {
+		return utils.Err(c, "Unable to marshal given input", models.CODE_INVALID_PARAMETER)
+	}
+
+	id := form.ID
+	pw := form.Password // 일반 문자열이어야 함
 
 	if len(pw) < 1 || !utils.IsValidEmail(id) {
 		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
