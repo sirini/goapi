@@ -84,16 +84,6 @@ func IsValidEmail(email string) bool {
 	return re.MatchString(email)
 }
 
-// 인증 실패 코드에 맞춰서 클라이언트에 리턴
-func ResponseAuthFail(c fiber.Ctx, userUid int) error {
-	switch userUid {
-	case models.JWT_INVALID_TOKEN:
-		return Err(c, "Invalid token, your token might be expired", models.CODE_INVALID_TOKEN)
-	default:
-		return Err(c, "Unauthorized access, login required", models.CODE_NO_PERMISSION)
-	}
-}
-
 // 쿠키에 저장
 func SaveCookie(c fiber.Ctx, name string, value string, days int) {
 	isSecure := false
