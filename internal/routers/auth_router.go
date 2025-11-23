@@ -31,4 +31,12 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 
 	// Android OAuth용 라우터
 	auth.Post("/android/google", h.OAuth2.AndroidGoogleOAuthHandler)
+
+	// 사용자 관련 라우터들
+	user := auth.Group("/user")
+	user.Get("/info", h.User.LoadUserInfoHandler)
+	user.Post("/change/password", h.User.ChangePasswordHandler)
+	user.Post("/report", h.User.ReportUserHandler, middlewares.JWTMiddleware())
+	user.Get("/permission", h.User.LoadUserPermissionHandler, middlewares.JWTMiddleware())
+	user.Post("/manage", h.User.ManageUserPermissionHandler, middlewares.JWTMiddleware())
 }
