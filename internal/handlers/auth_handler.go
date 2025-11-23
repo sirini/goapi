@@ -115,11 +115,15 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
 	}
 
-	newAccessToken, ok := h.service.Auth.GetUpdatedAccessToken(uint(actionUserUid), refreshToken)
-	if !ok {
-		return utils.Err(c, "Refresh token has been expired", models.CODE_EXPIRED_TOKEN)
+	if ok := h.service.Auth.CheckRefreshToken(uint(actionUserUid), refreshToken); !ok {
+		return utils.Err(c, "Refresh token has expired, please sign in again", models.CODE_FAILED_OPERATION)
 	}
-	return utils.Ok(c, newAccessToken)
+
+	if err = h.service.Auth.SaveTokensInCookie(c, uint(actionUserUid)); err != nil {
+		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
+	}
+
+	return utils.Ok(c, nil)
 }
 
 // 로그인 하기

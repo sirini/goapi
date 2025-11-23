@@ -17,10 +17,10 @@ import (
 type AuthService interface {
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string, userUid uint) bool
+	CheckRefreshToken(userUid uint, refreshToken string) bool
 	CheckUserPermission(userUid uint, action models.UserAction) bool
 	ChangeHashForPassword(userUid uint, newBcryptHash string)
 	GetMyInfo(userUid uint) models.MyInfoResult
-	GetUpdatedAccessToken(userUid uint, refreshToken string) (string, bool)
 	GetUserAndHash(id string) (models.MyInfoResult, string)
 	Logout(userUid uint)
 	ResetPassword(id string, hostname string) bool
@@ -49,6 +49,11 @@ func (s *TsboardAuthService) CheckNameExists(name string, userUid uint) bool {
 	return s.repos.User.IsNameDuplicated(name, userUid)
 }
 
+// 리프레시 토큰이 유효할 경우 새로운 액세스 토큰 발급하기
+func (s *TsboardAuthService) CheckRefreshToken(userUid uint, refreshToken string) bool {
+	return s.repos.Auth.CheckRefreshToken(userUid, refreshToken)
+}
+
 // 사용자 권한 확인하기
 func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.UserAction) bool {
 	return s.repos.Auth.CheckPermissionForAction(userUid, action)
@@ -62,20 +67,6 @@ func (s *TsboardAuthService) ChangeHashForPassword(userUid uint, newBcryptHash s
 // 로그인 한 내 정보 가져오기
 func (s *TsboardAuthService) GetMyInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
-}
-
-// 리프레시 토큰이 유효할 경우 새로운 액세스 토큰 발급하기
-func (s *TsboardAuthService) GetUpdatedAccessToken(userUid uint, refreshToken string) (string, bool) {
-	if isValid := s.repos.Auth.CheckRefreshToken(userUid, refreshToken); !isValid {
-		return "", false
-	}
-
-	accessHours, _ := configs.GetJWTAccessRefresh()
-	newAccessToken, err := utils.GenerateAccessToken(userUid, accessHours)
-	if err != nil {
-		return "", false
-	}
-	return newAccessToken, true
 }
 
 // 사용자의 정보와 함께 기존에 저장된 비밀번호 해시값 가져오기
