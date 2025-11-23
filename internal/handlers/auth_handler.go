@@ -110,7 +110,7 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	refreshToken := c.FormValue("refresh")
+	refreshToken := c.Cookies("nubo-auth-refresh")
 	if len(refreshToken) < 1 {
 		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
 	}
