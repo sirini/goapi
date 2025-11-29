@@ -12,7 +12,7 @@ import (
 
 type BoardEditRepository interface {
 	CheckWriterForBlog(boardUid uint, actionUserUid uint) (bool, error)
-	FindTagUidByName(name string) (uint, error)
+	FindTagUidByName(name string) uint
 	FindAttachedPathByUid(fileUid uint) (string, error)
 	GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error)
 	GetMaxImageUid(boardUid uint, actionUserUid uint) (uint, error)
@@ -61,11 +61,11 @@ func (r *TsboardBoardEditRepository) FindAttachedPathByUid(fileUid uint) (string
 }
 
 // 태그명에 해당하는 고유 번호 반환하기
-func (r *TsboardBoardEditRepository) FindTagUidByName(name string) (uint, error) {
+func (r *TsboardBoardEditRepository) FindTagUidByName(name string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1", configs.Env.Prefix, models.TABLE_HASHTAG)
-	err := r.db.QueryRow(query, name).Scan(&uid)
-	return uid, err
+	r.db.QueryRow(query, name).Scan(&uid) // 기존 태그 없으면 무시
+	return uid
 }
 
 // 게시글에 삽입했던 이미지들 가져오기

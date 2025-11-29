@@ -13,24 +13,24 @@ import (
 
 type BoardService interface {
 	Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error)
-	GetBoardUid(id string) uint
-	GetMaxUid() uint
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
+	GetBoardUid(id string) uint
 	GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult
 	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
 	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
 	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
 	GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error)
 	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
+	GetMaxUid() uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
-	GetSuggestionTitles(input string, bunch uint) []string
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
+	GetSuggestionTitles(input string, bunch uint) []string
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
-	MovePost(param models.BoardMovePostParameter)
 	ModifyPost(param models.EditorModifyParameter) error
+	MovePost(param models.BoardMovePostParameter)
 	RemoveAttachedFile(param models.EditorRemoveAttachedParameter)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
@@ -416,11 +416,15 @@ func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) err
 	}
 	s.repos.BoardView.RemovePostTags(param.PostUid)
 	err := s.repos.BoardEdit.UpdatePost(param)
+
 	if err != nil {
 		return err
 	}
 
-	s.SaveTags(param.BoardUid, param.PostUid, param.Tags)
+	err = s.SaveTags(param.BoardUid, param.PostUid, param.Tags)
+	if err != nil {
+		return err
+	}
 	s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
 	return err
 }
@@ -528,20 +532,23 @@ func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []strin
 			continue
 		}
 
-		hashtagUid, err := s.repos.BoardEdit.FindTagUidByName(tag)
-		if err != nil {
-			return err
-		}
+		var hashtagUid uint
+		hashtagUid = s.repos.BoardEdit.FindTagUidByName(tag)
 		if hashtagUid > 0 {
 			err := s.repos.BoardEdit.UpdateTag(hashtagUid)
 			return err
 		} else {
-			hashtagUid, err = s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
+			uid, err := s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
 			if err != nil {
 				return err
 			}
+			hashtagUid = uid
 		}
-		s.repos.BoardEdit.InsertPostHashtag(boardUid, postUid, hashtagUid)
+
+		err := s.repos.BoardEdit.InsertPostHashtag(boardUid, postUid, hashtagUid)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
