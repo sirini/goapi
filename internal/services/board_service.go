@@ -416,7 +416,6 @@ func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) err
 	}
 	s.repos.BoardView.RemovePostTags(param.PostUid)
 	err := s.repos.BoardEdit.UpdatePost(param)
-
 	if err != nil {
 		return err
 	}
@@ -536,7 +535,9 @@ func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []strin
 		hashtagUid = s.repos.BoardEdit.FindTagUidByName(tag)
 		if hashtagUid > 0 {
 			err := s.repos.BoardEdit.UpdateTag(hashtagUid)
-			return err
+			if err != nil {
+				return err
+			}
 		} else {
 			uid, err := s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
 			if err != nil {
