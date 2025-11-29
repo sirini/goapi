@@ -108,19 +108,61 @@ func CutString(s string, max int) string {
 func initSanitizePolicy() {
 	sanitizePolicy = bluemonday.NewPolicy()
 	allowedTags := []string{
-		"h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "a", "s",
-		"ul", "ol", "nl", "li", "b", "i", "strong", "em", "mark", "span",
-		"strike", "code", "hr", "br", "div", "table", "iframe",
-		"thead", "caption", "tbody", "tr", "th", "td", "pre", "img",
+		"a",
+		"b",
+		"blockquote",
+		"br",
+		"caption",
+		"code",
+		"div",
+		"em",
+		"h1",
+		"h2",
+		"h3",
+		"h4",
+		"h5",
+		"h6",
+		"hr",
+		"i",
+		"iframe",
+		"img",
+		"li",
+		"mark",
+		"nl",
+		"ol",
+		"p",
+		"pre",
+		"s",
+		"span",
+		"strike",
+		"strong",
+		"table",
+		"tbody",
+		"td",
+		"th",
+		"thead",
+		"tr",
+		"ul",
 	}
 	sanitizePolicy.AllowElements(allowedTags...)
 	sanitizePolicy.AllowAttrs("style", "class").OnElements(allowedTags...)
 	sanitizePolicy.AllowAttrs("href", "name", "target").OnElements("a")
 	sanitizePolicy.AllowAttrs("src", "alt").OnElements("img")
 	sanitizePolicy.AllowAttrs(
-		"width", "height", "allowfullscreen", "autoplay", "disablekbcontrols",
-		"enableiframeapi", "endtime", "ivloadpolicy", "loop", "modestbranding",
-		"origin", "playlist", "src", "start",
+		"allowfullscreen",
+		"autoplay",
+		"disablekbcontrols",
+		"enableiframeapi",
+		"endtime",
+		"height",
+		"ivloadpolicy",
+		"loop",
+		"modestbranding",
+		"origin",
+		"playlist",
+		"src",
+		"start",
+		"width",
 	).OnElements("iframe")
 }
 
