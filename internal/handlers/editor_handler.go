@@ -15,6 +15,7 @@ type EditorHandler interface {
 	GetEditorConfigHandler(c fiber.Ctx) error
 	LoadInsertImageHandler(c fiber.Ctx) error
 	LoadPostHandler(c fiber.Ctx) error
+	LoadThumbnailImageHandler(c fiber.Ctx) error
 	ModifyPostHandler(c fiber.Ctx) error
 	RemoveInsertImageHandler(c fiber.Ctx) error
 	RemoveAttachedFileHandler(c fiber.Ctx) error
@@ -88,6 +89,19 @@ func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
+}
+
+// 첨부한 이미지 파일의 미리보기를 위한 썸네일 이미지 반환
+func (h *TsboardEditorHandler) LoadThumbnailImageHandler(c fiber.Ctx) error {
+	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid file uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+	thumb, err := h.service.Board.GetThumbnailImage(uint(fileUid))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, thumb)
 }
 
 // 게시글 수정하기 핸들러

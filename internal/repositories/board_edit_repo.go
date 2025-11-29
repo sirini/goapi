@@ -12,12 +12,13 @@ import (
 
 type BoardEditRepository interface {
 	CheckWriterForBlog(boardUid uint, actionUserUid uint) (bool, error)
-	FindTagUidByName(name string) uint
 	FindAttachedPathByUid(fileUid uint) (string, error)
+	FindAttachedThumbnailImageByUid(fileUid uint) (string, error)
+	FindTagUidByName(name string) uint
 	GetInsertedImages(param models.EditorInsertImageParameter) ([]models.Pair, error)
 	GetMaxImageUid(boardUid uint, actionUserUid uint) (uint, error)
-	GetSuggestionTitles(input string, bunch uint) ([]string, error)
 	GetSuggestionTags(input string, bunch uint) ([]models.EditorTagItem, error)
+	GetSuggestionTitles(input string, bunch uint) ([]string, error)
 	GetTotalImageCount(boardUid uint, actionUserUid uint) (uint, error)
 	InsertExif(fileUid uint, postUid uint, exif models.BoardExif) error
 	InsertFile(param models.EditorSaveFileParameter) (uint, error)
@@ -56,6 +57,14 @@ func (r *TsboardBoardEditRepository) CheckWriterForBlog(boardUid uint, actionUse
 func (r *TsboardBoardEditRepository) FindAttachedPathByUid(fileUid uint) (string, error) {
 	var path string
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE)
+	err := r.db.QueryRow(query, fileUid).Scan(&path)
+	return path, err
+}
+
+// 게시글 수정에서 미리보기할 이미지의 썸네일 경로 가져오기
+func (r *TsboardBoardEditRepository) FindAttachedThumbnailImageByUid(fileUid uint) (string, error) {
+	var path string
+	query := fmt.Sprintf("SELECT path FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE_THUMB)
 	err := r.db.QueryRow(query, fileUid).Scan(&path)
 	return path, err
 }

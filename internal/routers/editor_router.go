@@ -10,6 +10,7 @@ import (
 func RegisterEditorRouters(api fiber.Router, h *handlers.Handler) {
 	editor := api.Group("/editor")
 	editor.Get("/config", h.Editor.GetEditorConfigHandler)
+	editor.Get("/load/thumbnail", h.Editor.LoadThumbnailImageHandler)
 
 	editor.Get("/load/images", h.Editor.LoadInsertImageHandler, middlewares.JWTMiddleware())
 	editor.Get("/load/post", h.Editor.LoadPostHandler, middlewares.JWTMiddleware())

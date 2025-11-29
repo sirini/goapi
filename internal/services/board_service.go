@@ -26,6 +26,7 @@ type BoardService interface {
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetSuggestionTitles(input string, bunch uint) []string
+	GetThumbnailImage(fileUid uint) (string, error)
 	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParameter)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
@@ -276,6 +277,11 @@ func (s *TsboardBoardService) GetSuggestionTitles(input string, bunch uint) []st
 func (s *TsboardBoardService) GetSuggestionTags(input string, bunch uint) []models.EditorTagItem {
 	tags, _ := s.repos.BoardEdit.GetSuggestionTags(input, bunch)
 	return tags
+}
+
+// 글 수정 화면에서 기존에 첨부한 이미지의 썸네일 가져오기
+func (s *TsboardBoardService) GetThumbnailImage(fileUid uint) (string, error) {
+	return s.repos.BoardEdit.FindAttachedThumbnailImageByUid(fileUid)
 }
 
 // 게시글 가져오기
