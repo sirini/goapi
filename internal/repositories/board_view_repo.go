@@ -3,6 +3,8 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
@@ -128,6 +130,21 @@ func (r *TsboardBoardViewRepository) GetAttachedImages(postUid uint) ([]models.B
 		err = rows.Scan(&fileUid, &filePath)
 		if err != nil {
 			return nil, err
+		}
+
+		imageExtensions := map[string]bool{
+			".jpg":  true,
+			".jpeg": true,
+			".png":  true,
+			".gif":  true,
+			".bmp":  true,
+			".tiff": true,
+			".webp": true,
+		}
+		ext := filepath.Ext(filePath)
+		lowerExt := strings.ToLower(ext)
+		if !imageExtensions[lowerExt] {
+			continue
 		}
 
 		thumb := r.GetThumbnailImage(fileUid)
