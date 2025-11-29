@@ -35,7 +35,7 @@ type BoardService interface {
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
 	SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader)
-	SaveTags(boardUid uint, postUid uint, tags []string)
+	SaveTags(boardUid uint, postUid uint, tags []string) error
 	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
 	WritePost(param models.EditorWriteParameter) (uint, error)
@@ -203,10 +203,18 @@ func (s *TsboardBoardService) GetInsertedImages(param models.EditorInsertImagePa
 		return result, err
 	}
 
+	maxImageUid, err := s.repos.BoardEdit.GetMaxImageUid(param.BoardUid, param.UserUid)
+	if err != nil {
+		return result, err
+	}
+	totalImageCount, err := s.repos.BoardEdit.GetTotalImageCount(param.BoardUid, param.UserUid)
+	if err != nil {
+		return result, err
+	}
 	result = models.EditorInsertImageResult{
 		Images:          images,
-		MaxImageUid:     s.repos.BoardEdit.GetMaxImageUid(param.BoardUid, param.UserUid),
-		TotalImageCount: s.repos.BoardEdit.GetTotalImageCount(param.BoardUid, param.UserUid),
+		MaxImageUid:     maxImageUid,
+		TotalImageCount: totalImageCount,
 	}
 	return result, nil
 }
@@ -260,12 +268,14 @@ func (s *TsboardBoardService) GetRecentTags(boardUid uint, limit uint) ([]models
 
 // 유사 제목들 가져오기
 func (s *TsboardBoardService) GetSuggestionTitles(input string, bunch uint) []string {
-	return s.repos.BoardEdit.GetSuggestionTitles(input, bunch)
+	titles, _ := s.repos.BoardEdit.GetSuggestionTitles(input, bunch)
+	return titles
 }
 
 // 추천할 태그 목록들 가져오기
 func (s *TsboardBoardService) GetSuggestionTags(input string, bunch uint) []models.EditorTagItem {
-	return s.repos.BoardEdit.GetSuggestionTags(input, bunch)
+	tags, _ := s.repos.BoardEdit.GetSuggestionTags(input, bunch)
+	return tags
 }
 
 // 게시글 가져오기
@@ -405,10 +415,14 @@ func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) err
 		}
 	}
 	s.repos.BoardView.RemovePostTags(param.PostUid)
-	s.repos.BoardEdit.UpdatePost(param)
+	err := s.repos.BoardEdit.UpdatePost(param)
+	if err != nil {
+		return err
+	}
+
 	s.SaveTags(param.BoardUid, param.PostUid, param.Tags)
 	s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
-	return nil
+	return err
 }
 
 // 게시글 수정 시 첨부했던 파일 삭제하기
@@ -419,7 +433,10 @@ func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttach
 		return
 	}
 
-	filePath := s.repos.BoardEdit.FindAttachedPathByUid(param.FileUid)
+	filePath, err := s.repos.BoardEdit.FindAttachedPathByUid(param.FileUid)
+	if err != nil {
+		return
+	}
 	removes := s.repos.BoardView.RemoveAttachedFile(param.FileUid, filePath)
 
 	for _, target := range removes {
@@ -429,7 +446,10 @@ func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttach
 
 // 게시글에 삽입한 이미지 삭제하기
 func (s *TsboardBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
-	removePath := s.repos.BoardEdit.RemoveInsertedImage(imageUid, userUid)
+	removePath, err := s.repos.BoardEdit.RemoveInsertedImage(imageUid, userUid)
+	if err != nil {
+		return
+	}
 	if len(removePath) > 0 {
 		os.Remove("." + removePath)
 	}
@@ -466,12 +486,15 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 			if err != nil {
 				return
 			}
-			fileUid := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
+			fileUid, err := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
 				BoardUid: boardUid,
 				PostUid:  postUid,
 				Name:     utils.CutString(f.Filename, 100),
 				Path:     savedPath[1:],
 			})
+			if err != nil {
+				return
+			}
 
 			if utils.IsImage(f.Filename) {
 				thumb, err := utils.SaveThumbnailImage(savedPath)
@@ -498,21 +521,29 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 }
 
 // 해시태그들 저장하기
-func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []string) {
+func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []string) error {
 	for _, tag := range tags {
 		tidyTag := utils.Purify(tag)
 		if len(tidyTag) < 2 {
 			continue
 		}
 
-		hashtagUid := s.repos.BoardEdit.FindTagUidByName(tag)
+		hashtagUid, err := s.repos.BoardEdit.FindTagUidByName(tag)
+		if err != nil {
+			return err
+		}
 		if hashtagUid > 0 {
-			s.repos.BoardEdit.UpdateTag(hashtagUid)
+			err := s.repos.BoardEdit.UpdateTag(hashtagUid)
+			return err
 		} else {
-			hashtagUid = s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
+			hashtagUid, err = s.repos.BoardEdit.InsertTag(boardUid, postUid, tag)
+			if err != nil {
+				return err
+			}
 		}
 		s.repos.BoardEdit.InsertPostHashtag(boardUid, postUid, hashtagUid)
 	}
+	return nil
 }
 
 // 썸네일 이미지 생성 및 저장하기
@@ -539,7 +570,11 @@ func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, ima
 		return imagePaths, fmt.Errorf("you have no permission to write a new post")
 	}
 
-	if hasPerm := s.repos.BoardEdit.CheckWriterForBlog(boardUid, userUid); !hasPerm {
+	hasPerm, err := s.repos.BoardEdit.CheckWriterForBlog(boardUid, userUid)
+	if err != nil {
+		return imagePaths, err
+	}
+	if !hasPerm {
 		return imagePaths, fmt.Errorf("only blog owner can write a new post")
 	}
 
@@ -617,7 +652,11 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a new post")
 	}
-	if hasPerm := s.repos.BoardEdit.CheckWriterForBlog(param.BoardUid, param.UserUid); !hasPerm {
+	hasPerm, err := s.repos.BoardEdit.CheckWriterForBlog(param.BoardUid, param.UserUid)
+	if err != nil {
+		return models.FAILED, err
+	}
+	if !hasPerm {
 		return models.FAILED, fmt.Errorf("only blog owner can write a new post")
 	}
 
@@ -637,9 +676,11 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 		}
 	}
 
-	postUid := s.repos.BoardEdit.InsertPost(param)
+	postUid, err := s.repos.BoardEdit.InsertPost(param)
+	if err != nil {
+		return postUid, err
+	}
 	s.SaveTags(param.BoardUid, postUid, param.Tags)
 	s.SaveAttachments(param.BoardUid, postUid, param.Files)
-
 	return postUid, nil
 }
