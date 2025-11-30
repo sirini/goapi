@@ -220,29 +220,12 @@ func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 // 게시글 좋아하기 핸들러
 func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.BoardViewLikeParameter{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	liked, err := strconv.ParseUint(c.FormValue("liked"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid liked value, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-
-	parameter := models.BoardViewLikeParameter{
-		BoardViewCommonParameter: models.BoardViewCommonParameter{
-			BoardUid: uint(boardUid),
-			PostUid:  uint(postUid),
-			UserUid:  uint(actionUserUid),
-		},
-		Liked: liked > 0,
-	}
-
-	h.service.Board.LikeThisPost(parameter)
+	param.UserUid = uint(actionUserUid)
+	h.service.Board.LikeThisPost(param)
 	return utils.Ok(c, nil)
 }
 

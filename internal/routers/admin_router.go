@@ -56,7 +56,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	gList.Get("/groupids", h.Admin.ShowSimilarGroupIdHandler, middlewares.AdminMiddleware())
 	gList.Post("/create", h.Admin.CreateGroupHandler, middlewares.AdminMiddleware())
 	gList.Delete("/remove", h.Admin.RemoveGroupHandler, middlewares.AdminMiddleware())
-	gList.Put("/update", h.Admin.ChangeGroupIdHandler, middlewares.AdminMiddleware())
+	gList.Post("/update", h.Admin.ChangeGroupIdHandler, middlewares.AdminMiddleware())
 
 	latest.Get("/comment", h.Admin.LatestCommentLoadHandler, middlewares.AdminMiddleware())
 	latest.Delete("/comment", h.Admin.RemoveCommentHandler, middlewares.AdminMiddleware())

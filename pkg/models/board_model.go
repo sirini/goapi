@@ -299,9 +299,9 @@ type BoardThumbnail struct {
 
 // 게시글 보기에서 공통으로 쓰이는 파라미터 정의
 type BoardViewCommonParameter struct {
-	BoardUid uint
-	PostUid  uint
-	UserUid  uint
+	BoardUid uint `json:"boardUid"`
+	PostUid  uint `json:"postUid"`
+	UserUid  uint `json:"userUid"`
 }
 
 // 첨부파일 다운로드 결과 정의
@@ -333,7 +333,7 @@ type BoardViewResult struct {
 // 게시글 좋아하기에 필요한 파라미터 정의
 type BoardViewLikeParameter struct {
 	BoardViewCommonParameter
-	Liked bool
+	Liked bool `json:"liked"`
 }
 
 // 게시글 이동에 필요한 파라미터 정의
