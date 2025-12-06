@@ -342,7 +342,8 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 		isWriter := post.Writer.UserUid == param.UserUid
 
 		if !isAdmin && !isWriter {
-			result.Post.Content = ""
+			result.Post.Title = "A Secret Post"
+			result.Post.Content = "Unauthorized access: secret post"
 			result.Files = make([]models.BoardAttachment, 0)
 			result.Images = make([]models.BoardAttachedImage, 0)
 		}

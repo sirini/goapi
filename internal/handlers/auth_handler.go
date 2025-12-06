@@ -119,11 +119,12 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Refresh token has expired, please sign in again", models.CODE_FAILED_OPERATION)
 	}
 
-	if err = h.service.Auth.SaveTokensInCookie(c, uint(actionUserUid)); err != nil {
+	newAuthToken, _, err := h.service.Auth.SaveTokensInCookie(c, uint(actionUserUid))
+	if err != nil {
 		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
-	return utils.Ok(c, nil)
+	return utils.Ok(c, newAuthToken)
 }
 
 // 로그인 하기
@@ -167,11 +168,13 @@ func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
 	}
 
-	err := h.service.Auth.SaveTokensInCookie(c, user.Uid)
+	authToken, refreshToken, err := h.service.Auth.SaveTokensInCookie(c, user.Uid)
 	if err != nil {
 		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
+	user.Token = authToken
+	user.Refresh = refreshToken
 	return utils.Ok(c, user)
 }
 

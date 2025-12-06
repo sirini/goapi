@@ -85,7 +85,7 @@ func IsValidEmail(email string) bool {
 }
 
 // 쿠키에 저장
-func SaveCookie(c fiber.Ctx, name string, value string, days int) {
+func SaveCookie(c fiber.Ctx, name string, value string, hours int) {
 	isSecure := false
 	if strings.HasPrefix(configs.Env.URL, "https://") {
 		isSecure = true
@@ -95,7 +95,7 @@ func SaveCookie(c fiber.Ctx, name string, value string, days int) {
 		Name:     name,
 		Value:    value,
 		Path:     "/",
-		MaxAge:   86400 * days,
+		MaxAge:   hours * 60 * 60,
 		HTTPOnly: true,
 		SameSite: fiber.CookieSameSiteLaxMode,
 		Secure:   isSecure,

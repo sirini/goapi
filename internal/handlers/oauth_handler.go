@@ -77,7 +77,7 @@ func (h *TsboardOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 // 구글 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 1)
+	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.googleConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/google/callback", configs.Env.OAuthUrl),
@@ -126,7 +126,7 @@ func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 // 네이버 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 1)
+	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.naverRedirectURL = fmt.Sprintf("%s/naver/callback", configs.Env.OAuthUrl)
 	url := fmt.Sprintf(
@@ -226,7 +226,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 // 카카오 OAuth 로그인을 위해 리다이렉트
 func (h *TsboardOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 1)
+	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.kakaoConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/kakao/callback", configs.Env.OAuthUrl),
@@ -292,11 +292,12 @@ func (h *TsboardOAuth2Handler) UtilRegisterUser(id string, name string, profile 
 
 // 토큰 저장 및 쿠키에 사용자 정보 전달
 func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)
 
-	utils.SaveCookie(c, "nubo-auth-token", auth, 1)
-	utils.SaveCookie(c, "nubo-auth-refresh", refresh, 15)
+	utils.SaveCookie(c, "nubo-auth-token", auth, accessHours)
+	utils.SaveCookie(c, "nubo-auth-refresh", refresh, refreshDays*24)
 
 	return c.Redirect().To(fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix))
 }

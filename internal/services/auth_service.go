@@ -26,7 +26,7 @@ type AuthService interface {
 	ResetPassword(id string, hostname string) bool
 	Signin(id string, pw string) models.MyInfoResult
 	Signup(param models.SignupParameter) (models.SignupResult, error)
-	SaveTokensInCookie(c fiber.Ctx, userUid uint) error
+	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
 	VerifyEmail(param models.VerifyParameter) bool
 }
 
@@ -176,20 +176,20 @@ func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.Signup
 }
 
 // 로그인 성공 시 액세스 토큰과 리프레시 토큰들을 쿠키에 보관하기
-func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) error {
+func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error) {
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	authToken, err := utils.GenerateAccessToken(userUid, accessHours)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	refreshToken, err := utils.GenerateRefreshToken(refreshDays)
 	if err != nil {
-		return err
+		return authToken, "", err
 	}
 
-	utils.SaveCookie(c, "nubo-auth-token", authToken, 1)
-	utils.SaveCookie(c, "nubo-auth-refresh", refreshToken, refreshDays)
-	return nil
+	utils.SaveCookie(c, "nubo-auth-token", authToken, accessHours)
+	utils.SaveCookie(c, "nubo-auth-refresh", refreshToken, refreshDays*24)
+	return authToken, refreshToken, nil
 }
 
 // 이메일 인증 완료하기
