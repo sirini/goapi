@@ -70,12 +70,7 @@ func (s *TsboardCommentService) LoadList(param models.CommentListParameter) (mod
 		return result, fmt.Errorf("post has been removed")
 	}
 
-	if param.SinceUid < 1 {
-		param.SinceUid = s.repos.Comment.GetMaxUid() + 1
-	}
-
 	result.BoardUid = param.BoardUid
-	result.SinceUid = param.SinceUid
 	result.TotalCommentCount = s.repos.Board.GetCommentCount(param.PostUid)
 	comments, err := s.repos.Comment.GetComments(param)
 	if err != nil {

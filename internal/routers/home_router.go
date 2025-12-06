@@ -9,7 +9,7 @@ import (
 // 홈화면 및 SEO용 라우터들 등록
 func RegisterHomeRouters(api fiber.Router, h *handlers.Handler) {
 	home := api.Group("/home")
-	home.Get("/tsboard", h.Home.ShowVersionHandler)
+	home.Get("/nubo", h.Home.ShowVersionHandler)
 	home.Get("/visit", h.Home.CountingVisitorHandler)
 	home.Get("/latest", h.Home.LoadAllPostsHandler)
 	home.Get("/latest/post", h.Home.LoadPostsByIdHandler)

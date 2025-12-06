@@ -1,7 +1,5 @@
 package models
 
-import "html/template"
-
 // 버전 응답 구조체
 type HomeVisitResult struct {
 	Success         bool   `json:"success"`
@@ -21,12 +19,12 @@ type HomeSidebarBoardResult struct {
 
 // 최근 게시글 가져올 때 필요한 파라미터 정의
 type HomePostParameter struct {
-	SinceUid uint
-	Bunch    uint
-	Option   Search
-	Keyword  string
-	UserUid  uint
-	BoardUid uint
+	SinceUid uint   `json:"sinceUid"`
+	Bunch    uint   `json:"bunch"`
+	Option   Search `json:"option"`
+	Keyword  string `json:"keyword"`
+	UserUid  uint   `json:"userUid"`
+	BoardUid uint   `json:"boardUid"`
 }
 
 // 홈 사이드바에 출력할 그룹 목록 형태 정의
@@ -56,41 +54,4 @@ type HomePostItem struct {
 	BoardUid    uint `json:"boardUid"`
 	UserUid     uint `json:"userUid"`
 	CategoryUid uint `json:"categoryUid"`
-}
-
-// 사이트맵 구조체 정의
-type HomeSitemapURL struct {
-	Loc        string
-	LastMod    string
-	ChangeFreq string
-	Priority   string
-}
-
-// SEO 메인화면에 출력할 구조체 정의
-type HomeMainPage struct {
-	PageTitle string
-	PageUrl   string
-	Version   string
-	Articles  []HomeMainArticle
-}
-
-// SEO 메인화면에 보여줄 article 구조체 정의
-type HomeMainArticle struct {
-	Cover    string
-	Content  template.HTML
-	Comments []HomeMainComment
-	Date     string
-	Hashtags []Pair
-	Like     uint
-	Name     string
-	Title    string
-	Url      string
-}
-
-// SEO 메인화면에 보여줄 댓글 구조체 정의
-type HomeMainComment struct {
-	Content template.HTML
-	Date    string
-	Like    uint
-	Name    string
 }

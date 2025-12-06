@@ -16,7 +16,6 @@ type CommentRepository interface {
 	GetLikedCount(commentUid uint) uint
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
-	GetMaxUid() uint
 	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
 	InsertComment(param models.CommentWriteParameter) (uint, error)
@@ -49,12 +48,13 @@ func (r *TsboardCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, 
 
 // 댓글들 가져오기
 func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter) ([]models.CommentItem, error) {
-	arrow, _ := param.Direction.Query()
-	query := fmt.Sprintf(`SELECT uid, reply_uid, user_uid, content, submitted, modified, status 
-												FROM %s%s WHERE post_uid = ? AND status != ? AND uid %s ?
-												ORDER BY reply_uid ASC, uid ASC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT, arrow)
-
-	rows, err := r.db.Query(query, param.PostUid, models.CONTENT_REMOVED, param.SinceUid, param.Bunch)
+	offset := (param.Page - 1) * param.Limit
+	query := fmt.Sprintf(`SELECT t.uid, t.reply_uid, t.user_uid, t.content, t.submitted, t.modified, t.status 
+												FROM %s%s AS t 
+												JOIN (SELECT uid FROM %s%s ORDER BY uid DESC LIMIT ? OFFSET ?) AS p 
+												ON t.uid = p.uid
+												ORDER BY t.uid DESC`, configs.Env.Prefix, models.TABLE_COMMENT, configs.Env.Prefix, models.TABLE_COMMENT)
+	rows, err := r.db.Query(query, param.Limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +138,6 @@ func (r *TsboardCommentRepository) GetPostWriterUid(postUid uint) uint {
 
 	r.db.QueryRow(query, postUid).Scan(&userUid)
 	return userUid
-}
-
-// 가장 마지막 댓글 고유 번호 가져오기
-func (r *TsboardCommentRepository) GetMaxUid() uint {
-	var uid uint
-	query := fmt.Sprintf("SELECT MAX(uid) FROM %s%s", configs.Env.Prefix, models.TABLE_COMMENT)
-	r.db.QueryRow(query).Scan(&uid)
-	return uid
 }
 
 // 이 댓글에 답글이 하나라도 있는지 확인하기

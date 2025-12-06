@@ -30,38 +30,13 @@ func NewTsboardCommentHandler(service *services.Service) *TsboardCommentHandler 
 // 댓글 목록 가져오기 핸들러
 func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	id := c.FormValue("id")
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid page, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	sinceUid, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	paging, err := strconv.ParseInt(c.FormValue("pagingDirection"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid direction of paging, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.CommentListParameter{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	boardUid := h.service.Board.GetBoardUid(id)
-	result, err := h.service.Comment.LoadList(models.CommentListParameter{
-		BoardUid:  boardUid,
-		PostUid:   uint(postUid),
-		UserUid:   uint(actionUserUid),
-		Page:      uint(page),
-		Bunch:     uint(bunch),
-		SinceUid:  uint(sinceUid),
-		Direction: models.Paging(paging),
-	})
+	param.UserUid = uint(actionUserUid)
+	result, err := h.service.Comment.LoadList(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

@@ -32,10 +32,10 @@ func NewTsboardHomeHandler(service *services.Service) *TsboardHomeHandler {
 func (h *TsboardHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
 	return utils.Ok(c, &models.HomeVisitResult{
 		Success:         true,
-		OfficialWebsite: "tsboard.dev",
+		OfficialWebsite: "nubohub.org",
 		Version:         configs.Env.Version,
 		License:         "MIT",
-		Github:          "github.com/sirini/goapi",
+		Github:          "github.com/sirini/nubo",
 	})
 }
 
