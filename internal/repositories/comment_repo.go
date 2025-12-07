@@ -51,9 +51,9 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 	offset := (param.Page - 1) * param.Limit
 	query := fmt.Sprintf(`SELECT t.uid, t.reply_uid, t.user_uid, t.content, t.submitted, t.modified, t.status 
 												FROM %s%s AS t 
-												JOIN (SELECT uid FROM %s%s WHERE post_uid = ? ORDER BY uid DESC LIMIT ? OFFSET ?) AS p 
+												JOIN (SELECT uid FROM %s%s WHERE post_uid = ? LIMIT ? OFFSET ?) AS p 
 												ON t.uid = p.uid
-												ORDER BY t.uid DESC`, configs.Env.Prefix, models.TABLE_COMMENT, configs.Env.Prefix, models.TABLE_COMMENT)
+												ORDER BY t.reply_uid ASC`, configs.Env.Prefix, models.TABLE_COMMENT, configs.Env.Prefix, models.TABLE_COMMENT)
 	rows, err := r.db.Query(query, param.PostUid, param.Limit, offset)
 	if err != nil {
 		return nil, err
