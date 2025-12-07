@@ -31,7 +31,7 @@ func NewTsboardCommentHandler(service *services.Service) *TsboardCommentHandler 
 func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	param := models.CommentListParameter{}
-	if err := c.Bind().Body(&param); err != nil {
+	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
