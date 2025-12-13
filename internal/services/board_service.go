@@ -17,42 +17,42 @@ type BoardService interface {
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	GetBoardUid(id string) uint
 	GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult
-	GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error)
-	GetGalleryList(param models.BoardListParameter) models.GalleryListResult
+	GetGalleryGridItem(param models.BoardListParam) ([]models.GalleryGridItem, error)
+	GetGalleryList(param models.BoardListParam) models.GalleryListResult
 	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
-	GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error)
-	GetListItem(param models.BoardListParameter) (models.BoardListResult, error)
+	GetInsertedImages(param models.EditorInsertImageParam) (models.EditorInsertImageResult, error)
+	GetListItem(param models.BoardListParam) (models.BoardListResult, error)
 	GetMaxUid() uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetSuggestionTitles(input string, bunch uint) []string
 	GetThumbnailImage(fileUid uint) (string, error)
-	GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error)
-	LikeThisPost(param models.BoardViewLikeParameter)
+	GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error)
+	LikeThisPost(param models.BoardViewLikeParam)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
-	ModifyPost(param models.EditorModifyParameter) error
-	MovePost(param models.BoardMovePostParameter)
-	RemoveAttachedFile(param models.EditorRemoveAttachedParameter)
+	ModifyPost(param models.EditorModifyParam) error
+	MovePost(param models.BoardMovePostParam)
+	RemoveAttachedFile(param models.EditorRemoveAttachedParam)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
-	SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader)
+	SaveAttachments(param models.EditorSaveAttachedParam)
 	SaveTags(boardUid uint, postUid uint, tags []string) error
 	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
-	WritePost(param models.EditorWriteParameter) (uint, error)
+	WritePost(param models.EditorWriteParam) (uint, error)
 }
 
-type TsboardBoardService struct {
+type NuboBoardService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardBoardService(repos *repositories.Repository) *TsboardBoardService {
-	return &TsboardBoardService{repos: repos}
+func NewNuboBoardService(repos *repositories.Repository) *NuboBoardService {
+	return &NuboBoardService{repos: repos}
 }
 
 // 다운로드에 필요한 정보 반환
-func (s *TsboardBoardService) Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error) {
+func (s *NuboBoardService) Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error) {
 	var result models.BoardViewDownloadResult
 	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
 	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_DOWNLOAD)
@@ -70,7 +70,7 @@ func (s *TsboardBoardService) Download(boardUid uint, fileUid uint, userUid uint
 	}
 
 	s.repos.User.UpdateUserPoint(userUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
+	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
 		UserUid:  userUid,
 		BoardUid: boardUid,
 		Action:   models.POINT_ACTION_VIEW,
@@ -80,22 +80,22 @@ func (s *TsboardBoardService) Download(boardUid uint, fileUid uint, userUid uint
 }
 
 // 게시판 고유 번호 가져오기
-func (s *TsboardBoardService) GetBoardUid(id string) uint {
+func (s *NuboBoardService) GetBoardUid(id string) uint {
 	return s.repos.Board.GetBoardUidById(id)
 }
 
 // 게시글 최대 고유번호 반환
-func (s *TsboardBoardService) GetMaxUid() uint {
+func (s *NuboBoardService) GetMaxUid() uint {
 	return s.repos.Board.GetMaxUid(models.TABLE_POST)
 }
 
 // 게시판 설정값 가져오기
-func (s *TsboardBoardService) GetBoardConfig(boardUid uint) models.BoardConfig {
+func (s *NuboBoardService) GetBoardConfig(boardUid uint) models.BoardConfig {
 	return s.repos.Board.GetBoardConfig(boardUid)
 }
 
 // 게시글 이동할 대상 게시판 목록 가져오기
-func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error) {
+func (s *NuboBoardService) GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error) {
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid); !isAdmin {
 		return nil, fmt.Errorf("unauthorized access")
 	}
@@ -104,7 +104,7 @@ func (s *TsboardBoardService) GetBoardList(boardUid uint, userUid uint) ([]model
 }
 
 // 게시판 설정 및 카테고리, 관리자 여부 반환
-func (s *TsboardBoardService) GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult {
+func (s *NuboBoardService) GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult {
 	return models.EditorConfigResult{
 		Config:     s.repos.Board.GetBoardConfig(boardUid),
 		IsAdmin:    s.repos.Auth.CheckPermissionByUid(userUid, boardUid),
@@ -113,7 +113,7 @@ func (s *TsboardBoardService) GetEditorConfig(boardUid uint, userUid uint) model
 }
 
 // 갤러리에 사진 목록들 가져오기
-func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter) ([]models.GalleryGridItem, error) {
+func (s *NuboBoardService) GetGalleryGridItem(param models.BoardListParam) ([]models.GalleryGridItem, error) {
 	posts := make([]models.BoardListItem, 0)
 	var err error
 	items := make([]models.GalleryGridItem, 0)
@@ -154,7 +154,7 @@ func (s *TsboardBoardService) GetGalleryGridItem(param models.BoardListParameter
 }
 
 // 갤러리 리스트 반환하기
-func (s *TsboardBoardService) GetGalleryList(param models.BoardListParameter) models.GalleryListResult {
+func (s *NuboBoardService) GetGalleryList(param models.BoardListParam) models.GalleryListResult {
 	images, _ := s.GetGalleryGridItem(param)
 	return models.GalleryListResult{
 		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
@@ -164,7 +164,7 @@ func (s *TsboardBoardService) GetGalleryList(param models.BoardListParameter) mo
 }
 
 // 게시글 번호에 해당하는 첨부 사진들 가져오기 (GetPost() 후 호출됨)
-func (s *TsboardBoardService) GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error) {
+func (s *NuboBoardService) GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error) {
 	result := models.GalleryPhotoResult{}
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
 		return result, fmt.Errorf("you have been blocked by writer")
@@ -191,7 +191,7 @@ func (s *TsboardBoardService) GetGalleryPhotos(boardUid uint, postUid uint, user
 }
 
 // 게시글에 내가 삽입한 이미지 목록들 가져오기
-func (s *TsboardBoardService) GetInsertedImages(param models.EditorInsertImageParameter) (models.EditorInsertImageResult, error) {
+func (s *NuboBoardService) GetInsertedImages(param models.EditorInsertImageParam) (models.EditorInsertImageResult, error) {
 	result := models.EditorInsertImageResult{}
 	userLv, _ := s.repos.User.GetUserLevelPoint(param.UserUid)
 	needLv, _ := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_WRITE)
@@ -221,7 +221,7 @@ func (s *TsboardBoardService) GetInsertedImages(param models.EditorInsertImagePa
 }
 
 // 게시판 목록글들 가져오기
-func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (models.BoardListResult, error) {
+func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.BoardListResult, error) {
 	items := make([]models.BoardListItem, 0)
 	var err error
 
@@ -263,29 +263,29 @@ func (s *TsboardBoardService) GetListItem(param models.BoardListParameter) (mode
 }
 
 // 최근 사용된 해시태그 가져오기
-func (s *TsboardBoardService) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
+func (s *NuboBoardService) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
 	return s.repos.Board.GetRecentTags(boardUid, limit)
 }
 
 // 유사 제목들 가져오기
-func (s *TsboardBoardService) GetSuggestionTitles(input string, bunch uint) []string {
+func (s *NuboBoardService) GetSuggestionTitles(input string, bunch uint) []string {
 	titles, _ := s.repos.BoardEdit.GetSuggestionTitles(input, bunch)
 	return titles
 }
 
 // 추천할 태그 목록들 가져오기
-func (s *TsboardBoardService) GetSuggestionTags(input string, bunch uint) []models.EditorTagItem {
+func (s *NuboBoardService) GetSuggestionTags(input string, bunch uint) []models.EditorTagItem {
 	tags, _ := s.repos.BoardEdit.GetSuggestionTags(input, bunch)
 	return tags
 }
 
 // 글 수정 화면에서 기존에 첨부한 이미지의 썸네일 가져오기
-func (s *TsboardBoardService) GetThumbnailImage(fileUid uint) (string, error) {
+func (s *NuboBoardService) GetThumbnailImage(fileUid uint) (string, error) {
 	return s.repos.BoardEdit.FindAttachedThumbnailImageByUid(fileUid)
 }
 
 // 게시글 가져오기
-func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (models.BoardViewResult, error) {
+func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error) {
 	result := models.BoardViewResult{}
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
 		return result, fmt.Errorf("you have been blocked by writer")
@@ -301,7 +301,7 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 	}
 
 	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
+	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_VIEW,
@@ -358,12 +358,12 @@ func (s *TsboardBoardService) GetViewItem(param models.BoardViewParameter) (mode
 }
 
 // 글 작성자에게 차단당했는지 확인
-func (s *TsboardBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
+func (s *NuboBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
 	return s.repos.BoardView.CheckBannedByWriter(postUid, viewerUid)
 }
 
 // 게시글에 좋아요 클릭
-func (s *TsboardBoardService) LikeThisPost(param models.BoardViewLikeParameter) {
+func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) {
 	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
 		s.repos.BoardView.UpdateLikePost(param)
 	} else {
@@ -372,7 +372,7 @@ func (s *TsboardBoardService) LikeThisPost(param models.BoardViewLikeParameter) 
 }
 
 // 게시글 수정 시 기존 정보들 가져오기
-func (s *TsboardBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error) {
+func (s *NuboBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error) {
 	result := models.EditorLoadPostResult{}
 	post, err := s.repos.BoardView.GetPost(postUid, userUid)
 	if err != nil {
@@ -397,7 +397,7 @@ func (s *TsboardBoardService) LoadPost(boardUid uint, postUid uint, userUid uint
 }
 
 // 게시글 이동하기
-func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
+func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) {
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
 		return
 	}
@@ -405,7 +405,7 @@ func (s *TsboardBoardService) MovePost(param models.BoardMovePostParameter) {
 }
 
 // 게시글 수정하기
-func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) error {
+func (s *NuboBoardService) ModifyPost(param models.EditorModifyParam) error {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -431,12 +431,17 @@ func (s *TsboardBoardService) ModifyPost(param models.EditorModifyParameter) err
 	if err != nil {
 		return err
 	}
-	s.SaveAttachments(param.BoardUid, param.PostUid, param.Files)
+	s.SaveAttachments(models.EditorSaveAttachedParam{
+		Context:  param.Context,
+		BoardUid: param.BoardUid,
+		PostUid:  param.PostUid,
+		Files:    param.Files,
+	})
 	return err
 }
 
 // 게시글 수정 시 첨부했던 파일 삭제하기
-func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParameter) {
+func (s *NuboBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParam) {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -455,7 +460,7 @@ func (s *TsboardBoardService) RemoveAttachedFile(param models.EditorRemoveAttach
 }
 
 // 게시글에 삽입한 이미지 삭제하기
-func (s *TsboardBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
+func (s *NuboBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
 	removePath, err := s.repos.BoardEdit.RemoveInsertedImage(imageUid, userUid)
 	if err != nil {
 		return
@@ -466,7 +471,7 @@ func (s *TsboardBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
 }
 
 // 게시글 삭제하기
-func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid uint) {
+func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint) {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
 	if !isAdmin && !isAuthor {
@@ -484,9 +489,9 @@ func (s *TsboardBoardService) RemovePost(boardUid uint, postUid uint, userUid ui
 }
 
 // 첨부파일들을 저장하기
-func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files []*multipart.FileHeader) {
+func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam) {
 	var wg sync.WaitGroup
-	for _, file := range files {
+	for _, file := range param.Files {
 		wg.Add(1)
 
 		go func(f *multipart.FileHeader) {
@@ -496,9 +501,9 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 			if err != nil {
 				return
 			}
-			fileUid, err := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParameter{
-				BoardUid: boardUid,
-				PostUid:  postUid,
+			fileUid, err := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParam{
+				BoardUid: param.BoardUid,
+				PostUid:  param.PostUid,
 				Name:     utils.CutString(f.Filename, 100),
 				Path:     savedPath[1:],
 			})
@@ -511,18 +516,18 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 				if err != nil {
 					return
 				}
-				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
+				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 					BoardThumbnail: models.BoardThumbnail{
 						Large: thumb.Large[1:],
 						Small: thumb.Small[1:],
 					},
 					FileUid: fileUid,
-					PostUid: postUid,
+					PostUid: param.PostUid,
 				})
 				exif := utils.ExtractExif(savedPath)
-				s.repos.BoardEdit.InsertExif(fileUid, postUid, exif)
-				if imgDesc, err := utils.AskImageDescription(thumb.Small); err == nil {
-					s.repos.BoardEdit.InsertImageDescription(fileUid, postUid, imgDesc)
+				s.repos.BoardEdit.InsertExif(fileUid, param.PostUid, exif)
+				if imgDesc, err := utils.AskImageDescription(param.Context, thumb.Small); err == nil {
+					s.repos.BoardEdit.InsertImageDescription(fileUid, param.PostUid, imgDesc)
 				}
 			}
 		}(file)
@@ -531,7 +536,7 @@ func (s *TsboardBoardService) SaveAttachments(boardUid uint, postUid uint, files
 }
 
 // 해시태그들 저장하기
-func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []string) error {
+func (s *NuboBoardService) SaveTags(boardUid uint, postUid uint, tags []string) error {
 	for _, tag := range tags {
 		tidyTag := utils.Purify(tag)
 		if len(tidyTag) < 2 {
@@ -562,12 +567,12 @@ func (s *TsboardBoardService) SaveTags(boardUid uint, postUid uint, tags []strin
 }
 
 // 썸네일 이미지 생성 및 저장하기
-func (s *TsboardBoardService) SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail {
+func (s *NuboBoardService) SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail {
 	thumb, err := utils.SaveThumbnailImage(path)
 	if err != nil {
 		return thumb
 	}
-	s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParameter{
+	s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 		BoardThumbnail: models.BoardThumbnail{
 			Small: thumb.Small[1:],
 			Large: thumb.Large[1:],
@@ -579,7 +584,7 @@ func (s *TsboardBoardService) SaveThumbnail(fileUid uint, postUid uint, path str
 }
 
 // 게시글에 삽입할 이미지 파일 업로드 처리하기
-func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error) {
+func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error) {
 	imagePaths := make([]string, 0)
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(userUid, models.USER_ACTION_WRITE_POST); !hasPerm {
 		return imagePaths, fmt.Errorf("you have no permission to write a new post")
@@ -663,7 +668,7 @@ func (s *TsboardBoardService) UploadInsertImage(boardUid uint, userUid uint, ima
 }
 
 // 새 게시글 작성하기
-func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint, error) {
+func (s *NuboBoardService) WritePost(param models.EditorWriteParam) (uint, error) {
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a new post")
 	}
@@ -696,6 +701,11 @@ func (s *TsboardBoardService) WritePost(param models.EditorWriteParameter) (uint
 		return postUid, err
 	}
 	s.SaveTags(param.BoardUid, postUid, param.Tags)
-	s.SaveAttachments(param.BoardUid, postUid, param.Files)
+	s.SaveAttachments(models.EditorSaveAttachedParam{
+		Context:  param.Context,
+		BoardUid: param.BoardUid,
+		PostUid:  postUid,
+		Files:    param.Files,
+	})
 	return postUid, nil
 }

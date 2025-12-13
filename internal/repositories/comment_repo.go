@@ -11,33 +11,33 @@ import (
 
 type CommentRepository interface {
 	FindPostUserUidByUid(commentUid uint) (uint, uint)
-	GetComments(param models.CommentListParameter) ([]models.CommentItem, error)
+	GetComments(param models.CommentListParam) ([]models.CommentItem, error)
 	GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint
 	GetLikedCount(commentUid uint) uint
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
-	InsertComment(param models.CommentWriteParameter) (uint, error)
-	InsertLikeComment(param models.CommentLikeParameter)
+	InsertComment(param models.CommentWriteParam) (uint, error)
+	InsertLikeComment(param models.CommentLikeParam)
 	RemoveComment(commentUid uint) error
 	UpdateComment(commentUid uint, content string)
-	UpdateLikeComment(param models.CommentLikeParameter)
+	UpdateLikeComment(param models.CommentLikeParam)
 	UpdateReplyUid(commentUid uint, replyUid uint)
 }
 
-type TsboardCommentRepository struct {
+type NuboCommentRepository struct {
 	db    *sql.DB
 	board BoardRepository
 }
 
 // sql.DB, board 포인터 주입받기
-func NewTsboardCommentRepository(db *sql.DB, board BoardRepository) *TsboardCommentRepository {
-	return &TsboardCommentRepository{db: db, board: board}
+func NewNuboCommentRepository(db *sql.DB, board BoardRepository) *NuboCommentRepository {
+	return &NuboCommentRepository{db: db, board: board}
 }
 
 // 댓글 고유 번호로 댓글 작성자의 고유 번호 반환하기
-func (r *TsboardCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, uint) {
+func (r *NuboCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, uint) {
 	var postUid, userUid uint
 	query := fmt.Sprintf("SELECT post_uid, user_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
@@ -47,7 +47,7 @@ func (r *TsboardCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, 
 }
 
 // 댓글들 가져오기
-func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter) ([]models.CommentItem, error) {
+func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]models.CommentItem, error) {
 	offset := (param.Page - 1) * param.Limit
 	query := fmt.Sprintf(`SELECT t.uid, t.reply_uid, t.user_uid, t.content, t.submitted, t.modified, t.status 
 												FROM %s%s AS t 
@@ -104,14 +104,14 @@ func (r *TsboardCommentRepository) GetComments(param models.CommentListParameter
 }
 
 // 반복문에서 사용하는 댓글에 대한 좋아요 수 반환
-func (r *TsboardCommentRepository) GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint {
+func (r *NuboCommentRepository) GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint {
 	var count uint
 	stmt.QueryRow(commentUid, 1).Scan(&count)
 	return count
 }
 
 // 댓글에 대한 좋아요 수 반환
-func (r *TsboardCommentRepository) GetLikedCount(commentUid uint) uint {
+func (r *NuboCommentRepository) GetLikedCount(commentUid uint) uint {
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
@@ -121,7 +121,7 @@ func (r *TsboardCommentRepository) GetLikedCount(commentUid uint) uint {
 }
 
 // 게시글 상태 가져오기
-func (r *TsboardCommentRepository) GetPostStatus(postUid uint) models.Status {
+func (r *NuboCommentRepository) GetPostStatus(postUid uint) models.Status {
 	var status int8
 	query := fmt.Sprintf("SELECT status FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
@@ -131,7 +131,7 @@ func (r *TsboardCommentRepository) GetPostStatus(postUid uint) models.Status {
 }
 
 // 게시글 작성자의 고유 번호 반환하기
-func (r *TsboardCommentRepository) GetPostWriterUid(postUid uint) uint {
+func (r *NuboCommentRepository) GetPostWriterUid(postUid uint) uint {
 	var userUid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
@@ -141,7 +141,7 @@ func (r *TsboardCommentRepository) GetPostWriterUid(postUid uint) uint {
 }
 
 // 이 댓글에 답글이 하나라도 있는지 확인하기
-func (r *TsboardCommentRepository) HasReplyComment(commentUid uint) bool {
+func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
 	var replyUid uint
 	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
@@ -160,7 +160,7 @@ func (r *TsboardCommentRepository) HasReplyComment(commentUid uint) bool {
 }
 
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
-func (r *TsboardCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
+func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
@@ -170,7 +170,7 @@ func (r *TsboardCommentRepository) IsLikedComment(commentUid uint, userUid uint)
 }
 
 // 새로운 댓글 작성하기
-func (r *TsboardCommentRepository) InsertComment(param models.CommentWriteParameter) (uint, error) {
+func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam) (uint, error) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(reply_uid, board_uid, post_uid, user_uid, content, submitted, modified, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT)
@@ -194,7 +194,7 @@ func (r *TsboardCommentRepository) InsertComment(param models.CommentWriteParame
 }
 
 // 이 댓글에 대한 좋아요 추가하기
-func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikeParameter) {
+func (r *NuboCommentRepository) InsertLikeComment(param models.CommentLikeParam) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
@@ -202,7 +202,7 @@ func (r *TsboardCommentRepository) InsertLikeComment(param models.CommentLikePar
 }
 
 // 댓글을 삭제 상태로 변경하기
-func (r *TsboardCommentRepository) RemoveComment(commentUid uint) error {
+func (r *NuboCommentRepository) RemoveComment(commentUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 	_, err := r.db.Exec(query, models.CONTENT_REMOVED, commentUid)
@@ -210,7 +210,7 @@ func (r *TsboardCommentRepository) RemoveComment(commentUid uint) error {
 }
 
 // 기존 댓글 수정하기
-func (r *TsboardCommentRepository) UpdateComment(commentUid uint, content string) {
+func (r *NuboCommentRepository) UpdateComment(commentUid uint, content string) {
 	query := fmt.Sprintf("UPDATE %s%s SET content = ?, modified = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 
@@ -218,7 +218,7 @@ func (r *TsboardCommentRepository) UpdateComment(commentUid uint, content string
 }
 
 // 이 댓글에 대한 좋아요 변경하기
-func (r *TsboardCommentRepository) UpdateLikeComment(param models.CommentLikeParameter) {
+func (r *NuboCommentRepository) UpdateLikeComment(param models.CommentLikeParam) {
 	query := fmt.Sprintf("UPDATE %s%s SET liked = ?, timestamp = ? WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
@@ -226,7 +226,7 @@ func (r *TsboardCommentRepository) UpdateLikeComment(param models.CommentLikePar
 }
 
 // 답글 고유 번호 업데이트
-func (r *TsboardCommentRepository) UpdateReplyUid(commentUid uint, replyUid uint) {
+func (r *NuboCommentRepository) UpdateReplyUid(commentUid uint, replyUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET reply_uid = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 

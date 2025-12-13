@@ -28,7 +28,7 @@ type AdminRepository interface {
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetCommentCount(postUid uint) uint
-	GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment
+	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
 	GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent
 	GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent
 	GetDashboardReports(bunch uint) []models.AdminDashboardReport
@@ -37,15 +37,15 @@ type AdminRepository interface {
 	GetGroupList() []models.AdminGroupConfig
 	GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetLowestCategoryUid(boardUid uint) uint
-	GetReportList(param models.AdminReportParameter) []models.AdminReportItem
+	GetReportList(param models.AdminReportParam) []models.AdminReportItem
 	GetMemberList(bunch uint) []models.BoardWriter
 	GetPointPolicy(boardUid uint) (models.BoardActionPoint, error)
-	GetPostList(param models.AdminLatestParameter) []models.AdminLatestPost
+	GetPostList(param models.AdminLatestParam) []models.AdminLatestPost
 	GetRemoveFilePaths(boardUid uint) []string
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
 	GetTotalCount(table models.Table) uint
-	GetUserList(param models.AdminUserParameter) []models.AdminUserItem
+	GetUserList(param models.AdminUserParam) []models.AdminUserItem
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	InsertCategory(boardUid uint, name string) uint
 	IsAddedCategory(boardUid uint, name string) bool
@@ -67,17 +67,17 @@ type AdminRepository interface {
 	RemoveRecordByFileUid(table models.Table, fileUid uint) error
 }
 
-type TsboardAdminRepository struct {
+type NuboAdminRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardAdminRepository(db *sql.DB) *TsboardAdminRepository {
-	return &TsboardAdminRepository{db: db}
+func NewNuboAdminRepository(db *sql.DB) *NuboAdminRepository {
+	return &NuboAdminRepository{db: db}
 }
 
 // 카테고리가 게시판에 속해 있는 것인지 확인
-func (r *TsboardAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint) bool {
+func (r *NuboAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	r.db.QueryRow(query, catUid).Scan(&uid)
@@ -85,7 +85,7 @@ func (r *TsboardAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint
 }
 
 // 새 게시판 만들기
-func (r *TsboardAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint {
+func (r *NuboAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(id, group_uid, admin_uid, type, name, info,
 													row_count, width, use_category, level_list, level_view, level_write,
@@ -124,7 +124,7 @@ func (r *TsboardAdminRepository) CreateBoard(groupUid uint, newBoardId string) u
 }
 
 // 새 게시판 생성 시 함께 생성되는 기본 분류들 생성 처리
-func (r *TsboardAdminRepository) CreateDefaultCategories(boardUid uint, cats []string) {
+func (r *NuboAdminRepository) CreateDefaultCategories(boardUid uint, cats []string) {
 	for _, cat := range cats {
 		query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 		r.db.Exec(query, boardUid, cat)
@@ -132,7 +132,7 @@ func (r *TsboardAdminRepository) CreateDefaultCategories(boardUid uint, cats []s
 }
 
 // 새 그룹 생성하기
-func (r *TsboardAdminRepository) CreateGroup(newGroupId string) uint {
+func (r *NuboAdminRepository) CreateGroup(newGroupId string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (id, admin_uid, timestamp) VALUES (?, ?, ?)", configs.Env.Prefix, models.TABLE_GROUP)
 	result, err := r.db.Exec(query, newGroupId, models.CREATE_GROUP_ADMIN, time.Now().UnixMilli())
 	if err != nil {
@@ -147,7 +147,7 @@ func (r *TsboardAdminRepository) CreateGroup(newGroupId string) uint {
 }
 
 // 게시판 삭제 시 게시글에 딸린 첨부파일들 or 본문에 삽입한 이미지들 삭제를 위한 경로 반환
-func (r *TsboardAdminRepository) FindPathByUid(table models.Table, targetUid uint) []string {
+func (r *NuboAdminRepository) FindPathByUid(table models.Table, targetUid uint) []string {
 	var paths []string
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE %s_uid = ?", configs.Env.Prefix, table, table)
 	rows, err := r.db.Query(query, targetUid)
@@ -168,7 +168,7 @@ func (r *TsboardAdminRepository) FindPathByUid(table models.Table, targetUid uin
 }
 
 // 게시판 아이디와 타입 반환하기
-func (r *TsboardAdminRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
+func (r *NuboAdminRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
 	var id string
 	var boardType models.Board
 	query := fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
@@ -177,7 +177,7 @@ func (r *TsboardAdminRepository) FindBoardIdTypeByUid(boardUid uint) (string, mo
 }
 
 // 게시글 번호로 게시판 고유 번호 가져오기
-func (r *TsboardAdminRepository) FindBoardUidByPostUid(postUid uint) uint {
+func (r *NuboAdminRepository) FindBoardUidByPostUid(postUid uint) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
 	r.db.QueryRow(query, postUid).Scan(&uid)
@@ -185,7 +185,7 @@ func (r *TsboardAdminRepository) FindBoardUidByPostUid(postUid uint) uint {
 }
 
 // 입력된 게시판 아이디와 유사한 것들 가져오기
-func (r *TsboardAdminRepository) FindBoardInfoById(inputId string, bunch uint) []models.Triple {
+func (r *NuboAdminRepository) FindBoardInfoById(inputId string, bunch uint) []models.Triple {
 	items := make([]models.Triple, 0)
 	query := fmt.Sprintf("SELECT uid, id, name FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
@@ -206,7 +206,7 @@ func (r *TsboardAdminRepository) FindBoardInfoById(inputId string, bunch uint) [
 }
 
 // 그룹 아이디에 해당하는 고유 번호와 관리자 고유 번호 가져오기
-func (r *TsboardAdminRepository) FindGroupUidAdminUidById(groupId string) (uint, uint) {
+func (r *NuboAdminRepository) FindGroupUidAdminUidById(groupId string) (uint, uint) {
 	var groupUid, adminUid uint
 	query := fmt.Sprintf("SELECT uid, admin_uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
 	r.db.QueryRow(query, groupId).Scan(&groupUid, &adminUid)
@@ -214,7 +214,7 @@ func (r *TsboardAdminRepository) FindGroupUidAdminUidById(groupId string) (uint,
 }
 
 // 입력된 그룹 ID가 이미 등록되었는지 확인하기 위해 유사 ID 목록 가져오기
-func (r *TsboardAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []models.Pair {
+func (r *NuboAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []models.Pair {
 	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s WHERE id LIKE ? LIMIT ?", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query, "%"+inputId+"%", bunch)
@@ -235,7 +235,7 @@ func (r *TsboardAdminRepository) FindGroupUidIdById(inputId string, bunch uint) 
 }
 
 // 게시판 or 댓글의 좋아요 갯수 가져오기
-func (r *TsboardAdminRepository) FindLikeByUid(table models.Table, targetUid uint) uint {
+func (r *NuboAdminRepository) FindLikeByUid(table models.Table, targetUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s_uid = ? AND liked = ?", configs.Env.Prefix, table, table)
 	r.db.QueryRow(query, targetUid, 1).Scan(&count)
@@ -243,7 +243,7 @@ func (r *TsboardAdminRepository) FindLikeByUid(table models.Table, targetUid uin
 }
 
 // 게시판 삭제 시 게시글에 딸린 썸네일들 삭제를 위한 경로 반환
-func (r *TsboardAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
+func (r *NuboAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
 	var paths []string
 	query := fmt.Sprintf("SELECT path, full_path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE_THUMB)
 	rows, err := r.db.Query(query, postUid)
@@ -264,7 +264,7 @@ func (r *TsboardAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
 }
 
 // 게시판 번호에 해당하는 총 레코드 수 반환
-func (r *TsboardAdminRepository) FindCountByBoardUid(table models.Table, boardUid uint) uint {
+func (r *NuboAdminRepository) FindCountByBoardUid(table models.Table, boardUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, table)
 	r.db.QueryRow(query, boardUid).Scan(&count)
@@ -272,7 +272,7 @@ func (r *TsboardAdminRepository) FindCountByBoardUid(table models.Table, boardUi
 }
 
 // 게시글 작성자 기본 정보 반환하기
-func (r *TsboardAdminRepository) FindWriterByUid(userUid uint) models.BoardWriter {
+func (r *NuboAdminRepository) FindWriterByUid(userUid uint) models.BoardWriter {
 	result := models.BoardWriter{}
 	query := fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
@@ -283,7 +283,7 @@ func (r *TsboardAdminRepository) FindWriterByUid(userUid uint) models.BoardWrite
 }
 
 // 사용자 이름으로 고유 번화 반환하기
-func (r *TsboardAdminRepository) FindWriterUidByName(name string) uint {
+func (r *NuboAdminRepository) FindWriterUidByName(name string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name LIKE ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query, "%"+name+"%").Scan(&uid)
@@ -291,7 +291,7 @@ func (r *TsboardAdminRepository) FindWriterUidByName(name string) uint {
 }
 
 // 게시판 관리자 후보 목록 가져오기 (이름으로 검색)
-func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
+func (r *NuboAdminRepository) GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
 	items := make([]models.BoardWriter, 0)
 	query := fmt.Sprintf("SELECT uid, name, profile, signature FROM %s%s WHERE blocked = ? AND name LIKE ? LIMIT ?",
 		configs.Env.Prefix, models.TABLE_USER)
@@ -314,7 +314,7 @@ func (r *TsboardAdminRepository) GetAdminCandidates(name string, bunch uint) ([]
 }
 
 // 그룹 소속 게시판의 기본 정보 및 간단 통계 가져오기
-func (r *TsboardAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
 	items := make([]models.AdminGroupBoardItem, 0)
 	query := fmt.Sprintf("SELECT uid, id, admin_uid, type, name, info FROM %s%s WHERE group_uid = ?",
 		configs.Env.Prefix, models.TABLE_BOARD)
@@ -342,7 +342,7 @@ func (r *TsboardAdminRepository) GetBoardList(groupUid uint) []models.AdminGroup
 }
 
 // 게시글에 달린 댓글 갯수 가져오기
-func (r *TsboardAdminRepository) GetCommentCount(postUid uint) uint {
+func (r *NuboAdminRepository) GetCommentCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_COMMENT)
 	r.db.QueryRow(query, postUid).Scan(&count)
@@ -350,7 +350,7 @@ func (r *TsboardAdminRepository) GetCommentCount(postUid uint) uint {
 }
 
 // (검색된) 댓글 목록 가져오기
-func (r *TsboardAdminRepository) GetCommentList(param models.AdminLatestParameter) []models.AdminLatestComment {
+func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment {
 	items := make([]models.AdminLatestComment, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
@@ -385,7 +385,7 @@ func (r *TsboardAdminRepository) GetCommentList(param models.AdminLatestParamete
 }
 
 // 기본 그룹 번호 가져오기
-func (r *TsboardAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
+func (r *NuboAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE uid != ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
 	r.db.QueryRow(query, exceptUid).Scan(&uid)
@@ -393,7 +393,7 @@ func (r *TsboardAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
 }
 
 // 대시보드용 그룹 or 게시판 목록 가져오기
-func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uint) []models.Pair {
+func (r *NuboAdminRepository) GetGroupBoardList(table models.Table, bunch uint) []models.Pair {
 	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s ORDER BY uid DESC LIMIT ?", configs.Env.Prefix, table)
 	rows, err := r.db.Query(query, bunch)
@@ -414,7 +414,7 @@ func (r *TsboardAdminRepository) GetGroupBoardList(table models.Table, bunch uin
 }
 
 // 그룹 목록 가져오기
-func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupConfig {
+func (r *NuboAdminRepository) GetGroupList() []models.AdminGroupConfig {
 	items := make([]models.AdminGroupConfig, 0)
 	query := fmt.Sprintf("SELECT uid, id, admin_uid FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 	rows, err := r.db.Query(query)
@@ -437,7 +437,7 @@ func (r *TsboardAdminRepository) GetGroupList() []models.AdminGroupConfig {
 }
 
 // 대시보드용 최근 댓글 목록 가져오기
-func (r *TsboardAdminRepository) GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent {
+func (r *NuboAdminRepository) GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent {
 	items := make([]models.AdminDashboardLatestContent, 0)
 	query := fmt.Sprintf("SELECT uid, post_uid, user_uid, content FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_COMMENT)
@@ -465,7 +465,7 @@ func (r *TsboardAdminRepository) GetDashboardComments(bunch uint) []models.Admin
 }
 
 // 대시보드용 최근 게시글 목록 가져오기
-func (r *TsboardAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent {
+func (r *NuboAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent {
 	items := make([]models.AdminDashboardLatestContent, 0)
 	query := fmt.Sprintf("SELECT uid, board_uid, user_uid, title FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_POST)
@@ -493,7 +493,7 @@ func (r *TsboardAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDas
 }
 
 // 대시보드용 최근 신고 목록 가져오기
-func (r *TsboardAdminRepository) GetDashboardReports(bunch uint) []models.AdminDashboardReport {
+func (r *NuboAdminRepository) GetDashboardReports(bunch uint) []models.AdminDashboardReport {
 	items := make([]models.AdminDashboardReport, 0)
 	query := fmt.Sprintf("SELECT uid, from_uid, request FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_REPORT)
@@ -516,7 +516,7 @@ func (r *TsboardAdminRepository) GetDashboardReports(bunch uint) []models.AdminD
 }
 
 // 게시판 레벨 제한값 가져오기
-func (r *TsboardAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
+func (r *NuboAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
 	result := models.AdminBoardLevelPolicy{}
 	result.Uid = boardUid
 	query := fmt.Sprintf(`SELECT admin_uid, level_list, level_view, level_write, level_comment, level_download 
@@ -536,7 +536,7 @@ func (r *TsboardAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoar
 }
 
 // 가장 낮은 카테고리 고유 번호값 가져오기
-func (r *TsboardAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
+func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ? ORDER BY uid ASC LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD_CAT)
@@ -545,7 +545,7 @@ func (r *TsboardAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 }
 
 // 신고 목록 가져오기
-func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter) []models.AdminReportItem {
+func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []models.AdminReportItem {
 	items := make([]models.AdminReportItem, 0)
 	isSolvedQuery := "<"
 	if param.IsSolved {
@@ -587,7 +587,7 @@ func (r *TsboardAdminRepository) GetReportList(param models.AdminReportParameter
 }
 
 // 대시보드용 회원 목록 가져오기
-func (r *TsboardAdminRepository) GetMemberList(bunch uint) []models.BoardWriter {
+func (r *NuboAdminRepository) GetMemberList(bunch uint) []models.BoardWriter {
 	items := make([]models.BoardWriter, 0)
 	query := fmt.Sprintf("SELECT uid, name, profile, signature FROM %s%s ORDER BY uid DESC LIMIT ?",
 		configs.Env.Prefix, models.TABLE_USER)
@@ -609,7 +609,7 @@ func (r *TsboardAdminRepository) GetMemberList(bunch uint) []models.BoardWriter 
 }
 
 // 게시판 포인트 정책 가져오기
-func (r *TsboardAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActionPoint, error) {
+func (r *NuboAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActionPoint, error) {
 	result := models.BoardActionPoint{}
 	query := fmt.Sprintf(`SELECT point_view, point_write, point_comment, point_download 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
@@ -621,7 +621,7 @@ func (r *TsboardAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActi
 }
 
 // (검색된) 게시글 가져오기
-func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) []models.AdminLatestPost {
+func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []models.AdminLatestPost {
 	items := make([]models.AdminLatestPost, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	whereQuery := ""
@@ -660,7 +660,7 @@ func (r *TsboardAdminRepository) GetPostList(param models.AdminLatestParameter) 
 }
 
 // 게시판 삭제 시 제거 필요한 파일 목록 반환하기
-func (r *TsboardAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
+func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 	paths := make([]string, 0)
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_POST)
 	rows, err := r.db.Query(query, boardUid)
@@ -688,7 +688,7 @@ func (r *TsboardAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 }
 
 // 대시보드용 각종 통계 데이터 반환
-func (r *TsboardAdminRepository) GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic {
+func (r *NuboAdminRepository) GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic {
 	result := models.AdminDashboardStatistic{}
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, table)
 	err := r.db.QueryRow(query).Scan(&result.Total)
@@ -717,7 +717,7 @@ func (r *TsboardAdminRepository) GetStatistic(table models.Table, column models.
 }
 
 // 지정된 그룹에 소속된 게시판 갯수 반환
-func (r *TsboardAdminRepository) GetTotalBoardCount(groupUid uint) uint {
+func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
 	r.db.QueryRow(query, groupUid).Scan(&count)
@@ -725,7 +725,7 @@ func (r *TsboardAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 }
 
 // 지정 테이블의 총 레코드 갯수 반환
-func (r *TsboardAdminRepository) GetTotalCount(table models.Table) uint {
+func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, table)
 	r.db.QueryRow(query).Scan(&count)
@@ -733,7 +733,7 @@ func (r *TsboardAdminRepository) GetTotalCount(table models.Table) uint {
 }
 
 // (검색된) 사용자 목록 반환
-func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []models.AdminUserItem {
+func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
 	items := make([]models.AdminUserItem, 0)
 	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
 	isBlockedQuery := "<"
@@ -772,7 +772,7 @@ func (r *TsboardAdminRepository) GetUserList(param models.AdminUserParameter) []
 }
 
 // 사용자 정보 반환
-func (r *TsboardAdminRepository) GetUserInfo(userUid uint) models.AdminUserInfo {
+func (r *NuboAdminRepository) GetUserInfo(userUid uint) models.AdminUserInfo {
 	result := models.AdminUserInfo{}
 	query := fmt.Sprintf("SELECT uid, id, name, profile, level, point, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
@@ -781,7 +781,7 @@ func (r *TsboardAdminRepository) GetUserInfo(userUid uint) models.AdminUserInfo 
 }
 
 // 카테고리 추가하기
-func (r *TsboardAdminRepository) InsertCategory(boardUid uint, name string) uint {
+func (r *NuboAdminRepository) InsertCategory(boardUid uint, name string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	result, err := r.db.Exec(query, boardUid, name)
 	if err != nil {
@@ -795,7 +795,7 @@ func (r *TsboardAdminRepository) InsertCategory(boardUid uint, name string) uint
 }
 
 // 이미 동일한 이름의 카테고리가 있는지 검사하기
-func (r *TsboardAdminRepository) IsAddedCategory(boardUid uint, name string) bool {
+func (r *NuboAdminRepository) IsAddedCategory(boardUid uint, name string) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ? AND name = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD_CAT)
@@ -804,7 +804,7 @@ func (r *TsboardAdminRepository) IsAddedCategory(boardUid uint, name string) boo
 }
 
 // 이미 추가된 그룹 or 게시판 ID인지 검사하기
-func (r *TsboardAdminRepository) IsAdded(table models.Table, boardId string) bool {
+func (r *NuboAdminRepository) IsAdded(table models.Table, boardId string) bool {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, table)
 	r.db.QueryRow(query, boardId).Scan(&count)
@@ -812,7 +812,7 @@ func (r *TsboardAdminRepository) IsAdded(table models.Table, boardId string) boo
 }
 
 // 게시판 설정 업데이트하는 쿼리 실행
-func (r *TsboardAdminRepository) UpdateBoardSetting(boardUid uint, column string, value string) error {
+func (r *NuboAdminRepository) UpdateBoardSetting(boardUid uint, column string, value string) error {
 	query := fmt.Sprintf("UPDATE %s%s SET %s = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD, column)
 	_, err := r.db.Exec(query, value, boardUid)
@@ -820,28 +820,28 @@ func (r *TsboardAdminRepository) UpdateBoardSetting(boardUid uint, column string
 }
 
 // 그룹 or 게시판 관리자 변경하기
-func (r *TsboardAdminRepository) UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error {
+func (r *NuboAdminRepository) UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET admin_uid = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, newAdminUid, targetUid)
 	return err
 }
 
 // 그룹 ID 변경하기
-func (r *TsboardAdminRepository) UpdateGroupId(groupUid uint, newGroupId string) error {
+func (r *NuboAdminRepository) UpdateGroupId(groupUid uint, newGroupId string) error {
 	query := fmt.Sprintf("UPDATE %s%s SET id = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
 	_, err := r.db.Exec(query, newGroupId, groupUid)
 	return err
 }
 
 // 소속 그룹 번호를 일괄 변경하기
-func (r *TsboardAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error {
+func (r *NuboAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET group_uid = ? WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
 	_, err := r.db.Exec(query, newGroupUid, oldGroupUid)
 	return err
 }
 
 // 게시판 레벨 제한 변경하기
-func (r *TsboardAdminRepository) UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
+func (r *NuboAdminRepository) UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
 	query := fmt.Sprintf(`UPDATE %s%s SET level_list = ?, level_view = ?, level_write = ?, level_comment = ?, level_download = ? 
 												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
 	_, err := r.db.Exec(query, level.List, level.View, level.Write, level.Comment, level.Download, boardUid)
@@ -849,7 +849,7 @@ func (r *TsboardAdminRepository) UpdateLevelPolicy(boardUid uint, level models.B
 }
 
 // 게시판 포인트 정책 변경하기
-func (r *TsboardAdminRepository) UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error {
+func (r *NuboAdminRepository) UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error {
 	query := fmt.Sprintf(`UPDATE %s%s SET point_view = ?, point_write = ?, point_comment = ?, point_download = ? 
 												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
 	_, err := r.db.Exec(query, point.View, point.Write, point.Comment, point.Download, boardUid)
@@ -857,7 +857,7 @@ func (r *TsboardAdminRepository) UpdatePointPolicy(boardUid uint, point models.B
 }
 
 // 카테고리 삭제 후 게시글들의 카테고리 번호를 기본값으로 변경하기
-func (r *TsboardAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error {
+func (r *NuboAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET category_uid = ? WHERE board_uid = ? AND category_uid = ?",
 		configs.Env.Prefix, models.TABLE_POST)
 	_, err := r.db.Exec(query, newCatUid, boardUid, oldCatUid)
@@ -865,49 +865,49 @@ func (r *TsboardAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uin
 }
 
 // 게시판 삭제 시 (댓)글의 상태를 삭제됨으로 변경
-func (r *TsboardAdminRepository) UpdateStatusRemoved(table models.Table, boardUid uint) error {
+func (r *NuboAdminRepository) UpdateStatusRemoved(table models.Table, boardUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE board_uid = ?", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, models.CONTENT_REMOVED, boardUid)
 	return err
 }
 
 // 사용자의 레벨, 포인트 정보 변경하기
-func (r *TsboardAdminRepository) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
+func (r *NuboAdminRepository) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET level = ?, point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	_, err := r.db.Exec(query, level, point, userUid)
 	return err
 }
 
 // 게시판 삭제 시 게시판에 속한 분류명들 삭제하기
-func (r *TsboardAdminRepository) RemoveBoardCategories(boardUid uint) error {
+func (r *NuboAdminRepository) RemoveBoardCategories(boardUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	_, err := r.db.Exec(query, boardUid)
 	return err
 }
 
 // 게시판 삭제하기
-func (r *TsboardAdminRepository) RemoveBoard(boardUid uint) error {
+func (r *NuboAdminRepository) RemoveBoard(boardUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
 	_, err := r.db.Exec(query, boardUid)
 	return err
 }
 
 // 카테고리 삭제하기
-func (r *TsboardAdminRepository) RemoveCategory(boardUid uint, catUid uint) error {
+func (r *NuboAdminRepository) RemoveCategory(boardUid uint, catUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	_, err := r.db.Exec(query, catUid)
 	return err
 }
 
 // 그룹 삭제하기
-func (r *TsboardAdminRepository) RemoveGroup(groupUid uint) error {
+func (r *NuboAdminRepository) RemoveGroup(groupUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
 	_, err := r.db.Exec(query, groupUid)
 	return err
 }
 
 // 게시판 삭제 시 파일 경로들 삭제하기 (주의: 실제 파일들 삭제 처리 이후 실행 필요)
-func (r *TsboardAdminRepository) RemoveFileRecords(boardUid uint) error {
+func (r *NuboAdminRepository) RemoveFileRecords(boardUid uint) error {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, boardUid)
 	if err != nil {
@@ -942,7 +942,7 @@ func (r *TsboardAdminRepository) RemoveFileRecords(boardUid uint) error {
 }
 
 // 게시판 삭제 시 레코드 삭제 필요한 테이블 작업 처리
-func (r *TsboardAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) error {
+func (r *NuboAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ?", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, fileUid)
 	return err

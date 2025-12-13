@@ -17,17 +17,17 @@ type UserHandler interface {
 	ReportUserHandler(c fiber.Ctx) error
 }
 
-type TsboardUserHandler struct {
+type NuboUserHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardUserHandler(service *services.Service) *TsboardUserHandler {
-	return &TsboardUserHandler{service: service}
+func NewNuboUserHandler(service *services.Service) *NuboUserHandler {
+	return &NuboUserHandler{service: service}
 }
 
 // 비밀번호 변경하기
-func (h *TsboardUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
+func (h *NuboUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
 	userCode := c.FormValue("code")
 	newPassword := c.FormValue("password")
 
@@ -37,7 +37,7 @@ func (h *TsboardUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
 
 	verifyUid, err := strconv.ParseUint(c.FormValue("target"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.User.ChangePassword(uint(verifyUid), userCode, newPassword)
@@ -48,10 +48,10 @@ func (h *TsboardUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
 }
 
 // 사용자 정보 열람
-func (h *TsboardUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
+func (h *NuboUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	userInfo, err := h.service.User.GetUserInfo(uint(targetUserUid))
@@ -62,11 +62,11 @@ func (h *TsboardUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
 }
 
 // 사용자 권한 및 리포트 응답 가져오기
-func (h *TsboardUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
+func (h *NuboUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.User.GetUserPermission(uint(actionUserUid), uint(targetUserUid))
@@ -74,31 +74,31 @@ func (h *TsboardUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
 }
 
 // 사용자 권한 수정하기
-func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
+func (h *NuboUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	writePost, err := strconv.ParseBool(c.FormValue("writePost"))
 	if err != nil {
-		return utils.Err(c, "Invalid writePost, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	writeComment, err := strconv.ParseBool(c.FormValue("writeComment"))
 	if err != nil {
-		return utils.Err(c, "Invalid writeComment, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	sendChat, err := strconv.ParseBool(c.FormValue("sendChatMessage"))
 	if err != nil {
-		return utils.Err(c, "Invalid sendChatMessage, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	sendReport, err := strconv.ParseBool(c.FormValue("sendReport"))
 	if err != nil {
-		return utils.Err(c, "Invalid sendReport, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	login, err := strconv.ParseBool(c.FormValue("login"))
 	if err != nil {
-		return utils.Err(c, "Invalid login, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	response := c.FormValue("response")
 
@@ -122,16 +122,16 @@ func (h *TsboardUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 }
 
 // 사용자 신고하기
-func (h *TsboardUserHandler) ReportUserHandler(c fiber.Ctx) error {
+func (h *NuboUserHandler) ReportUserHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	content := c.FormValue("content")
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	checkedBlackList, err := strconv.ParseBool(c.FormValue("checkedBlackList"))
 	if err != nil {
-		return utils.Err(c, "Invalid checkedBlackList, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	result := h.service.User.ReportTargetUser(uint(actionUserUid), uint(targetUserUid), checkedBlackList, content)
 	if !result {

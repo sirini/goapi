@@ -28,17 +28,17 @@ type AuthHandler interface {
 	UpdateMyInfoHandler(c fiber.Ctx) error
 }
 
-type TsboardAuthHandler struct {
+type NuboAuthHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardAuthHandler(service *services.Service) *TsboardAuthHandler {
-	return &TsboardAuthHandler{service: service}
+func NewNuboAuthHandler(service *services.Service) *NuboAuthHandler {
+	return &NuboAuthHandler{service: service}
 }
 
 // (회원가입 시) 이메일 주소가 이미 등록되어 있는지 확인하기
-func (h *TsboardAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
 	id := c.FormValue("email")
 	if !utils.IsValidEmail(id) {
 		return utils.Err(c, "Invalid email address", models.CODE_INVALID_PARAMETER)
@@ -52,7 +52,7 @@ func (h *TsboardAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
 }
 
 // (회원가입 시) 이름이 이미 등록되어 있는지 확인하기
-func (h *TsboardAuthHandler) CheckNameHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) CheckNameHandler(c fiber.Ctx) error {
 	name := c.FormValue("name")
 	if len(name) < 2 {
 		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
@@ -66,7 +66,7 @@ func (h *TsboardAuthHandler) CheckNameHandler(c fiber.Ctx) error {
 }
 
 // 로그인 한 사용자의 정보 불러오기
-func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	myinfo := h.service.Auth.GetMyInfo(uint(actionUserUid))
 	if myinfo.Uid < 1 {
@@ -76,7 +76,7 @@ func (h *TsboardAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
 }
 
 // 로그아웃 처리하기
-func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	h.service.Auth.Logout(uint(actionUserUid))
 
@@ -89,7 +89,7 @@ func (h *TsboardAuthHandler) LogoutHandler(c fiber.Ctx) error {
 }
 
 // 비밀번호 초기화하기
-func (h *TsboardAuthHandler) ResetPasswordHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) ResetPasswordHandler(c fiber.Ctx) error {
 	id := c.FormValue("email")
 	if !utils.IsValidEmail(id) {
 		return utils.Err(c, "Failed to reset password, invalid ID(email)", models.CODE_INVALID_PARAMETER)
@@ -105,7 +105,7 @@ func (h *TsboardAuthHandler) ResetPasswordHandler(c fiber.Ctx) error {
 }
 
 // 사용자의 기존 (액세스) 토큰이 만료되었을 때, 리프레시 토큰 유효한지 보고 새로 발급
-func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 	actionUserUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -128,8 +128,8 @@ func (h *TsboardAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 }
 
 // 로그인 하기
-func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
-	form := models.SigninParameter{}
+func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
+	form := models.SigninParam{}
 	if err := c.Bind().Body(&form); err != nil {
 		return utils.Err(c, "Unable to marshal given input", models.CODE_INVALID_PARAMETER)
 	}
@@ -179,7 +179,7 @@ func (h *TsboardAuthHandler) SigninHandler(c fiber.Ctx) error {
 }
 
 // 회원가입 하기
-func (h *TsboardAuthHandler) SignupHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
 	id := c.FormValue("email")
 	pw := c.FormValue("password")
 	name := c.FormValue("name")
@@ -188,7 +188,7 @@ func (h *TsboardAuthHandler) SignupHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to sign up, invalid ID or password", models.CODE_INVALID_PARAMETER)
 	}
 
-	result, err := h.service.Auth.Signup(models.SignupParameter{
+	result, err := h.service.Auth.Signup(models.SignupParam{
 		ID:       id,
 		Password: pw,
 		Name:     name,
@@ -201,7 +201,7 @@ func (h *TsboardAuthHandler) SignupHandler(c fiber.Ctx) error {
 }
 
 // 인증 완료하기
-func (h *TsboardAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 	targetStr := c.FormValue("target")
 	code := c.FormValue("code")
 	id := c.FormValue("email")
@@ -221,7 +221,7 @@ func (h *TsboardAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid target, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	result := h.service.Auth.VerifyEmail(models.VerifyParameter{
+	result := h.service.Auth.VerifyEmail(models.VerifyParam{
 		Target:   uint(target),
 		Code:     code,
 		Id:       id,
@@ -236,7 +236,7 @@ func (h *TsboardAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 }
 
 // 로그인 한 사용자 정보 업데이트
-func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
+func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	name := html.EscapeString(c.FormValue("name"))
 	signature := html.EscapeString(c.FormValue("signature"))
@@ -254,7 +254,7 @@ func (h *TsboardAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	}
 
 	header, _ := c.FormFile("profile")
-	parameter := models.UpdateUserInfoParameter{
+	parameter := models.UpdateUserInfoParam{
 		UserUid:    uint(actionUserUid),
 		Name:       name,
 		Signature:  signature,

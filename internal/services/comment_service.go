@@ -12,31 +12,31 @@ import (
 )
 
 type CommentService interface {
-	Like(param models.CommentLikeParameter)
-	LoadList(param models.CommentListParameter) (models.CommentListResult, error)
-	Modify(param models.CommentModifyParameter) error
+	Like(param models.CommentLikeParam)
+	LoadList(param models.CommentListParam) (models.CommentListResult, error)
+	Modify(param models.CommentModifyParam) error
 	Remove(commentUid uint, boardUid uint, userUid uint) error
-	Reply(param models.CommentReplyParameter) (uint, error)
-	Write(param models.CommentWriteParameter) (uint, error)
+	Reply(param models.CommentReplyParam) (uint, error)
+	Write(param models.CommentWriteParam) (uint, error)
 }
 
-type TsboardCommentService struct {
+type NuboCommentService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardCommentService(repos *repositories.Repository) *TsboardCommentService {
-	return &TsboardCommentService{repos: repos}
+func NewNuboCommentService(repos *repositories.Repository) *NuboCommentService {
+	return &NuboCommentService{repos: repos}
 }
 
 // 댓글에 좋아요 클릭하기
-func (s *TsboardCommentService) Like(param models.CommentLikeParameter) {
+func (s *NuboCommentService) Like(param models.CommentLikeParam) {
 	if isLiked := s.repos.Comment.IsLikedComment(param.CommentUid, param.UserUid); !isLiked {
 		s.repos.Comment.InsertLikeComment(param)
 
 		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
 		if param.UserUid != targetUserUid {
-			s.repos.Noti.InsertNotification(models.InsertNotificationParameter{
+			s.repos.Noti.InsertNotification(models.InsertNotificationParam{
 				ActionUserUid: param.UserUid,
 				TargetUserUid: targetUserUid,
 				NotiType:      models.NOTI_LIKE_COMMENT,
@@ -50,7 +50,7 @@ func (s *TsboardCommentService) Like(param models.CommentLikeParameter) {
 }
 
 // 댓글 목록 가져오기
-func (s *TsboardCommentService) LoadList(param models.CommentListParameter) (models.CommentListResult, error) {
+func (s *NuboCommentService) LoadList(param models.CommentListParam) (models.CommentListResult, error) {
 	result := models.CommentListResult{}
 	userLv, _ := s.repos.User.GetUserLevelPoint(param.UserUid)
 	needLv, _ := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
@@ -81,7 +81,7 @@ func (s *TsboardCommentService) LoadList(param models.CommentListParameter) (mod
 }
 
 // 기존 댓글 수정하기
-func (s *TsboardCommentService) Modify(param models.CommentModifyParameter) error {
+func (s *NuboCommentService) Modify(param models.CommentModifyParam) error {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.CommentUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -92,7 +92,7 @@ func (s *TsboardCommentService) Modify(param models.CommentModifyParameter) erro
 }
 
 // 댓글 삭제하기
-func (s *TsboardCommentService) Remove(commentUid uint, boardUid uint, userUid uint) error {
+func (s *NuboCommentService) Remove(commentUid uint, boardUid uint, userUid uint) error {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, commentUid, userUid)
 	if !isAdmin && !isAuthor {
@@ -108,8 +108,8 @@ func (s *TsboardCommentService) Remove(commentUid uint, boardUid uint, userUid u
 }
 
 // 새로운 답글 작성하기
-func (s *TsboardCommentService) Reply(param models.CommentReplyParameter) (uint, error) {
-	insertId, err := s.Write(param.CommentWriteParameter)
+func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error) {
+	insertId, err := s.Write(param.CommentWriteParam)
 	if err != nil {
 		return models.FAILED, err
 	}
@@ -118,7 +118,7 @@ func (s *TsboardCommentService) Reply(param models.CommentReplyParameter) (uint,
 }
 
 // 새로운 댓글 작성하기
-func (s *TsboardCommentService) Write(param models.CommentWriteParameter) (uint, error) {
+func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error) {
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_COMMENT); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a comment")
 	}
@@ -138,7 +138,7 @@ func (s *TsboardCommentService) Write(param models.CommentWriteParameter) (uint,
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
 	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParameter{
+	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_COMMENT,
@@ -153,7 +153,7 @@ func (s *TsboardCommentService) Write(param models.CommentWriteParameter) (uint,
 
 	targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
 	if param.UserUid != targetUserUid {
-		s.repos.Noti.InsertNotification(models.InsertNotificationParameter{
+		s.repos.Noti.InsertNotification(models.InsertNotificationParam{
 			ActionUserUid: param.UserUid,
 			TargetUserUid: targetUserUid,
 			NotiType:      models.NOTI_LEAVE_COMMENT,

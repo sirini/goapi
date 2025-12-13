@@ -22,18 +22,18 @@ type Handler struct {
 // 모든 핸들러들을 생성
 func NewHandler(s *services.Service) *Handler {
 	return &Handler{
-		Admin:   NewTsboardAdminHandler(s),
-		Auth:    NewTsboardAuthHandler(s),
-		Board:   NewTsboardBoardHandler(s),
-		Blog:    NewTsboardBlogHandler(s),
-		Chat:    NewTsboardChatHandler(s),
-		Comment: NewTsboardCommentHandler(s),
-		Editor:  NewTsboardEditorHandler(s),
-		Home:    NewTsboardHomeHandler(s),
-		Noti:    NewTsboardNotiHandler(s),
-		OAuth2:  NewTsboardOAuth2Handler(s),
-		Sync:    NewTsboardSyncHandler(s),
-		Trade:   NewTsboardTradeHandler(s),
-		User:    NewTsboardUserHandler(s),
+		Admin:   NewNuboAdminHandler(s),
+		Auth:    NewNuboAuthHandler(s),
+		Board:   NewNuboBoardHandler(s),
+		Blog:    NewNuboBlogHandler(s),
+		Chat:    NewNuboChatHandler(s),
+		Comment: NewNuboCommentHandler(s),
+		Editor:  NewNuboEditorHandler(s),
+		Home:    NewNuboHomeHandler(s),
+		Noti:    NewNuboNotiHandler(s),
+		OAuth2:  NewNuboOAuth2Handler(s),
+		Sync:    NewNuboSyncHandler(s),
+		Trade:   NewNuboTradeHandler(s),
+		User:    NewNuboUserHandler(s),
 	}
 }

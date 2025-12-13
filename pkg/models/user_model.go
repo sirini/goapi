@@ -78,7 +78,7 @@ func (pa PointAction) String() string {
 }
 
 // 포인트 변경 파라미터 정의
-type UpdatePointParameter struct {
+type UpdatePointParam struct {
 	UserUid  uint
 	BoardUid uint
 	Action   PointAction
@@ -86,7 +86,7 @@ type UpdatePointParameter struct {
 }
 
 // 내 정보 수정하기 파라미터 정의
-type UpdateUserInfoParameter struct {
+type UpdateUserInfoParam struct {
 	UserUid    uint
 	Name       string
 	Signature  string

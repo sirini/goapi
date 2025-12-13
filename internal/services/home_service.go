@@ -7,26 +7,26 @@ import (
 
 type HomeService interface {
 	AddVisitorLog(userUid uint)
-	GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error)
+	GetLatestPosts(param models.HomePostParam) ([]models.BoardHomePostItem, error)
 	GetSidebarLinks() ([]models.HomeSidebarGroupResult, error)
 }
 
-type TsboardHomeService struct {
+type NuboHomeService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardHomeService(repos *repositories.Repository) *TsboardHomeService {
-	return &TsboardHomeService{repos: repos}
+func NewNuboHomeService(repos *repositories.Repository) *NuboHomeService {
+	return &NuboHomeService{repos: repos}
 }
 
 // 방문자 접속 기록하기
-func (s *TsboardHomeService) AddVisitorLog(userUid uint) {
+func (s *NuboHomeService) AddVisitorLog(userUid uint) {
 	s.repos.Home.InsertVisitorLog(userUid)
 }
 
 // 지정된 게시글 번호 이하의 최근글들 가져오기
-func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]models.BoardHomePostItem, error) {
+func (s *NuboHomeService) GetLatestPosts(param models.HomePostParam) ([]models.BoardHomePostItem, error) {
 	items := make([]models.BoardHomePostItem, 0)
 	posts := make([]models.HomePostItem, 0)
 	var err error
@@ -79,6 +79,6 @@ func (s *TsboardHomeService) GetLatestPosts(param models.HomePostParameter) ([]m
 }
 
 // 사이드바 그룹/게시판들 목록 가져오기
-func (s *TsboardHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
+func (s *NuboHomeService) GetSidebarLinks() ([]models.HomeSidebarGroupResult, error) {
 	return s.repos.Home.GetGroupBoardLinks()
 }

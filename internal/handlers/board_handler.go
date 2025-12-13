@@ -23,17 +23,17 @@ type BoardHandler interface {
 	RemovePostHandler(c fiber.Ctx) error
 }
 
-type TsboardBoardHandler struct {
+type NuboBoardHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardBoardHandler(service *services.Service) *TsboardBoardHandler {
-	return &TsboardBoardHandler{service: service}
+func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
+	return &NuboBoardHandler{service: service}
 }
 
 // 게시글 목록 가져오기 핸들러
-func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
@@ -59,7 +59,7 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	parameter := models.BoardListParameter{}
+	parameter := models.BoardListParam{}
 	parameter.SinceUid = uint(sinceUid64)
 	if parameter.SinceUid < 1 {
 		parameter.SinceUid = h.service.Board.GetMaxUid() + 1
@@ -82,10 +82,10 @@ func (h *TsboardBoardHandler) BoardListHandler(c fiber.Ctx) error {
 }
 
 // 최근 사용된 해시태그 목록 보기 핸들러
-func (h *TsboardBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
@@ -100,7 +100,7 @@ func (h *TsboardBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
 }
 
 // 게시글 보기 핸들러
-func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
@@ -120,8 +120,8 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid board id, cannot find a board", models.CODE_INVALID_PARAMETER)
 	}
 
-	parameter := models.BoardViewParameter{
-		BoardViewCommonParameter: models.BoardViewCommonParameter{
+	parameter := models.BoardViewParam{
+		BoardViewCommonParam: models.BoardViewCommonParam{
 			BoardUid: boardUid,
 			PostUid:  uint(postUid),
 			UserUid:  uint(actionUserUid),
@@ -138,11 +138,11 @@ func (h *TsboardBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 }
 
 // 첨부파일 다운로드 핸들러
-func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
@@ -156,7 +156,7 @@ func (h *TsboardBoardHandler) DownloadHandler(c fiber.Ctx) error {
 }
 
 // 갤러리 리스트 핸들러
-func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
@@ -182,7 +182,7 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid direction of paging, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	parameter := models.BoardListParameter{}
+	parameter := models.BoardListParam{}
 	parameter.SinceUid = uint(sinceUid64)
 	if parameter.SinceUid < 1 {
 		parameter.SinceUid = h.service.Board.GetMaxUid() + 1
@@ -202,7 +202,7 @@ func (h *TsboardBoardHandler) GalleryListHandler(c fiber.Ctx) error {
 }
 
 // 갤러리 사진 열람하기 핸들러
-func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	postUid, err := strconv.ParseUint(c.FormValue("no"), 10, 32)
@@ -218,9 +218,9 @@ func (h *TsboardBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 }
 
 // 게시글 좋아하기 핸들러
-func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	param := models.BoardViewLikeParameter{}
+	param := models.BoardViewLikeParam{}
 	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -230,11 +230,11 @@ func (h *TsboardBoardHandler) LikePostHandler(c fiber.Ctx) error {
 }
 
 // 게시글 이동 대상 목록 가져오는 핸들러
-func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	boards, err := h.service.Board.GetBoardList(uint(boardUid), uint(actionUserUid))
@@ -245,11 +245,11 @@ func (h *TsboardBoardHandler) ListForMoveHandler(c fiber.Ctx) error {
 }
 
 // 게시글 이동하기 핸들러
-func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) MovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	targetBoardUid, err := strconv.ParseUint(c.FormValue("targetBoardUid"), 10, 32)
 	if err != nil {
@@ -260,8 +260,8 @@ func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.MovePost(models.BoardMovePostParameter{
-		BoardViewCommonParameter: models.BoardViewCommonParameter{
+	h.service.Board.MovePost(models.BoardMovePostParam{
+		BoardViewCommonParam: models.BoardViewCommonParam{
 			BoardUid: uint(boardUid),
 			PostUid:  uint(postUid),
 			UserUid:  uint(actionUserUid),
@@ -272,11 +272,11 @@ func (h *TsboardBoardHandler) MovePostHandler(c fiber.Ctx) error {
 }
 
 // 게시글 삭제하기 핸들러
-func (h *TsboardBoardHandler) RemovePostHandler(c fiber.Ctx) error {
+func (h *NuboBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {

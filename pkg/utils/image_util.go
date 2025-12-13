@@ -9,24 +9,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/h2non/bimg"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
 )
 
 //                                                                //
-// 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현   //
+// 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현 //
 // macOS(homebrew): brew install vips                             //
 // Ubuntu Linux: sudo apt install libvips-dev                     //
 //                                                                //
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
-func AskImageDescription(path string) (string, error) {
+func AskImageDescription(ctx context.Context, path string) (string, error) {
 	if len(configs.Env.OpenaiKey) < 1 {
 		return "", fmt.Errorf("api key of openai is empty")
 	}
@@ -35,37 +36,32 @@ func AskImageDescription(path string) (string, error) {
 		return "", err
 	}
 	defer os.Remove(jpgTempPath)
+
 	encoded, err := EncodeImage(jpgTempPath)
 	if err != nil {
 		return "", err
 	}
 
+	tc, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
 	client := openai.NewClient(option.WithAPIKey(configs.Env.OpenaiKey))
-	result, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
-		Model: openai.F("gpt-4o"),
-		Messages: openai.F([]openai.ChatCompletionMessageParamUnion{
-			openai.ChatCompletionUserMessageParam{
-				Role: openai.F(openai.ChatCompletionUserMessageParamRoleUser),
-				Content: openai.F([]openai.ChatCompletionContentPartUnionParam{
-					openai.ChatCompletionContentPartTextParam{
-						Type: openai.F(openai.ChatCompletionContentPartTextTypeText),
-						Text: openai.F("Describe the content of this image in Korean."),
-					},
-					openai.ChatCompletionContentPartImageParam{
-						Type: openai.F(openai.ChatCompletionContentPartImageTypeImageURL),
-						ImageURL: openai.F(openai.ChatCompletionContentPartImageImageURLParam{
-							URL:    openai.F(fmt.Sprintf("data:image/jpeg;base64,%s", encoded)),
-							Detail: openai.F(openai.ChatCompletionContentPartImageImageURLDetailLow),
-						}),
-					},
+	cc := openai.ChatCompletionNewParams{
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
+				openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+					URL: encoded,
 				}),
-			},
-		}),
-	})
+				openai.TextContentPart("이 이미지가 무엇인지 한국어로 자세히 설명해줘."),
+			}),
+		},
+		Model: openai.ChatModelGPT4oMini,
+	}
+	resp, err := client.Chat.Completions.New(tc, cc)
 	if err != nil {
 		return "", err
 	}
-	return result.Choices[0].Message.Content, nil
+	return resp.Choices[0].Message.Content, nil
 }
 
 // URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .webp 형식으로 저장

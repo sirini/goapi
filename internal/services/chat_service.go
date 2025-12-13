@@ -12,32 +12,32 @@ type ChatService interface {
 	SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint
 }
 
-type TsboardChatService struct {
+type NuboChatService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardChatService(repos *repositories.Repository) *TsboardChatService {
-	return &TsboardChatService{repos: repos}
+func NewNuboChatService(repos *repositories.Repository) *NuboChatService {
+	return &NuboChatService{repos: repos}
 }
 
 // 쪽지 목록들 가져오기
-func (s *TsboardChatService) GetChattingList(userUid uint, limit uint) ([]models.ChatItem, error) {
+func (s *NuboChatService) GetChattingList(userUid uint, limit uint) ([]models.ChatItem, error) {
 	return s.repos.Chat.LoadChatList(userUid, limit)
 }
 
 // 상대방과의 대화내용 가져오기
-func (s *TsboardChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
+func (s *NuboChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
 	return s.repos.Chat.LoadChatHistory(actionUserUid, targetUserUid, limit)
 }
 
 // 다른 사용자에게 쪽지 남기기
-func (s *TsboardChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint {
+func (s *NuboChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint {
 	if isBanned := s.repos.User.IsBannedByTarget(actionUserUid, targetUserUid); isBanned {
 		return 0
 	}
 	insertId := s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, utils.Escape(message))
-	parameter := models.InsertNotificationParameter{
+	parameter := models.InsertNotificationParam{
 		ActionUserUid: actionUserUid,
 		TargetUserUid: targetUserUid,
 		NotiType:      models.NOTI_CHAT_MESSAGE,

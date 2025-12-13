@@ -18,7 +18,7 @@ type HomeSidebarBoardResult struct {
 }
 
 // 최근 게시글 가져올 때 필요한 파라미터 정의
-type HomePostParameter struct {
+type HomePostParam struct {
 	SinceUid uint   `json:"sinceUid"`
 	Bunch    uint   `json:"bunch"`
 	Option   Search `json:"option"`

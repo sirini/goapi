@@ -14,17 +14,17 @@ type SyncHandler interface {
 	SyncPostHandler(c fiber.Ctx) error
 }
 
-type TsboardSyncHandler struct {
+type NuboSyncHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardSyncHandler(service *services.Service) *TsboardSyncHandler {
-	return &TsboardSyncHandler{service: service}
+func NewNuboSyncHandler(service *services.Service) *NuboSyncHandler {
+	return &NuboSyncHandler{service: service}
 }
 
 // (허용된) 다른 곳으로 이 곳의 게시글들을 동기화 할 수 있도록 데이터 출력
-func (h *TsboardSyncHandler) SyncPostHandler(c fiber.Ctx) error {
+func (h *NuboSyncHandler) SyncPostHandler(c fiber.Ctx) error {
 	key := c.FormValue("key")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil || bunch < 1 || bunch > 100 {

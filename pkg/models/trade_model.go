@@ -12,7 +12,7 @@ type TradeCommonItem struct {
 }
 
 // 물품 거래 작성용 파라미터 정의
-type TradeWriterParameter struct {
+type TradeWriterParam struct {
 	TradeCommonItem
 	PostUid uint
 	UserUid uint

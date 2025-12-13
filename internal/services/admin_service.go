@@ -21,7 +21,7 @@ type AdminService interface {
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
-	GetCommentList(param models.AdminLatestParameter) models.AdminLatestCommentResult
+	GetCommentList(param models.AdminLatestParam) models.AdminLatestCommentResult
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
@@ -32,10 +32,10 @@ type AdminService interface {
 	GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult
 	GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult
 	GetReportList(page uint, bunch uint, isSolved bool) models.AdminReportResult
-	GetSearchedComments(param models.AdminLatestParameter) models.AdminLatestCommentResult
-	GetSearchedPosts(param models.AdminLatestParameter) models.AdminLatestPostResult
-	GetSearchedReports(param models.AdminReportParameter) models.AdminReportResult
-	GetUserList(param models.AdminUserParameter) models.AdminUserItemResult
+	GetSearchedComments(param models.AdminLatestParam) models.AdminLatestCommentResult
+	GetSearchedPosts(param models.AdminLatestParam) models.AdminLatestPostResult
+	GetSearchedReports(param models.AdminReportParam) models.AdminReportResult
+	GetUserList(param models.AdminUserParam) models.AdminUserItemResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
@@ -46,17 +46,17 @@ type AdminService interface {
 	UpdateUserLevelPoint(userUid uint, level uint, point uint) error
 }
 
-type TsboardAdminService struct {
+type NuboAdminService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardAdminService(repos *repositories.Repository) *TsboardAdminService {
-	return &TsboardAdminService{repos: repos}
+func NewNuboAdminService(repos *repositories.Repository) *NuboAdminService {
+	return &NuboAdminService{repos: repos}
 }
 
 // 카테고리 추가하기 (추가하면 카테고리를 사용하는 것으로 업데이트)
-func (s *TsboardAdminService) AddBoardCategory(boardUid uint, name string) uint {
+func (s *NuboAdminService) AddBoardCategory(boardUid uint, name string) uint {
 	if isDup := s.repos.Admin.IsAddedCategory(boardUid, name); isDup {
 		return models.FAILED
 	}
@@ -67,7 +67,7 @@ func (s *TsboardAdminService) AddBoardCategory(boardUid uint, name string) uint 
 }
 
 // 게시판 관리자 변경하기
-func (s *TsboardAdminService) ChangeBoardAdmin(boardUid uint, newAdminUid uint) error {
+func (s *NuboAdminService) ChangeBoardAdmin(boardUid uint, newAdminUid uint) error {
 	if isBlocked := s.repos.User.IsBlocked(newAdminUid); isBlocked {
 		return fmt.Errorf("blocked user is not able to be an administrator")
 	}
@@ -75,17 +75,17 @@ func (s *TsboardAdminService) ChangeBoardAdmin(boardUid uint, newAdminUid uint) 
 }
 
 // 게시판 레벨 제한값 변경하기
-func (s *TsboardAdminService) ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
+func (s *NuboAdminService) ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
 	return s.repos.Admin.UpdateLevelPolicy(boardUid, level)
 }
 
 // 게시판 포인트 정책 변경하기
-func (s *TsboardAdminService) ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error {
+func (s *NuboAdminService) ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error {
 	return s.repos.Admin.UpdatePointPolicy(boardUid, point)
 }
 
 // 그룹 관리자 변경하기
-func (s *TsboardAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) error {
+func (s *NuboAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) error {
 	if isBlocked := s.repos.User.IsBlocked(newAdminUid); isBlocked {
 		return fmt.Errorf("blocked user is not able to be an administrator")
 	}
@@ -93,7 +93,7 @@ func (s *TsboardAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) 
 }
 
 // 그룹 ID 변경하기
-func (s *TsboardAdminService) ChangeGroupId(groupUid uint, newGroupId string) error {
+func (s *NuboAdminService) ChangeGroupId(groupUid uint, newGroupId string) error {
 	uid, _ := s.repos.Admin.FindGroupUidAdminUidById(newGroupId)
 	if uid > 0 {
 		return fmt.Errorf("duplicated group id")
@@ -102,7 +102,7 @@ func (s *TsboardAdminService) ChangeGroupId(groupUid uint, newGroupId string) er
 }
 
 // 새 게시판 만들기
-func (s *TsboardAdminService) CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult {
+func (s *NuboAdminService) CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult {
 	result := models.AdminCreateBoardResult{}
 	if isAdded := s.repos.Admin.IsAdded(models.TABLE_BOARD, newBoardId); isAdded {
 		return result
@@ -131,7 +131,7 @@ func (s *TsboardAdminService) CreateNewBoard(groupUid uint, newBoardId string) m
 }
 
 // 새 그룹 만들기
-func (s *TsboardAdminService) CreateNewGroup(newGroupId string) models.AdminGroupConfig {
+func (s *NuboAdminService) CreateNewGroup(newGroupId string) models.AdminGroupConfig {
 	groupUid := s.repos.Admin.CreateGroup(newGroupId)
 	manager := s.repos.Admin.FindWriterByUid(models.CREATE_GROUP_ADMIN)
 	result := models.AdminGroupConfig{
@@ -144,12 +144,12 @@ func (s *TsboardAdminService) CreateNewGroup(newGroupId string) models.AdminGrou
 }
 
 // 게시판 관리자 후보 목록 가져오기
-func (s *TsboardAdminService) GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
+func (s *NuboAdminService) GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error) {
 	return s.repos.Admin.GetAdminCandidates(name, bunch)
 }
 
 // 게시판의 레벨 제한값 가져오기
-func (s *TsboardAdminService) GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
+func (s *NuboAdminService) GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
 	perm, err := s.repos.Admin.GetLevelPolicy(boardUid)
 	if err != nil {
 		return models.AdminBoardLevelPolicy{}, err
@@ -165,12 +165,12 @@ func (s *TsboardAdminService) GetBoardLevelPolicy(boardUid uint) (models.AdminBo
 }
 
 // 그룹 소속 게시판들의 목록(및 간단 통계) 가져오기
-func (s *TsboardAdminService) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+func (s *NuboAdminService) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
 	return s.repos.Admin.GetBoardList(groupUid)
 }
 
 // 게시판 포인트 정책값 가져오기
-func (s *TsboardAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error) {
+func (s *NuboAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error) {
 	result := models.AdminBoardPointPolicy{}
 	point, err := s.repos.Admin.GetPointPolicy(boardUid)
 	if err != nil {
@@ -183,7 +183,7 @@ func (s *TsboardAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBo
 }
 
 // (검색된) 댓글 목록 가져오기
-func (s *TsboardAdminService) GetCommentList(param models.AdminLatestParameter) models.AdminLatestCommentResult {
+func (s *NuboAdminService) GetCommentList(param models.AdminLatestParam) models.AdminLatestCommentResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
 	comments := s.repos.Admin.GetCommentList(param)
 
@@ -194,7 +194,7 @@ func (s *TsboardAdminService) GetCommentList(param models.AdminLatestParameter) 
 }
 
 // 대시보드용 그룹, 게시판, 회원 목록 가져오기
-func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboardItem {
+func (s *NuboAdminService) GetDashboardItems(bunch uint) models.AdminDashboardItem {
 	groups := s.repos.Admin.GetGroupBoardList(models.TABLE_GROUP, bunch)
 	boards := s.repos.Admin.GetGroupBoardList(models.TABLE_BOARD, bunch)
 	members := s.repos.Admin.GetMemberList(bunch)
@@ -207,7 +207,7 @@ func (s *TsboardAdminService) GetDashboardItems(bunch uint) models.AdminDashboar
 }
 
 // 대시보드용 최근 (댓)글, 신고 목록 가져오기
-func (s *TsboardAdminService) GetDashboardLatests(bunch uint) models.AdminDashboardLatest {
+func (s *NuboAdminService) GetDashboardLatests(bunch uint) models.AdminDashboardLatest {
 	posts := s.repos.Admin.GetDashboardPosts(bunch)
 	comments := s.repos.Admin.GetDashboardComments(bunch)
 	reports := s.repos.Admin.GetDashboardReports(bunch)
@@ -220,7 +220,7 @@ func (s *TsboardAdminService) GetDashboardLatests(bunch uint) models.AdminDashbo
 }
 
 // 대시보드용 최근 통계 가져오기
-func (s *TsboardAdminService) GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult {
+func (s *NuboAdminService) GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult {
 	days := int(bunch)
 	visit := s.repos.Admin.GetStatistic(models.TABLE_USER_ACCESS, models.COLUMN_TIMESTAMP, days)
 	member := s.repos.Admin.GetStatistic(models.TABLE_USER, models.COLUMN_SIGNUP, days)
@@ -240,17 +240,17 @@ func (s *TsboardAdminService) GetDashboardStatistics(bunch uint) models.AdminDas
 }
 
 // 게시판 아이디와 유사한 목록 가져오기
-func (s *TsboardAdminService) GetExistBoardIds(boardId string, bunch uint) []models.Triple {
+func (s *NuboAdminService) GetExistBoardIds(boardId string, bunch uint) []models.Triple {
 	return s.repos.Admin.FindBoardInfoById(boardId, bunch)
 }
 
 // 그룹 아이디와 유사한 목록 가져오기
-func (s *TsboardAdminService) GetExistGroupIds(groupId string, bunch uint) []models.Pair {
+func (s *NuboAdminService) GetExistGroupIds(groupId string, bunch uint) []models.Pair {
 	return s.repos.Admin.FindGroupUidIdById(groupId, bunch)
 }
 
 // 그룹 설정값 가져오기
-func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupConfig {
+func (s *NuboAdminService) GetGroupConfig(groupId string) models.AdminGroupConfig {
 	result := models.AdminGroupConfig{}
 	groupUid, adminUid := s.repos.Admin.FindGroupUidAdminUidById(groupId)
 	if groupUid < 1 || adminUid < 1 {
@@ -264,14 +264,14 @@ func (s *TsboardAdminService) GetGroupConfig(groupId string) models.AdminGroupCo
 }
 
 // 그룹 목록 가져오기
-func (s *TsboardAdminService) GetGroupList() []models.AdminGroupConfig {
+func (s *NuboAdminService) GetGroupList() []models.AdminGroupConfig {
 	return s.repos.Admin.GetGroupList()
 }
 
 // 최근 댓글들 가져오기
-func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult {
+func (s *NuboAdminService) GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
-	comments := s.repos.Admin.GetCommentList(models.AdminLatestParameter{
+	comments := s.repos.Admin.GetCommentList(models.AdminLatestParam{
 		Page:    page,
 		Bunch:   bunch,
 		MaxUid:  maxUid,
@@ -285,9 +285,9 @@ func (s *TsboardAdminService) GetLatestComments(page uint, bunch uint) models.Ad
 }
 
 // 최근 게시글들을 가져오기
-func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult {
+func (s *NuboAdminService) GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
-	posts := s.repos.Admin.GetPostList(models.AdminLatestParameter{
+	posts := s.repos.Admin.GetPostList(models.AdminLatestParam{
 		Page:    page,
 		Bunch:   bunch,
 		MaxUid:  maxUid,
@@ -301,10 +301,10 @@ func (s *TsboardAdminService) GetLatestPosts(page uint, bunch uint) models.Admin
 }
 
 // 최근 신고 목록 가져오기
-func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool) models.AdminReportResult {
+func (s *NuboAdminService) GetReportList(page uint, bunch uint, isSolved bool) models.AdminReportResult {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_REPORT)
-	parameter := models.AdminReportParameter{
-		AdminLatestParameter: models.AdminLatestParameter{
+	parameter := models.AdminReportParam{
+		AdminLatestParam: models.AdminLatestParam{
 			Page:    page,
 			Bunch:   bunch,
 			MaxUid:  maxUid,
@@ -321,7 +321,7 @@ func (s *TsboardAdminService) GetReportList(page uint, bunch uint, isSolved bool
 }
 
 // 검색된 댓글들 가져오기
-func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParameter) models.AdminLatestCommentResult {
+func (s *NuboAdminService) GetSearchedComments(param models.AdminLatestParam) models.AdminLatestCommentResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_COMMENT)
 	comments := s.repos.Admin.GetCommentList(param)
 	return models.AdminLatestCommentResult{
@@ -331,7 +331,7 @@ func (s *TsboardAdminService) GetSearchedComments(param models.AdminLatestParame
 }
 
 // 검색된 게시글들 가져오기
-func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter) models.AdminLatestPostResult {
+func (s *NuboAdminService) GetSearchedPosts(param models.AdminLatestParam) models.AdminLatestPostResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_POST)
 	posts := s.repos.Admin.GetPostList(param)
 	return models.AdminLatestPostResult{
@@ -341,7 +341,7 @@ func (s *TsboardAdminService) GetSearchedPosts(param models.AdminLatestParameter
 }
 
 // 검색된 신고 목록 가져오기
-func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParameter) models.AdminReportResult {
+func (s *NuboAdminService) GetSearchedReports(param models.AdminReportParam) models.AdminReportResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_REPORT)
 	reports := s.repos.Admin.GetReportList(param)
 	return models.AdminReportResult{
@@ -351,7 +351,7 @@ func (s *TsboardAdminService) GetSearchedReports(param models.AdminReportParamet
 }
 
 // (검색된) 사용자 목록 가져오기
-func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) models.AdminUserItemResult {
+func (s *NuboAdminService) GetUserList(param models.AdminUserParam) models.AdminUserItemResult {
 	param.MaxUid = s.repos.Board.GetMaxUid(models.TABLE_USER)
 	user := s.repos.Admin.GetUserList(param)
 	return models.AdminUserItemResult{
@@ -361,12 +361,12 @@ func (s *TsboardAdminService) GetUserList(param models.AdminUserParameter) model
 }
 
 // 사용자 정보 가져오기
-func (s *TsboardAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
+func (s *NuboAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
 	return s.repos.Admin.GetUserInfo(userUid)
 }
 
 // 카테고리 삭제하기
-func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error {
+func (s *NuboAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error {
 	if isValid := s.repos.Admin.CheckCategoryInBoard(boardUid, catUid); !isValid {
 		return fmt.Errorf("category is not belong to this board")
 	}
@@ -380,7 +380,7 @@ func (s *TsboardAdminService) RemoveBoardCategory(boardUid uint, catUid uint) er
 }
 
 // 게시판 삭제하기
-func (s *TsboardAdminService) RemoveBoard(boardUid uint) error {
+func (s *NuboAdminService) RemoveBoard(boardUid uint) error {
 	paths := s.repos.Admin.GetRemoveFilePaths(boardUid)
 	for _, path := range paths {
 		os.Remove("." + path)
@@ -406,12 +406,12 @@ func (s *TsboardAdminService) RemoveBoard(boardUid uint) error {
 }
 
 // 댓글 삭제하기
-func (s *TsboardAdminService) RemoveComment(commentUid uint) error {
+func (s *NuboAdminService) RemoveComment(commentUid uint) error {
 	return s.repos.Comment.RemoveComment(commentUid)
 }
 
 // 그룹 삭제하기
-func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
+func (s *NuboAdminService) RemoveGroup(groupUid uint) error {
 	groupCount := s.repos.Admin.GetTotalCount(models.TABLE_GROUP)
 	if groupCount < 2 {
 		return fmt.Errorf("only one group is left, it cannot be removed")
@@ -425,16 +425,16 @@ func (s *TsboardAdminService) RemoveGroup(groupUid uint) error {
 }
 
 // 게시글 삭제하기
-func (s *TsboardAdminService) RemovePost(postUid uint) error {
+func (s *NuboAdminService) RemovePost(postUid uint) error {
 	return s.repos.BoardView.RemovePost(postUid)
 }
 
 // 게시판 설정 변경하기
-func (s *TsboardAdminService) UpdateBoardSetting(boardUid uint, column string, value string) error {
+func (s *NuboAdminService) UpdateBoardSetting(boardUid uint, column string, value string) error {
 	return s.repos.Admin.UpdateBoardSetting(boardUid, column, value)
 }
 
 // 사용자의 레벨, 포인트 정보 변경하기
-func (s *TsboardAdminService) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
+func (s *NuboAdminService) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
 	return s.repos.Admin.UpdateUserLevelPoint(userUid, level, point)
 }

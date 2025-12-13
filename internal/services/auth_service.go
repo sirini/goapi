@@ -25,52 +25,52 @@ type AuthService interface {
 	Logout(userUid uint)
 	ResetPassword(id string, hostname string) bool
 	Signin(id string, pw string) models.MyInfoResult
-	Signup(param models.SignupParameter) (models.SignupResult, error)
+	Signup(param models.SignupParam) (models.SignupResult, error)
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
-	VerifyEmail(param models.VerifyParameter) bool
+	VerifyEmail(param models.VerifyParam) bool
 }
 
-type TsboardAuthService struct {
+type NuboAuthService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardAuthService(repos *repositories.Repository) *TsboardAuthService {
-	return &TsboardAuthService{repos: repos}
+func NewNuboAuthService(repos *repositories.Repository) *NuboAuthService {
+	return &NuboAuthService{repos: repos}
 }
 
 // 이메일 중복 체크
-func (s *TsboardAuthService) CheckEmailExists(id string) bool {
+func (s *NuboAuthService) CheckEmailExists(id string) bool {
 	return s.repos.User.IsEmailDuplicated(id)
 }
 
 // 이름 중복 체크
-func (s *TsboardAuthService) CheckNameExists(name string, userUid uint) bool {
+func (s *NuboAuthService) CheckNameExists(name string, userUid uint) bool {
 	return s.repos.User.IsNameDuplicated(name, userUid)
 }
 
 // 리프레시 토큰이 유효할 경우 새로운 액세스 토큰 발급하기
-func (s *TsboardAuthService) CheckRefreshToken(userUid uint, refreshToken string) bool {
+func (s *NuboAuthService) CheckRefreshToken(userUid uint, refreshToken string) bool {
 	return s.repos.Auth.CheckRefreshToken(userUid, refreshToken)
 }
 
 // 사용자 권한 확인하기
-func (s *TsboardAuthService) CheckUserPermission(userUid uint, action models.UserAction) bool {
+func (s *NuboAuthService) CheckUserPermission(userUid uint, action models.UserAction) bool {
 	return s.repos.Auth.CheckPermissionForAction(userUid, action)
 }
 
 // 사용자 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 변경하기
-func (s *TsboardAuthService) ChangeHashForPassword(userUid uint, newBcryptHash string) {
+func (s *NuboAuthService) ChangeHashForPassword(userUid uint, newBcryptHash string) {
 	s.repos.Auth.UpdateUserPasswordHash(userUid, newBcryptHash)
 }
 
 // 로그인 한 내 정보 가져오기
-func (s *TsboardAuthService) GetMyInfo(userUid uint) models.MyInfoResult {
+func (s *NuboAuthService) GetMyInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
 }
 
 // 사용자의 정보와 함께 기존에 저장된 비밀번호 해시값 가져오기
-func (s *TsboardAuthService) GetUserAndHash(id string) (models.MyInfoResult, string) {
+func (s *NuboAuthService) GetUserAndHash(id string) (models.MyInfoResult, string) {
 	userUid := s.repos.Auth.FindUserUidById(id)
 	userInfo := s.repos.Auth.FindMyInfoByUid(userUid)
 	storedHash := s.repos.Auth.FindUserPasswordByUid(userUid)
@@ -78,12 +78,12 @@ func (s *TsboardAuthService) GetUserAndHash(id string) (models.MyInfoResult, str
 }
 
 // 로그아웃하기
-func (s *TsboardAuthService) Logout(userUid uint) {
+func (s *NuboAuthService) Logout(userUid uint) {
 	s.repos.Auth.ClearRefreshToken(userUid)
 }
 
 // 비밀번호 초기화하기
-func (s *TsboardAuthService) ResetPassword(id string, hostname string) bool {
+func (s *NuboAuthService) ResetPassword(id string, hostname string) bool {
 	userUid := s.repos.Auth.FindUserUidById(id)
 	if userUid < 1 {
 		return false
@@ -110,7 +110,7 @@ func (s *TsboardAuthService) ResetPassword(id string, hostname string) bool {
 }
 
 // 사용자 로그인 처리하기
-func (s *TsboardAuthService) Signin(id string, pw string) models.MyInfoResult {
+func (s *NuboAuthService) Signin(id string, pw string) models.MyInfoResult {
 	user := s.repos.Auth.FindMyInfoByIDPW(id, pw)
 	if user.Uid < 1 {
 		return user
@@ -135,7 +135,7 @@ func (s *TsboardAuthService) Signin(id string, pw string) models.MyInfoResult {
 }
 
 // 신규 회원 바로 가입 혹은 인증 메일 발송
-func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.SignupResult, error) {
+func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult, error) {
 	isDupId := s.repos.User.IsEmailDuplicated(param.ID)
 	signupResult := models.SignupResult{}
 	var target uint
@@ -176,7 +176,7 @@ func (s *TsboardAuthService) Signup(param models.SignupParameter) (models.Signup
 }
 
 // 로그인 성공 시 액세스 토큰과 리프레시 토큰들을 쿠키에 보관하기
-func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error) {
+func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error) {
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	authToken, err := utils.GenerateAccessToken(userUid, accessHours)
 	if err != nil {
@@ -193,7 +193,7 @@ func (s *TsboardAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (stri
 }
 
 // 이메일 인증 완료하기
-func (s *TsboardAuthService) VerifyEmail(param models.VerifyParameter) bool {
+func (s *NuboAuthService) VerifyEmail(param models.VerifyParam) bool {
 	result := s.repos.Auth.CheckVerificationCode(param)
 	if result {
 		s.repos.User.InsertNewUser(param.Id, param.Password, utils.Escape(param.Name))

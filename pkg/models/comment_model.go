@@ -1,7 +1,7 @@
 package models
 
 // 댓글 목록 가져오기에 필요한 파라미터 정의
-type CommentListParameter struct {
+type CommentListParam struct {
 	BoardUid uint `json:"boardUid"`
 	PostUid  uint `json:"postUid"`
 	UserUid  uint `json:"userUid"`
@@ -32,7 +32,7 @@ type CommentListResult struct {
 }
 
 // 댓글에 좋아요 처리에 필요한 파라미터 정의
-type CommentLikeParameter struct {
+type CommentLikeParam struct {
 	BoardUid   uint `json:"boardUid"`
 	CommentUid uint `json:"commentUid"`
 	UserUid    uint `json:"userUid"`
@@ -40,19 +40,19 @@ type CommentLikeParameter struct {
 }
 
 // 댓글 수정하기에 필요한 파라미터 정의
-type CommentModifyParameter struct {
-	CommentWriteParameter
+type CommentModifyParam struct {
+	CommentWriteParam
 	CommentUid uint `json:"commentUid"`
 }
 
 // 답글 작성하기에 필요한 파라미터 정의
-type CommentReplyParameter struct {
-	CommentWriteParameter
+type CommentReplyParam struct {
+	CommentWriteParam
 	ReplyTargetUid uint `json:"replyTargetUid"`
 }
 
 // 새 댓글 작성하기에 필요한 파라미터 정의
-type CommentWriteParameter struct {
+type CommentWriteParam struct {
 	BoardUid uint   `json:"boardUid"`
 	PostUid  uint   `json:"postUid"`
 	UserUid  uint   `json:"userUid"`

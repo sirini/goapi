@@ -20,19 +20,19 @@ type Repository struct {
 
 // 모든 리포지토리를 생성
 func NewRepository(db *sql.DB) *Repository {
-	board := NewTsboardBoardRepository(db)
+	board := NewNuboBoardRepository(db)
 	return &Repository{
-		Admin:     NewTsboardAdminRepository(db),
-		Auth:      NewTsboardAuthRepository(db),
+		Admin:     NewNuboAdminRepository(db),
+		Auth:      NewNuboAuthRepository(db),
 		Board:     board,
-		BoardEdit: NewTsboardBoardEditRepository(db, board),
-		BoardView: NewTsboardBoardViewRepository(db, board),
-		Chat:      NewTsboardChatRepository(db),
-		Comment:   NewTsboardCommentRepository(db, board),
-		Home:      NewTsboardHomeRepository(db, board),
-		Noti:      NewTsboardNotiRepository(db),
-		Sync:      NewTsboardSyncRepository(db),
-		Trade:     NewTsboardTradeRepository(db),
-		User:      NewTsboardUserRepository(db),
+		BoardEdit: NewNuboBoardEditRepository(db, board),
+		BoardView: NewNuboBoardViewRepository(db, board),
+		Chat:      NewNuboChatRepository(db),
+		Comment:   NewNuboCommentRepository(db, board),
+		Home:      NewNuboHomeRepository(db, board),
+		Noti:      NewNuboNotiRepository(db),
+		Sync:      NewNuboSyncRepository(db),
+		Trade:     NewNuboTradeRepository(db),
+		User:      NewNuboUserRepository(db),
 	}
 }

@@ -18,17 +18,17 @@ type TradeHandler interface {
 	UpdateStatusHandler(c fiber.Ctx) error
 }
 
-type TsboardTradeHandler struct {
+type NuboTradeHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardTradeHandler(service *services.Service) *TsboardTradeHandler {
-	return &TsboardTradeHandler{service: service}
+func NewNuboTradeHandler(service *services.Service) *NuboTradeHandler {
+	return &NuboTradeHandler{service: service}
 }
 
 // 거래 목록 가져오기 핸들러
-func (h *TsboardTradeHandler) TradeListHandler(c fiber.Ctx) error {
+func (h *NuboTradeHandler) TradeListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUidStrs := strings.Split(c.FormValue("postUids"), ",")
 	results := make([]models.TradeResult, 0)
@@ -48,8 +48,8 @@ func (h *TsboardTradeHandler) TradeListHandler(c fiber.Ctx) error {
 }
 
 // 거래 내용 수정하기 핸들러
-func (h *TsboardTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckTradeWriteParameters(c)
+func (h *NuboTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckTradeWriteParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -62,7 +62,7 @@ func (h *TsboardTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
 }
 
 // 거래 보기 핸들러
-func (h *TsboardTradeHandler) TradeViewHandler(c fiber.Ctx) error {
+func (h *NuboTradeHandler) TradeViewHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
@@ -76,8 +76,8 @@ func (h *TsboardTradeHandler) TradeViewHandler(c fiber.Ctx) error {
 }
 
 // 새 거래 작성하기 핸들러
-func (h *TsboardTradeHandler) TradeWriteHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckTradeWriteParameters(c)
+func (h *NuboTradeHandler) TradeWriteHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckTradeWriteParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -90,7 +90,7 @@ func (h *TsboardTradeHandler) TradeWriteHandler(c fiber.Ctx) error {
 }
 
 // 거래 상태 변경 핸들러
-func (h *TsboardTradeHandler) UpdateStatusHandler(c fiber.Ctx) error {
+func (h *NuboTradeHandler) UpdateStatusHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {

@@ -9,8 +9,8 @@ import (
 )
 
 // 새 댓글 및 답글 작성 시 파라미터 체크
-func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
-	result := models.CommentWriteParameter{}
+func CheckCommentParams(c fiber.Ctx) (models.CommentWriteParam, error) {
+	result := models.CommentWriteParam{}
 	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
@@ -27,7 +27,7 @@ func CheckCommentParameters(c fiber.Ctx) (models.CommentWriteParameter, error) {
 		return result, fmt.Errorf("invalid content, too short")
 	}
 
-	result = models.CommentWriteParameter{
+	result = models.CommentWriteParam{
 		BoardUid: uint(boardUid),
 		PostUid:  uint(postUid),
 		UserUid:  uint(actionUserUid),

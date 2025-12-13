@@ -179,7 +179,7 @@ type AdminLatestCommentResult struct {
 }
 
 // (댓)글 검색하기에 필요한 파라미터 정의
-type AdminLatestParameter struct {
+type AdminLatestParam struct {
 	Page    uint
 	Bunch   uint
 	MaxUid  uint
@@ -188,8 +188,8 @@ type AdminLatestParameter struct {
 }
 
 // 신고 목록 검색하기에 필요한 파라미터 정의
-type AdminReportParameter struct {
-	AdminLatestParameter
+type AdminReportParam struct {
+	AdminLatestParam
 	IsSolved bool
 }
 
@@ -223,8 +223,8 @@ type AdminReportResult struct {
 }
 
 // 사용자 목록 검색하기에 필요한 파라미터 정의
-type AdminUserParameter struct {
-	AdminLatestParameter
+type AdminUserParam struct {
+	AdminLatestParam
 	IsBlocked bool
 }
 

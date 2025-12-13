@@ -9,8 +9,8 @@ import (
 )
 
 // 물품 거래 글 작성/수정 시 파라미터 검사 및 타입 변환
-func CheckTradeWriteParameters(c fiber.Ctx) (models.TradeWriterParameter, error) {
-	result := models.TradeWriterParameter{}
+func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
+	result := models.TradeWriterParam{}
 	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
@@ -45,7 +45,7 @@ func CheckTradeWriteParameters(c fiber.Ctx) (models.TradeWriterParameter, error)
 		return result, err
 	}
 
-	result = models.TradeWriterParameter{
+	result = models.TradeWriterParam{
 		PostUid: uint(postUid),
 		UserUid: uint(actionUserUid),
 		TradeCommonItem: models.TradeCommonItem{

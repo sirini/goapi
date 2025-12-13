@@ -18,19 +18,19 @@ type CommentHandler interface {
 	WriteCommentHandler(c fiber.Ctx) error
 }
 
-type TsboardCommentHandler struct {
+type NuboCommentHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardCommentHandler(service *services.Service) *TsboardCommentHandler {
-	return &TsboardCommentHandler{service: service}
+func NewNuboCommentHandler(service *services.Service) *NuboCommentHandler {
+	return &NuboCommentHandler{service: service}
 }
 
 // 댓글 목록 가져오기 핸들러
-func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
+func (h *NuboCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	param := models.CommentListParameter{}
+	param := models.CommentListParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -44,11 +44,11 @@ func (h *TsboardCommentHandler) CommentListHandler(c fiber.Ctx) error {
 }
 
 // 댓글에 좋아요 누르기 핸들러
-func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
+func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	commentUid, err := strconv.ParseUint(c.FormValue("commentUid"), 10, 32)
 	if err != nil {
@@ -59,7 +59,7 @@ func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid liked, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Comment.Like(models.CommentLikeParameter{
+	h.service.Comment.Like(models.CommentLikeParam{
 		BoardUid:   uint(boardUid),
 		CommentUid: uint(commentUid),
 		UserUid:    uint(actionUserUid),
@@ -69,8 +69,8 @@ func (h *TsboardCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 }
 
 // 기존 댓글 내용 수정하기 핸들러
-func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParameters(c)
+func (h *NuboCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckCommentParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -79,9 +79,9 @@ func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid modify target uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	err = h.service.Comment.Modify(models.CommentModifyParameter{
-		CommentWriteParameter: parameter,
-		CommentUid:            uint(commentUid),
+	err = h.service.Comment.Modify(models.CommentModifyParam{
+		CommentWriteParam: parameter,
+		CommentUid:        uint(commentUid),
 	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
@@ -90,11 +90,11 @@ func (h *TsboardCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 }
 
 // 댓글 삭제하기 핸들러
-func (h *TsboardCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
+func (h *NuboCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	commentUid, err := strconv.ParseUint(c.FormValue("removeTargetUid"), 10, 32)
 	if err != nil {
@@ -109,8 +109,8 @@ func (h *TsboardCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 }
 
 // 기존 댓글에 답글 작성하기 핸들러
-func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParameters(c)
+func (h *NuboCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckCommentParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -119,9 +119,9 @@ func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid reply target uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	insertId, err := h.service.Comment.Reply(models.CommentReplyParameter{
-		CommentWriteParameter: parameter,
-		ReplyTargetUid:        uint(replyTargetUid),
+	insertId, err := h.service.Comment.Reply(models.CommentReplyParam{
+		CommentWriteParam: parameter,
+		ReplyTargetUid:    uint(replyTargetUid),
 	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
@@ -130,8 +130,8 @@ func (h *TsboardCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 }
 
 // 새 댓글 작성하기 핸들러
-func (h *TsboardCommentHandler) WriteCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParameters(c)
+func (h *NuboCommentHandler) WriteCommentHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckCommentParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

@@ -29,7 +29,7 @@ type OAuth2Handler interface {
 	UtilFinishLogin(c fiber.Ctx, userUid uint) error
 }
 
-type TsboardOAuth2Handler struct {
+type NuboOAuth2Handler struct {
 	service          *services.Service
 	googleConfig     oauth2.Config
 	naverRedirectURL string
@@ -38,12 +38,12 @@ type TsboardOAuth2Handler struct {
 }
 
 // services.Service 주입 받기
-func NewTsboardOAuth2Handler(service *services.Service) *TsboardOAuth2Handler {
-	return &TsboardOAuth2Handler{service: service}
+func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
+	return &NuboOAuth2Handler{service: service}
 }
 
 // 구글 안드로이드 앱 OAuth 콜백 핸들러
-func (h *TsboardOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 	idToken := c.FormValue("id_token")
 	if len(idToken) < 1 {
 		return utils.Err(c, "id_token is empty", models.CODE_INVALID_PARAMETER)
@@ -75,7 +75,7 @@ func (h *TsboardOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 }
 
 // 구글 OAuth 로그인을 위해 리다이렉트
-func (h *TsboardOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
@@ -91,7 +91,7 @@ func (h *TsboardOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 }
 
 // 구글 OAuth 콜백 핸들러
-func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthGoogleID == "" {
 		return c.Redirect().To(redirectPath)
@@ -124,7 +124,7 @@ func (h *TsboardOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 }
 
 // 네이버 OAuth 로그인을 위해 리다이렉트
-func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
@@ -139,7 +139,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 }
 
 // 네이버 OAuth 콜백 핸들러
-func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthNaverID == "" {
 		return c.Redirect().To(redirectPath)
@@ -224,7 +224,7 @@ func (h *TsboardOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 }
 
 // 카카오 OAuth 로그인을 위해 리다이렉트
-func (h *TsboardOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
@@ -244,7 +244,7 @@ func (h *TsboardOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 }
 
 // 카카오 OAuth 콜백 핸들러
-func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
+func (h *NuboOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthKakaoID == "" {
 		return c.Redirect().To(redirectPath)
@@ -279,7 +279,7 @@ func (h *TsboardOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 }
 
 // 이미 등록된 사용자인지 확인하고 필요 시 등록 후 고유번호 반환
-func (h *TsboardOAuth2Handler) UtilRegisterUser(id string, name string, profile string) uint {
+func (h *NuboOAuth2Handler) UtilRegisterUser(id string, name string, profile string) uint {
 	isRegistered := h.service.Auth.CheckEmailExists(id)
 	var userUid uint
 	if !isRegistered {
@@ -291,7 +291,7 @@ func (h *TsboardOAuth2Handler) UtilRegisterUser(id string, name string, profile 
 }
 
 // 토큰 저장 및 쿠키에 사용자 정보 전달
-func (h *TsboardOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
+func (h *NuboOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)

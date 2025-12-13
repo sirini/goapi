@@ -14,23 +14,23 @@ type NotiRepository interface {
 	FindBoardUidByPostUid(postUid uint) uint
 	FindNotificationByUserUid(userUid uint, limit uint) ([]models.NotificationItem, error)
 	FindUserNameProfileByUid(userUid uint) (string, string)
-	InsertNotification(param models.InsertNotificationParameter)
-	IsNotiAdded(param models.InsertNotificationParameter) bool
+	InsertNotification(param models.InsertNotificationParam)
+	IsNotiAdded(param models.InsertNotificationParam) bool
 	UpdateAllChecked(userUid uint)
 	UpdateChecked(notiUid uint)
 }
 
-type TsboardNotiRepository struct {
+type NuboNotiRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardNotiRepository(db *sql.DB) *TsboardNotiRepository {
-	return &TsboardNotiRepository{db: db}
+func NewNuboNotiRepository(db *sql.DB) *NuboNotiRepository {
+	return &NuboNotiRepository{db: db}
 }
 
 // 게시판 아이디, 타입 가져오기
-func (r *TsboardNotiRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
+func (r *NuboNotiRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
 	var id string
 	var boardType models.Board
 	query := fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
@@ -39,7 +39,7 @@ func (r *TsboardNotiRepository) FindBoardIdTypeByUid(boardUid uint) (string, mod
 }
 
 // 게시판 고유 번호 가져오기
-func (r *TsboardNotiRepository) FindBoardUidByPostUid(postUid uint) uint {
+func (r *NuboNotiRepository) FindBoardUidByPostUid(postUid uint) uint {
 	var boardUid uint
 	query := fmt.Sprintf("SELECT board_uid FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
@@ -48,7 +48,7 @@ func (r *TsboardNotiRepository) FindBoardUidByPostUid(postUid uint) uint {
 }
 
 // 나에게 온 알림들 가져오기
-func (r *TsboardNotiRepository) FindNotificationByUserUid(userUid uint, limit uint) ([]models.NotificationItem, error) {
+func (r *NuboNotiRepository) FindNotificationByUserUid(userUid uint, limit uint) ([]models.NotificationItem, error) {
 	query := fmt.Sprintf(`SELECT uid, from_uid, type, post_uid, checked, timestamp 
 												FROM %s%s WHERE to_uid = ? ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_NOTI)
@@ -80,7 +80,7 @@ func (r *TsboardNotiRepository) FindNotificationByUserUid(userUid uint, limit ui
 }
 
 // 사용자 이름, 프로필 이미지 경로 반환하기
-func (r *TsboardNotiRepository) FindUserNameProfileByUid(userUid uint) (string, string) {
+func (r *NuboNotiRepository) FindUserNameProfileByUid(userUid uint) (string, string) {
 	var name, profile string
 	query := fmt.Sprintf("SELECT name, profile FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query, userUid).Scan(&name, &profile)
@@ -88,7 +88,7 @@ func (r *TsboardNotiRepository) FindUserNameProfileByUid(userUid uint) (string, 
 }
 
 // 새 알림 추가하기
-func (r *TsboardNotiRepository) InsertNotification(param models.InsertNotificationParameter) {
+func (r *NuboNotiRepository) InsertNotification(param models.InsertNotificationParam) {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(to_uid, from_uid, type, post_uid, comment_uid, checked, timestamp)
 												VALUES (?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_NOTI)
@@ -97,7 +97,7 @@ func (r *TsboardNotiRepository) InsertNotification(param models.InsertNotificati
 }
 
 // 중복 알림인지 확인
-func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParameter) bool {
+func (r *NuboNotiRepository) IsNotiAdded(param models.InsertNotificationParam) bool {
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
 												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
 
@@ -107,7 +107,7 @@ func (r *TsboardNotiRepository) IsNotiAdded(param models.InsertNotificationParam
 }
 
 // 모든 알람 확인하기
-func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint) {
+func (r *NuboNotiRepository) UpdateAllChecked(userUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE to_uid = ?",
 		configs.Env.Prefix, models.TABLE_NOTI)
 
@@ -115,7 +115,7 @@ func (r *TsboardNotiRepository) UpdateAllChecked(userUid uint) {
 }
 
 // 하나의 알림만 확인 처리하기
-func (r *TsboardNotiRepository) UpdateChecked(notiUid uint) {
+func (r *NuboNotiRepository) UpdateChecked(notiUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_NOTI)
 	r.db.Exec(query, 1, notiUid)
 }

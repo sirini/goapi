@@ -25,17 +25,17 @@ type EditorHandler interface {
 	WritePostHandler(c fiber.Ctx) error
 }
 
-type TsboardEditorHandler struct {
+type NuboEditorHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardEditorHandler(service *services.Service) *TsboardEditorHandler {
-	return &TsboardEditorHandler{service: service}
+func NewNuboEditorHandler(service *services.Service) *NuboEditorHandler {
+	return &NuboEditorHandler{service: service}
 }
 
 // 에디터에서 게시판 설정, 카테고리 목록, 관리자 여부 가져오기
-func (h *TsboardEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	boardUid := h.service.Board.GetBoardUid(id)
@@ -44,22 +44,22 @@ func (h *TsboardEditorHandler) GetEditorConfigHandler(c fiber.Ctx) error {
 }
 
 // 게시글에 내가 삽입한 이미지들 불러오기 핸들러
-func (h *TsboardEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	lastUid, err := strconv.ParseUint(c.FormValue("lastUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid last uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	parameter := models.EditorInsertImageParameter{
+	parameter := models.EditorInsertImageParam{
 		BoardUid: uint(boardUid),
 		LastUid:  uint(lastUid),
 		UserUid:  uint(actionUserUid),
@@ -67,21 +67,21 @@ func (h *TsboardEditorHandler) LoadInsertImageHandler(c fiber.Ctx) error {
 	}
 	result, err := h.service.Board.GetInsertedImages(parameter)
 	if err != nil {
-		return utils.Err(c, "Unable to load a list of inserted images", models.CODE_FAILED_OPERATION)
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)
 }
 
 // 글 수정을 위해 내가 작성한 게시글 정보 불러오기
-func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	result, err := h.service.Board.LoadPost(uint(boardUid), uint(postUid), uint(actionUserUid))
@@ -92,10 +92,10 @@ func (h *TsboardEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 }
 
 // 첨부한 이미지 파일의 미리보기를 위한 썸네일 이미지 반환
-func (h *TsboardEditorHandler) LoadThumbnailImageHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) LoadThumbnailImageHandler(c fiber.Ctx) error {
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid file uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	thumb, err := h.service.Board.GetThumbnailImage(uint(fileUid))
 	if err != nil {
@@ -105,19 +105,19 @@ func (h *TsboardEditorHandler) LoadThumbnailImageHandler(c fiber.Ctx) error {
 }
 
 // 게시글 수정하기 핸들러
-func (h *TsboardEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	parameter, err := utils.CheckWriteParameters(c)
+	parameter, err := utils.CheckWriteParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 
-	err = h.service.Board.ModifyPost(models.EditorModifyParameter{
-		EditorWriteParameter: parameter,
-		PostUid:              uint(postUid),
+	err = h.service.Board.ModifyPost(models.EditorModifyParam{
+		EditorWriteParam: parameter,
+		PostUid:          uint(postUid),
 	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
@@ -126,11 +126,11 @@ func (h *TsboardEditorHandler) ModifyPostHandler(c fiber.Ctx) error {
 }
 
 // 게시글에 삽입한 이미지 삭제하기 핸들러
-func (h *TsboardEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	imageUid, err := strconv.ParseUint(c.FormValue("imageUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid image uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	h.service.Board.RemoveInsertedImage(uint(imageUid), uint(actionUserUid))
@@ -138,22 +138,22 @@ func (h *TsboardEditorHandler) RemoveInsertImageHandler(c fiber.Ctx) error {
 }
 
 // 기존에 첨부했던 파일을 글 수정에서 삭제하기
-func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid file uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemoveAttachedFile(models.EditorRemoveAttachedParameter{
+	h.service.Board.RemoveAttachedFile(models.EditorRemoveAttachedParam{
 		BoardUid: uint(boardUid),
 		PostUid:  uint(postUid),
 		FileUid:  uint(fileUid),
@@ -163,14 +163,14 @@ func (h *TsboardEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 }
 
 // 글제목 추천 목록 반환하는 핸들러
-func (h *TsboardEditorHandler) SuggestionTitleHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) SuggestionTitleHandler(c fiber.Ctx) error {
 	input, err := url.QueryUnescape(c.FormValue("title"))
 	if err != nil {
-		return utils.Err(c, "Invalid title", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	titles := h.service.Board.GetSuggestionTitles(input, uint(bunch))
@@ -178,14 +178,14 @@ func (h *TsboardEditorHandler) SuggestionTitleHandler(c fiber.Ctx) error {
 }
 
 // 해시태그 추천 목록 반환하는 핸들러
-func (h *TsboardEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
 	input, err := url.QueryUnescape(c.FormValue("tag"))
 	if err != nil {
-		return utils.Err(c, "Invalid tag name", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	suggestions := h.service.Board.GetSuggestionTags(input, uint(bunch))
@@ -193,16 +193,16 @@ func (h *TsboardEditorHandler) SuggestionHashtagHandler(c fiber.Ctx) error {
 }
 
 // 게시글 내용에 이미지 삽입하는 핸들러
-func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
+func (h *NuboEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	fileSizeLimit, _ := strconv.ParseInt(configs.Env.FileSizeLimit, 10, 32)
 	form, err := c.MultipartForm()
 	if err != nil {
-		return utils.Err(c, "Failed to parse form", models.CODE_FAILED_OPERATION)
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	images := form.File["images[]"]
 	if len(images) < 1 {
@@ -225,8 +225,8 @@ func (h *TsboardEditorHandler) UploadInsertImageHandler(c fiber.Ctx) error {
 }
 
 // 게시글 작성하기 핸들러
-func (h *TsboardEditorHandler) WritePostHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckWriteParameters(c)
+func (h *NuboEditorHandler) WritePostHandler(c fiber.Ctx) error {
+	parameter, err := utils.CheckWriteParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

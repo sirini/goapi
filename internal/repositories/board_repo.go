@@ -14,10 +14,10 @@ type BoardRepository interface {
 	CheckLikedPost(postUid uint, userUid uint) bool
 	CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool
 	CheckLikedComment(commentUid uint, userUid uint) bool
-	FindPostsByImageDescription(param models.BoardListParameter) ([]models.BoardListItem, error)
-	FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error)
-	FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error)
-	FindPostsByHashtag(param models.BoardListParameter) ([]models.BoardListItem, error)
+	FindPostsByImageDescription(param models.BoardListParam) ([]models.BoardListItem, error)
+	FindPostsByTitleContent(param models.BoardListParam) ([]models.BoardListItem, error)
+	FindPostsByNameCategory(param models.BoardListParam) ([]models.BoardListItem, error)
+	FindPostsByHashtag(param models.BoardListParam) ([]models.BoardListItem, error)
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardUidById(id string) uint
 	GetBoardCategories(boardUid uint) []models.Pair
@@ -32,7 +32,7 @@ type BoardRepository interface {
 	GetLikeCount(postUid uint) uint
 	GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
-	GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error)
+	GetNormalPosts(param models.BoardListParam) ([]models.BoardListItem, error)
 	GetMaxUid(table models.Table) uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetTagUids(names string) (string, int)
@@ -43,20 +43,20 @@ type BoardRepository interface {
 	MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error)
 }
 
-type TsboardBoardRepository struct {
+type NuboBoardRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardBoardRepository(db *sql.DB) *TsboardBoardRepository {
-	return &TsboardBoardRepository{db: db}
+func NewNuboBoardRepository(db *sql.DB) *NuboBoardRepository {
+	return &NuboBoardRepository{db: db}
 }
 
 // 게시글 가져오기 시 지정되는 컬럼들
 const POST_COLUMNS = "uid, user_uid, category_uid, title, content, submitted, modified, hit, status"
 
 // 반복문 내에서 사용할 게시글에 좋아요 클릭 여부 확인하기
-func (r *TsboardBoardRepository) CheckLikedPostForLoop(stmt *sql.Stmt, postUid uint, userUid uint) bool {
+func (r *NuboBoardRepository) CheckLikedPostForLoop(stmt *sql.Stmt, postUid uint, userUid uint) bool {
 	if userUid < 1 {
 		return false
 	}
@@ -66,7 +66,7 @@ func (r *TsboardBoardRepository) CheckLikedPostForLoop(stmt *sql.Stmt, postUid u
 }
 
 // 게시글에 좋아요를 클릭했었는지 확인하기
-func (r *TsboardBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool {
+func (r *NuboBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool {
 	if userUid < 1 {
 		return false
 	}
@@ -79,14 +79,14 @@ func (r *TsboardBoardRepository) CheckLikedPost(postUid uint, userUid uint) bool
 }
 
 // 반복문에서 사용하는 댓글에 좋아요 클릭했는지 확인
-func (r *TsboardBoardRepository) CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool {
+func (r *NuboBoardRepository) CheckLikedCommentForLoop(stmt *sql.Stmt, commentUid uint, userUid uint) bool {
 	var liked uint8
 	stmt.QueryRow(commentUid, userUid, 1).Scan(&liked)
 	return liked > 0
 }
 
 // 댓글에 좋아요를 클릭했었는지 확인하기
-func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint) bool {
+func (r *NuboBoardRepository) CheckLikedComment(commentUid uint, userUid uint) bool {
 	if userUid < 1 {
 		return false
 	}
@@ -99,7 +99,7 @@ func (r *TsboardBoardRepository) CheckLikedComment(commentUid uint, userUid uint
 }
 
 // 게시글에 첨부된 이미지에 대한 AI 분석 내용으로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByImageDescription(param models.BoardListParameter) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) FindPostsByImageDescription(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	keyword := "%" + param.Keyword + "%"
 	arrow, order := param.Direction.Query()
@@ -118,7 +118,7 @@ func (r *TsboardBoardRepository) FindPostsByImageDescription(param models.BoardL
 }
 
 // 게시글 제목 혹은 내용으로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByTitleContent(param models.BoardListParameter) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) FindPostsByTitleContent(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	keyword := "%" + param.Keyword + "%"
 	arrow, order := param.Direction.Query()
@@ -142,7 +142,7 @@ func (r *TsboardBoardRepository) FindPostsByTitleContent(param models.BoardListP
 }
 
 // 게시글 작성자 혹은 분류명으로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByNameCategory(param models.BoardListParameter) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) FindPostsByNameCategory(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	arrow, order := param.Direction.Query()
 	table := models.TABLE_USER
@@ -170,7 +170,7 @@ func (r *TsboardBoardRepository) FindPostsByNameCategory(param models.BoardListP
 }
 
 // 게시글 태그로 검색해서 가져오기
-func (r *TsboardBoardRepository) FindPostsByHashtag(param models.BoardListParameter) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) FindPostsByHashtag(param models.BoardListParam) ([]models.BoardListItem, error) {
 	arrow, order := param.Direction.Query()
 	tagUidStr, tagCount := r.GetTagUids(param.Keyword)
 	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, 
@@ -197,7 +197,7 @@ func (r *TsboardBoardRepository) FindPostsByHashtag(param models.BoardListParame
 }
 
 // 게시판 설정값 가져오기
-func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfig {
+func (r *NuboBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfig {
 	config := models.BoardConfig{}
 	query := fmt.Sprintf(`SELECT id, group_uid, admin_uid, type, name, info, row_count, width, use_category,
 												level_list, level_view, level_write, level_comment, level_download,
@@ -217,7 +217,7 @@ func (r *TsboardBoardRepository) GetBoardConfig(boardUid uint) models.BoardConfi
 }
 
 // 게시판 아이디로 게시판 고유 번호 가져오기
-func (r *TsboardBoardRepository) GetBoardUidById(id string) uint {
+func (r *NuboBoardRepository) GetBoardUidById(id string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
 
@@ -226,7 +226,7 @@ func (r *TsboardBoardRepository) GetBoardUidById(id string) uint {
 }
 
 // 지정된 게시판에서 사용중인 카테고리 목록들 반환
-func (r *TsboardBoardRepository) GetBoardCategories(boardUid uint) []models.Pair {
+func (r *NuboBoardRepository) GetBoardCategories(boardUid uint) []models.Pair {
 	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 
@@ -248,14 +248,14 @@ func (r *TsboardBoardRepository) GetBoardCategories(boardUid uint) []models.Pair
 }
 
 // 반복문에서 사용할 카테고리 이름 가져오기
-func (r *TsboardBoardRepository) GetCategoryByUidForLoop(stmt *sql.Stmt, categoryUid uint) models.Pair {
+func (r *NuboBoardRepository) GetCategoryByUidForLoop(stmt *sql.Stmt, categoryUid uint) models.Pair {
 	cat := models.Pair{}
 	stmt.QueryRow(categoryUid).Scan(&cat.Uid, &cat.Name)
 	return cat
 }
 
 // 카테고리 이름 가져오기
-func (r *TsboardBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair {
+func (r *NuboBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair {
 	cat := models.Pair{}
 	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_BOARD_CAT)
@@ -265,14 +265,14 @@ func (r *TsboardBoardRepository) GetCategoryByUid(categoryUid uint) models.Pair 
 }
 
 // 게시글 대표 커버 썸네일 이미지 가져오기
-func (r *TsboardBoardRepository) GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string {
+func (r *NuboBoardRepository) GetCoverImageForLoop(stmt *sql.Stmt, postUid uint) string {
 	var path string
 	stmt.QueryRow(postUid).Scan(&path)
 	return path
 }
 
 // 반복문에서 사용하는 썸네일 이미지 가져오기
-func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
+func (r *NuboBoardRepository) GetCoverImage(postUid uint) string {
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE post_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_FILE_THUMB)
 
@@ -282,7 +282,7 @@ func (r *TsboardBoardRepository) GetCoverImage(postUid uint) string {
 }
 
 // 댓글 개수 가져오기
-func (r *TsboardBoardRepository) GetCommentCount(postUid uint) uint {
+func (r *NuboBoardRepository) GetCommentCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND status != ?", configs.Env.Prefix, models.TABLE_COMMENT)
 
@@ -291,7 +291,7 @@ func (r *TsboardBoardRepository) GetCommentCount(postUid uint) uint {
 }
 
 // 댓글에 대한 좋아요 개수 가져오기
-func (r *TsboardBoardRepository) GetCommentLikeCount(postUid uint) uint {
+func (r *NuboBoardRepository) GetCommentLikeCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND liked = ?", configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
@@ -300,14 +300,14 @@ func (r *TsboardBoardRepository) GetCommentLikeCount(postUid uint) uint {
 }
 
 // 반복문에서 사용하는 댓글 개수 가져오기
-func (r *TsboardBoardRepository) GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint {
+func (r *NuboBoardRepository) GetCommentCountForLoop(stmt *sql.Stmt, postUid uint) uint {
 	var count uint
 	stmt.QueryRow(postUid, models.CONTENT_REMOVED).Scan(&count)
 	return count
 }
 
 // 게시판이 속한 그룹의 관리자 고유 번호값 가져오기
-func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
+func (r *NuboBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 	var adminUid uint
 	query := fmt.Sprintf(`SELECT g.admin_uid FROM %s%s AS g JOIN %s%s AS b 
 												ON g.uid = b.group_uid WHERE b.uid = ? LIMIT 1`,
@@ -318,7 +318,7 @@ func (r *TsboardBoardRepository) GetGroupAdminUid(boardUid uint) uint {
 }
 
 // 좋아요 개수 가져오기
-func (r *TsboardBoardRepository) GetLikeCount(postUid uint) uint {
+func (r *NuboBoardRepository) GetLikeCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE post_uid = ? AND liked = ?", configs.Env.Prefix, models.TABLE_POST_LIKE)
 
@@ -327,14 +327,14 @@ func (r *TsboardBoardRepository) GetLikeCount(postUid uint) uint {
 }
 
 // 반복문에서 사용하는 게시글의 좋아요 갯수 가져오기
-func (r *TsboardBoardRepository) GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint {
+func (r *NuboBoardRepository) GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint {
 	var count uint
 	stmt.QueryRow(postUid, 1).Scan(&count)
 	return count
 }
 
 // 게시판 공지글만 가져오기
-func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error) {
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ?`,
 		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
 
@@ -347,7 +347,7 @@ func (r *TsboardBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uin
 }
 
 // 비밀글을 포함한 일반 게시글들 가져오기
-func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) GetNormalPosts(param models.BoardListParam) ([]models.BoardListItem, error) {
 	arrow, order := param.Direction.Query()
 	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status IN (?, ?) AND uid %s ?
 												ORDER BY uid %s LIMIT ?`,
@@ -362,7 +362,7 @@ func (r *TsboardBoardRepository) GetNormalPosts(param models.BoardListParameter)
 }
 
 // 최근 사용된 해시태그 가져오기
-func (r *TsboardBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
+func (r *NuboBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
 	items := make([]models.BoardTag, 0)
 	query := fmt.Sprintf(`SELECT h.uid AS hashtag_uid, h.name AS hashtag_name, MAX(p.post_uid) AS latest_post 
 												FROM %s%s p 
@@ -390,7 +390,7 @@ func (r *TsboardBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]mod
 }
 
 // 게시판 or 댓글의 현재 uid 값 반환하기
-func (r *TsboardBoardRepository) GetMaxUid(table models.Table) uint {
+func (r *NuboBoardRepository) GetMaxUid(table models.Table) uint {
 	var max uint
 	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, table)
 	r.db.QueryRow(query).Scan(&max)
@@ -398,7 +398,7 @@ func (r *TsboardBoardRepository) GetMaxUid(table models.Table) uint {
 }
 
 // 스페이스로 구분된 태그 이름들을 가져와서 태그 고유번호 문자열로 변환
-func (r *TsboardBoardRepository) GetTagUids(keyword string) (string, int) {
+func (r *NuboBoardRepository) GetTagUids(keyword string) (string, int) {
 	tags := strings.Split(keyword, " ")
 	var strUids []string
 
@@ -422,7 +422,7 @@ func (r *TsboardBoardRepository) GetTagUids(keyword string) (string, int) {
 }
 
 // 게시판에 등록된 글 갯수 반환
-func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
+func (r *NuboBoardRepository) GetTotalPostCount(boardUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE board_uid = ? AND status != ?",
 		configs.Env.Prefix, models.TABLE_POST)
@@ -432,7 +432,7 @@ func (r *TsboardBoardRepository) GetTotalPostCount(boardUid uint) uint {
 }
 
 // 이름으로 고유 번호 가져오기 (회원 번호 혹은 카테고리 번호 등)
-func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) uint {
+func (r *NuboBoardRepository) GetUidByTable(table models.Table, name string) uint {
 	var uid uint
 	value := "%" + name + "%"
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name LIKE ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, table)
@@ -442,7 +442,7 @@ func (r *TsboardBoardRepository) GetUidByTable(table models.Table, name string) 
 }
 
 // 반복문에서 사용하는 (댓)글 작성자 기본 정보 가져오기
-func (r *TsboardBoardRepository) GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter {
+func (r *NuboBoardRepository) GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter {
 	writer := models.BoardWriter{}
 	writer.UserUid = userUid
 	stmt.QueryRow(userUid).Scan(&writer.Name, &writer.Profile, &writer.Signature)
@@ -450,7 +450,7 @@ func (r *TsboardBoardRepository) GetWriterInfoForLoop(stmt *sql.Stmt, userUid ui
 }
 
 // (댓)글 작성자 기본 정보 가져오기
-func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter {
+func (r *NuboBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter {
 	writer := models.BoardWriter{}
 	query := fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
@@ -461,7 +461,7 @@ func (r *TsboardBoardRepository) GetWriterInfo(userUid uint) models.BoardWriter 
 }
 
 // 게시글 목록 만들어서 반환
-func (r *TsboardBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error) {
+func (r *NuboBoardRepository) MakeListItem(actionUserUid uint, rows *sql.Rows) ([]models.BoardListItem, error) {
 	items := make([]models.BoardListItem, 0)
 
 	// 카테고리 이름 가져오는 쿼리문 준비

@@ -19,17 +19,17 @@ type HomeHandler interface {
 	LoadPostsByIdHandler(c fiber.Ctx) error
 }
 
-type TsboardHomeHandler struct {
+type NuboHomeHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardHomeHandler(service *services.Service) *TsboardHomeHandler {
-	return &TsboardHomeHandler{service: service}
+func NewNuboHomeHandler(service *services.Service) *NuboHomeHandler {
+	return &NuboHomeHandler{service: service}
 }
 
 // 메세지 출력 테스트용 핸들러
-func (h *TsboardHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
+func (h *NuboHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
 	return utils.Ok(c, &models.HomeVisitResult{
 		Success:         true,
 		OfficialWebsite: "nubohub.org",
@@ -40,7 +40,7 @@ func (h *TsboardHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
 }
 
 // 방문자 조회수 올리기 핸들러
-func (h *TsboardHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
+func (h *NuboHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
 	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
 	if err != nil {
 		userUid = 0
@@ -49,8 +49,8 @@ func (h *TsboardHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
-// 홈화면의 사이드바에 사용할 게시판 링크들 가져오기 핸들러
-func (h *TsboardHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
+// 홈화면의 게시판 링크들 가져오기 핸들러
+func (h *NuboHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 	links, err := h.service.Home.GetSidebarLinks()
 	if err != nil {
 		return utils.Err(c, "Unable to load group/board links", models.CODE_FAILED_OPERATION)
@@ -59,7 +59,7 @@ func (h *TsboardHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 }
 
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
-func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
+func (h *NuboHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
@@ -83,7 +83,7 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	if sinceUid < 1 {
 		sinceUid = h.service.Board.GetMaxUid() + 1
 	}
-	parameter := models.HomePostParameter{
+	parameter := models.HomePostParam{
 		SinceUid: sinceUid,
 		Bunch:    uint(bunch),
 		Option:   models.Search(option),
@@ -101,7 +101,7 @@ func (h *TsboardHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 }
 
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
-func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
+func (h *NuboHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	id := c.FormValue("id")
 	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
@@ -114,7 +114,7 @@ func (h *TsboardHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid board id, unable to find board", models.CODE_INVALID_PARAMETER)
 	}
 
-	parameter := models.HomePostParameter{
+	parameter := models.HomePostParam{
 		SinceUid: h.service.Board.GetMaxUid() + 1,
 		Bunch:    uint(bunch),
 		Option:   models.SEARCH_NONE,

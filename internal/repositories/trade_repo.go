@@ -11,22 +11,22 @@ import (
 
 type TradeRepository interface {
 	GetTradeItem(postUid uint) (models.TradeResult, error)
-	InsertTrade(param models.TradeWriterParameter) error
+	InsertTrade(param models.TradeWriterParam) error
 	UpdateStatus(postUid uint, newStatus uint) error
-	UpdateTrade(param models.TradeWriterParameter) error
+	UpdateTrade(param models.TradeWriterParam) error
 }
 
-type TsboardTradeRepository struct {
+type NuboTradeRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardTradeRepository(db *sql.DB) *TsboardTradeRepository {
-	return &TsboardTradeRepository{db: db}
+func NewNuboTradeRepository(db *sql.DB) *NuboTradeRepository {
+	return &NuboTradeRepository{db: db}
 }
 
 // 물품 거래 내역 가져오기
-func (r *TsboardTradeRepository) GetTradeItem(postUid uint) (models.TradeResult, error) {
+func (r *NuboTradeRepository) GetTradeItem(postUid uint) (models.TradeResult, error) {
 	item := models.TradeResult{}
 	query := fmt.Sprintf(`
 		SELECT uid, brand, category, price, product_condition, location, shipping_type, status, completed 
@@ -46,7 +46,7 @@ func (r *TsboardTradeRepository) GetTradeItem(postUid uint) (models.TradeResult,
 }
 
 // 새 물품 거래 게시글 등록
-func (r *TsboardTradeRepository) InsertTrade(param models.TradeWriterParameter) error {
+func (r *NuboTradeRepository) InsertTrade(param models.TradeWriterParam) error {
 	query := fmt.Sprintf(`INSERT INTO %s%s
 		(post_uid, brand, category, price, product_condition, location, shipping_type, status, completed)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_TRADE)
@@ -66,7 +66,7 @@ func (r *TsboardTradeRepository) InsertTrade(param models.TradeWriterParameter) 
 }
 
 // 거래 상태 업데이트
-func (r *TsboardTradeRepository) UpdateStatus(postUid uint, newStatus uint) error {
+func (r *NuboTradeRepository) UpdateStatus(postUid uint, newStatus uint) error {
 	completed := ""
 	if newStatus == models.TRADE_DONE {
 		completed = fmt.Sprintf(", completed = %d", time.Now().UnixMilli())
@@ -79,7 +79,7 @@ func (r *TsboardTradeRepository) UpdateStatus(postUid uint, newStatus uint) erro
 }
 
 // 물품 거래 업데이트
-func (r *TsboardTradeRepository) UpdateTrade(param models.TradeWriterParameter) error {
+func (r *NuboTradeRepository) UpdateTrade(param models.TradeWriterParam) error {
 	query := fmt.Sprintf(`UPDATE %s%s SET brand = ?, category = ?, price = ?, product_condition = ?, location = ?, shipping_type = ? WHERE post_uid = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_TRADE)
 	_, err := r.db.Exec(

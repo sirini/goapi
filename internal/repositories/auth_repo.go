@@ -15,7 +15,7 @@ type AuthRepository interface {
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.UserAction) bool
 	CheckRefreshToken(userUid uint, refreshToken string) bool
-	CheckVerificationCode(param models.VerifyParameter) bool
+	CheckVerificationCode(param models.VerifyParam) bool
 	ClearRefreshToken(userUid uint)
 	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
 	FindMyInfoByIDPW(id string, pw string) models.MyInfoResult
@@ -33,17 +33,17 @@ type AuthRepository interface {
 	UpdateUserPasswordHash(userUid uint, newBcryptHash string)
 }
 
-type TsboardAuthRepository struct {
+type NuboAuthRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardAuthRepository(db *sql.DB) *TsboardAuthRepository {
-	return &TsboardAuthRepository{db: db}
+func NewNuboAuthRepository(db *sql.DB) *NuboAuthRepository {
+	return &NuboAuthRepository{db: db}
 }
 
 // 관리자 권한 확인하기
-func (r *TsboardAuthRepository) CheckAdminPermission(table models.Table, userUid uint) bool {
+func (r *NuboAuthRepository) CheckAdminPermission(table models.Table, userUid uint) bool {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE admin_uid = ? LIMIT 1", configs.Env.Prefix, table)
 
 	var uid uint
@@ -57,7 +57,7 @@ func (r *TsboardAuthRepository) CheckAdminPermission(table models.Table, userUid
 }
 
 // 게시판, 그룹 혹은 최고 관리자인지 확인
-func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) bool {
+func (r *NuboAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) bool {
 	if userUid == 1 {
 		return true
 	}
@@ -73,7 +73,7 @@ func (r *TsboardAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint
 }
 
 // 사용자가 지정된 액션에 대한 권한이 있는지 확인
-func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action models.UserAction) bool {
+func (r *NuboAuthRepository) CheckPermissionForAction(userUid uint, action models.UserAction) bool {
 	query := fmt.Sprintf("SELECT %s AS action FROM %s%s WHERE user_uid = ? LIMIT 1",
 		action.String(), configs.Env.Prefix, models.TABLE_USER_PERM)
 
@@ -86,7 +86,7 @@ func (r *TsboardAuthRepository) CheckPermissionForAction(userUid uint, action mo
 }
 
 // 리프레시 토큰이 유효한지 확인
-func (r *TsboardAuthRepository) CheckRefreshToken(userUid uint, refreshToken string) bool {
+func (r *NuboAuthRepository) CheckRefreshToken(userUid uint, refreshToken string) bool {
 	var timestamp int64
 	query := fmt.Sprintf("SELECT timestamp FROM %s%s WHERE user_uid = ? AND refresh = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
@@ -105,7 +105,7 @@ func (r *TsboardAuthRepository) CheckRefreshToken(userUid uint, refreshToken str
 }
 
 // 인증 코드가 유효한지 확인
-func (r *TsboardAuthRepository) CheckVerificationCode(param models.VerifyParameter) bool {
+func (r *NuboAuthRepository) CheckVerificationCode(param models.VerifyParam) bool {
 	var code string
 	var timestamp uint64
 
@@ -130,7 +130,7 @@ func (r *TsboardAuthRepository) CheckVerificationCode(param models.VerifyParamet
 }
 
 // 로그아웃 시 리프레시 토큰 비우기
-func (r *TsboardAuthRepository) ClearRefreshToken(userUid uint) {
+func (r *NuboAuthRepository) ClearRefreshToken(userUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
 
@@ -138,7 +138,7 @@ func (r *TsboardAuthRepository) ClearRefreshToken(userUid uint) {
 }
 
 // 회원번호에 해당하는 사용자의 공개 정보 반환
-func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfoResult, error) {
+func (r *NuboAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfoResult, error) {
 	info := models.UserInfoResult{}
 	query := fmt.Sprintf(`SELECT name, profile, level, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
@@ -157,7 +157,7 @@ func (r *TsboardAuthRepository) FindUserInfoByUid(userUid uint) (models.UserInfo
 }
 
 // 아이디와 (sha256으로 해시된)비밀번호로 내정보 가져오기
-func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) models.MyInfoResult {
+func (r *NuboAuthRepository) FindMyInfoByIDPW(id string, pw string) models.MyInfoResult {
 	info := models.MyInfoResult{}
 	query := fmt.Sprintf(`SELECT uid, name, profile, level, point, signature, signup 
 												FROM %s%s WHERE blocked = 0 AND id = ? AND password = ? LIMIT 1`,
@@ -176,7 +176,7 @@ func (r *TsboardAuthRepository) FindMyInfoByIDPW(id string, pw string) models.My
 }
 
 // 사용자 고유 번호로 내정보 가져오기
-func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResult {
+func (r *NuboAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResult {
 	info := models.MyInfoResult{}
 	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signature, signup, signin, blocked 
 												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
@@ -190,7 +190,7 @@ func (r *TsboardAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResul
 }
 
 // 인증용 고유번호로 아이디와 코드 가져오기
-func (r *TsboardAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
+func (r *NuboAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
 	var id, code string
 	query := fmt.Sprintf("SELECT email, code FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
@@ -200,7 +200,7 @@ func (r *TsboardAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, s
 }
 
 // 아이디에 해당하는 고유번호 반환
-func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
+func (r *NuboAuthRepository) FindUserUidById(id string) uint {
 	var userUid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 
@@ -212,7 +212,7 @@ func (r *TsboardAuthRepository) FindUserUidById(id string) uint {
 }
 
 // 사용자의 비밀번호(해시값) 반환
-func (r *TsboardAuthRepository) FindUserPasswordByUid(userUid uint) string {
+func (r *NuboAuthRepository) FindUserPasswordByUid(userUid uint) string {
 	var hash string
 	query := fmt.Sprintf("SELECT password FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 
@@ -224,7 +224,7 @@ func (r *TsboardAuthRepository) FindUserPasswordByUid(userUid uint) string {
 }
 
 // 사용자의 리프레시 토큰 추가하기
-func (r *TsboardAuthRepository) InsertRefreshToken(userUid uint, token string) {
+func (r *NuboAuthRepository) InsertRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, refresh, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
 
@@ -232,7 +232,7 @@ func (r *TsboardAuthRepository) InsertRefreshToken(userUid uint, token string) {
 }
 
 // 인증코드 추가하기
-func (r *TsboardAuthRepository) InsertVerificationCode(id string, code string) uint {
+func (r *NuboAuthRepository) InsertVerificationCode(id string, code string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (email, code, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
 
@@ -245,7 +245,7 @@ func (r *TsboardAuthRepository) InsertVerificationCode(id string, code string) u
 }
 
 // 로그인 시 리프레시 토큰 저장하기
-func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
+func (r *NuboAuthRepository) SaveRefreshToken(userUid uint, refreshToken string) {
 	now := time.Now().UnixMilli()
 	hashed := utils.GetHashedString(refreshToken)
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? LIMIT 1",
@@ -264,7 +264,7 @@ func (r *TsboardAuthRepository) SaveRefreshToken(userUid uint, refreshToken stri
 }
 
 // (회원가입 시) 인증 코드 보관해놓기
-func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uint {
+func (r *NuboAuthRepository) SaveVerificationCode(id string, code string) uint {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE email = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
@@ -278,7 +278,7 @@ func (r *TsboardAuthRepository) SaveVerificationCode(id string, code string) uin
 }
 
 // 사용자의 리프레시 토큰 업데이트하기
-func (r *TsboardAuthRepository) UpdateRefreshToken(userUid uint, token string) {
+func (r *NuboAuthRepository) UpdateRefreshToken(userUid uint, token string) {
 	query := fmt.Sprintf("UPDATE %s%s SET refresh = ?, timestamp = ? WHERE user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_TOKEN)
 
@@ -286,7 +286,7 @@ func (r *TsboardAuthRepository) UpdateRefreshToken(userUid uint, token string) {
 }
 
 // 인증코드 업데이트하기
-func (r *TsboardAuthRepository) UpdateVerificationCode(id string, code string, uid uint) {
+func (r *NuboAuthRepository) UpdateVerificationCode(id string, code string, uid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET code = ?, timestamp = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
 
@@ -294,7 +294,7 @@ func (r *TsboardAuthRepository) UpdateVerificationCode(id string, code string, u
 }
 
 // 로그인 시간 업데이트
-func (r *TsboardAuthRepository) UpdateUserSignin(userUid uint) {
+func (r *NuboAuthRepository) UpdateUserSignin(userUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET signin = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
 
@@ -302,7 +302,7 @@ func (r *TsboardAuthRepository) UpdateUserSignin(userUid uint) {
 }
 
 // 사용자의 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 업데이트
-func (r *TsboardAuthRepository) UpdateUserPasswordHash(userUid uint, newBcryptHash string) {
+func (r *NuboAuthRepository) UpdateUserPasswordHash(userUid uint, newBcryptHash string) {
 	query := fmt.Sprintf("UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
 	r.db.Exec(query, newBcryptHash, userUid)
 }

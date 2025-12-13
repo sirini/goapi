@@ -29,7 +29,7 @@ type BoardViewRepository interface {
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
 	GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error)
 	GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error)
-	InsertLikePost(param models.BoardViewLikeParameter)
+	InsertLikePost(param models.BoardViewLikeParam)
 	IsLikedPost(postUid uint, actionUserUid uint) bool
 	IsWriter(table models.Table, targetUid uint, userUid uint) bool
 	RemoveAttachments(postUid uint) []string
@@ -40,23 +40,23 @@ type BoardViewRepository interface {
 	RemovePost(postUid uint) error
 	RemovePostTags(postUid uint)
 	RemoveThumbnails(fileUid uint) []string
-	UpdateLikePost(param models.BoardViewLikeParameter)
+	UpdateLikePost(param models.BoardViewLikeParam)
 	UpdatePostHit(postUid uint)
 	UpdatePostBoardUid(targetBoardUid uint, postUid uint)
 }
 
-type TsboardBoardViewRepository struct {
+type NuboBoardViewRepository struct {
 	db    *sql.DB
 	board BoardRepository
 }
 
 // sql.DB, board 포인터 주입받기
-func NewTsboardBoardViewRepository(db *sql.DB, board BoardRepository) *TsboardBoardViewRepository {
-	return &TsboardBoardViewRepository{db: db, board: board}
+func NewNuboBoardViewRepository(db *sql.DB, board BoardRepository) *NuboBoardViewRepository {
+	return &NuboBoardViewRepository{db: db, board: board}
 }
 
 // 글작성자에게 차단당한 사용자인지 확인하기
-func (r *TsboardBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid uint) bool {
+func (r *NuboBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid uint) bool {
 	var writerUid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
 	r.db.QueryRow(query, postUid).Scan(&writerUid)
@@ -71,7 +71,7 @@ func (r *TsboardBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid
 }
 
 // 게시판 목록들 가져오기 (게시글 이동 시 필요)
-func (r *TsboardBoardViewRepository) GetAllBoards() []models.BoardItem {
+func (r *NuboBoardViewRepository) GetAllBoards() []models.BoardItem {
 	items := make([]models.BoardItem, 0)
 	query := fmt.Sprintf("SELECT uid, name, info FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query)
@@ -89,7 +89,7 @@ func (r *TsboardBoardViewRepository) GetAllBoards() []models.BoardItem {
 }
 
 // 게시글에 첨부된 파일 목록들 가져오기
-func (r *TsboardBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAttachment, error) {
+func (r *NuboBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAttachment, error) {
 	items := make([]models.BoardAttachment, 0)
 	query := fmt.Sprintf("SELECT uid, name, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
@@ -115,7 +115,7 @@ func (r *TsboardBoardViewRepository) GetAttachments(postUid uint) ([]models.Boar
 }
 
 // 게시글에 첨부된 이미지들 가져오기
-func (r *TsboardBoardViewRepository) GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error) {
+func (r *NuboBoardViewRepository) GetAttachedImages(postUid uint) ([]models.BoardAttachedImage, error) {
 	items := make([]models.BoardAttachedImage, 0)
 	query := fmt.Sprintf("SELECT uid, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
@@ -168,7 +168,7 @@ func (r *TsboardBoardViewRepository) GetAttachedImages(postUid uint) ([]models.B
 }
 
 // 게시판 기본 설정값들만 가져오기
-func (r *TsboardBoardViewRepository) GetBasicBoardConfig(boardUid uint) models.BoardBasicConfig {
+func (r *NuboBoardViewRepository) GetBasicBoardConfig(boardUid uint) models.BoardBasicConfig {
 	result := models.BoardBasicConfig{}
 	query := fmt.Sprintf("SELECT id, type, name FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
 	r.db.QueryRow(query, boardUid).Scan(&result.Id, &result.Type, &result.Name)
@@ -176,7 +176,7 @@ func (r *TsboardBoardViewRepository) GetBasicBoardConfig(boardUid uint) models.B
 }
 
 // 첨부파일 다운로드에 필요한 정보 가져오기
-func (r *TsboardBoardViewRepository) GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult {
+func (r *NuboBoardViewRepository) GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult {
 	var result models.BoardViewDownloadResult
 	query := fmt.Sprintf("SELECT name, path FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_FILE)
@@ -186,7 +186,7 @@ func (r *TsboardBoardViewRepository) GetDownloadInfo(fileUid uint) models.BoardV
 }
 
 // EXIF 정보 가져오기
-func (r *TsboardBoardViewRepository) GetExif(fileUid uint) models.BoardExif {
+func (r *NuboBoardViewRepository) GetExif(fileUid uint) models.BoardExif {
 	exif := models.BoardExif{}
 	query := fmt.Sprintf(`SELECT make, model, aperture, iso, focal_length, exposure, width, height, date 
 												FROM %s%s WHERE file_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_EXIF)
@@ -196,7 +196,7 @@ func (r *TsboardBoardViewRepository) GetExif(fileUid uint) models.BoardExif {
 }
 
 // 생성된 이미지 설명글 가져오기
-func (r *TsboardBoardViewRepository) GetImageDescription(fileUid uint) string {
+func (r *NuboBoardViewRepository) GetImageDescription(fileUid uint) string {
 	var description string
 	query := fmt.Sprintf("SELECT description FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_IMAGE_DESC)
 
@@ -205,7 +205,7 @@ func (r *TsboardBoardViewRepository) GetImageDescription(fileUid uint) string {
 }
 
 // Action에 필요한 포인트 양 확인하기
-func (r *TsboardBoardViewRepository) GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int) {
+func (r *NuboBoardViewRepository) GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int) {
 	var level, point int
 	act := action.String()
 	query := fmt.Sprintf("SELECT level_%s, point_%s FROM %s%s WHERE uid = ? LIMIT 1",
@@ -216,7 +216,7 @@ func (r *TsboardBoardViewRepository) GetNeededLevelPoint(boardUid uint, action m
 }
 
 // 현재 게시글의 이전 게시글 번호 가져오기
-func (r *TsboardBoardViewRepository) GetPrevPostUid(boardUid uint, postUid uint) uint {
+func (r *NuboBoardViewRepository) GetPrevPostUid(boardUid uint, postUid uint) uint {
 	var prevUid uint
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE board_uid = ? AND status != ? AND uid < ? 
 												ORDER BY uid DESC LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
@@ -226,7 +226,7 @@ func (r *TsboardBoardViewRepository) GetPrevPostUid(boardUid uint, postUid uint)
 }
 
 // 현재 게시글의 다음 게시글 번호 가져오기
-func (r *TsboardBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) uint {
+func (r *NuboBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) uint {
 	var nextUid uint
 	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE board_uid = ? AND status != ? AND uid > ?
 											 ORDER BY uid ASC LIMIT 1`, configs.Env.Prefix, models.TABLE_POST)
@@ -236,7 +236,7 @@ func (r *TsboardBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint)
 }
 
 // 게시글 보기 시 게시글 내용 가져오기
-func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
+func (r *NuboBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
 	item := models.BoardListItem{}
 	var writerUid uint
 	query := fmt.Sprintf("SELECT %s FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
@@ -257,7 +257,7 @@ func (r *TsboardBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (
 }
 
 // 게시글에 등록된 해시태그들 가져오기
-func (r *TsboardBoardViewRepository) GetTags(postUid uint) []models.Pair {
+func (r *NuboBoardViewRepository) GetTags(postUid uint) []models.Pair {
 	items := make([]models.Pair, 0)
 	query := fmt.Sprintf("SELECT hashtag_uid FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_POST_HASHTAG)
 	rows, err := r.db.Query(query, postUid)
@@ -279,7 +279,7 @@ func (r *TsboardBoardViewRepository) GetTags(postUid uint) []models.Pair {
 }
 
 // 해시태그명 가져오기
-func (r *TsboardBoardViewRepository) GetTagName(hashtagUid uint) string {
+func (r *NuboBoardViewRepository) GetTagName(hashtagUid uint) string {
 	var name string
 	query := fmt.Sprintf("SELECT name FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_HASHTAG)
 	r.db.QueryRow(query, hashtagUid).Scan(&name)
@@ -287,7 +287,7 @@ func (r *TsboardBoardViewRepository) GetTagName(hashtagUid uint) string {
 }
 
 // 썸네일 이미지 가져오기
-func (r *TsboardBoardViewRepository) GetThumbnailImage(fileUid uint) models.BoardThumbnail {
+func (r *NuboBoardViewRepository) GetThumbnailImage(fileUid uint) models.BoardThumbnail {
 	thumb := models.BoardThumbnail{}
 	query := fmt.Sprintf("SELECT path, full_path FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_FILE_THUMB)
 
@@ -296,7 +296,7 @@ func (r *TsboardBoardViewRepository) GetThumbnailImage(fileUid uint) models.Boar
 }
 
 // 게시글 작성자의 최근 댓글들 가져오기
-func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error) {
+func (r *NuboBoardViewRepository) GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, post_uid, content, submitted 
 												FROM %s%s WHERE user_uid = ? AND status != ? 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_COMMENT)
@@ -323,7 +323,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestComment(writerUid uint, limi
 }
 
 // 게시글 작성자의 최근 포스트들 가져오기
-func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error) {
+func (r *NuboBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error) {
 	query := fmt.Sprintf(`SELECT uid, board_uid, title, submitted FROM %s%s 
 												WHERE user_uid = ? AND status != ? 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_POST)
@@ -351,7 +351,7 @@ func (r *TsboardBoardViewRepository) GetWriterLatestPost(writerUid uint, limit u
 }
 
 // 게시글에 대해 좋아요를 클릭한 적 있는지 확인
-func (r *TsboardBoardViewRepository) IsLikedPost(postUid uint, actionUserUid uint) bool {
+func (r *NuboBoardViewRepository) IsLikedPost(postUid uint, actionUserUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT post_uid FROM %s%s WHERE post_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST_LIKE)
@@ -361,7 +361,7 @@ func (r *TsboardBoardViewRepository) IsLikedPost(postUid uint, actionUserUid uin
 }
 
 // 게시글 혹은 댓글 작성자인지 확인
-func (r *TsboardBoardViewRepository) IsWriter(table models.Table, targetUid uint, userUid uint) bool {
+func (r *NuboBoardViewRepository) IsWriter(table models.Table, targetUid uint, userUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, table)
 	r.db.QueryRow(query, targetUid).Scan(&uid)
@@ -369,7 +369,7 @@ func (r *TsboardBoardViewRepository) IsWriter(table models.Table, targetUid uint
 }
 
 // 게시글에 대한 좋아요를 추가하기
-func (r *TsboardBoardViewRepository) InsertLikePost(param models.BoardViewLikeParameter) {
+func (r *NuboBoardViewRepository) InsertLikePost(param models.BoardViewLikeParam) {
 	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, user_uid, liked, timestamp) 
 												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST_LIKE)
 
@@ -377,7 +377,7 @@ func (r *TsboardBoardViewRepository) InsertLikePost(param models.BoardViewLikePa
 }
 
 // 첨부파일 및 썸네일들 삭제하기
-func (r *TsboardBoardViewRepository) RemoveAttachments(postUid uint) []string {
+func (r *NuboBoardViewRepository) RemoveAttachments(postUid uint) []string {
 	var removes []string
 	query := fmt.Sprintf("SELECT uid, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
@@ -397,7 +397,7 @@ func (r *TsboardBoardViewRepository) RemoveAttachments(postUid uint) []string {
 }
 
 // 첨부파일 삭제
-func (r *TsboardBoardViewRepository) RemoveAttachedFile(fileUid uint, filePath string) []string {
+func (r *NuboBoardViewRepository) RemoveAttachedFile(fileUid uint, filePath string) []string {
 	var removes []string
 	removes = append(removes, filePath)
 
@@ -415,32 +415,32 @@ func (r *TsboardBoardViewRepository) RemoveAttachedFile(fileUid uint, filePath s
 }
 
 // 게시글에 등록된 댓글들 삭제 처리하기
-func (r *TsboardBoardViewRepository) RemoveComments(postUid uint) {
+func (r *NuboBoardViewRepository) RemoveComments(postUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_COMMENT)
 	r.db.Exec(query, models.CONTENT_REMOVED, postUid)
 }
 
 // EXIF 삭제
-func (r *TsboardBoardViewRepository) RemoveExif(fileUid uint) {
+func (r *NuboBoardViewRepository) RemoveExif(fileUid uint) {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_EXIF)
 	r.db.Exec(query, fileUid)
 }
 
 // AI로 생성한 이미지 설명글 삭제
-func (r *TsboardBoardViewRepository) RemoveImageDescription(fileUid uint) {
+func (r *NuboBoardViewRepository) RemoveImageDescription(fileUid uint) {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_IMAGE_DESC)
 	r.db.Exec(query, fileUid)
 }
 
 // 게시글 삭제 상태로 변경하기
-func (r *TsboardBoardViewRepository) RemovePost(postUid uint) error {
+func (r *NuboBoardViewRepository) RemovePost(postUid uint) error {
 	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
 	_, err := r.db.Exec(query, models.CONTENT_REMOVED, postUid)
 	return err
 }
 
 // 게시글에 등록된 태그 제거하기
-func (r *TsboardBoardViewRepository) RemovePostTags(postUid uint) {
+func (r *NuboBoardViewRepository) RemovePostTags(postUid uint) {
 	query := fmt.Sprintf("SELECT hashtag_uid FROM %s%s WHERE post_uid = ?",
 		configs.Env.Prefix, models.TABLE_POST_HASHTAG)
 
@@ -469,7 +469,7 @@ func (r *TsboardBoardViewRepository) RemovePostTags(postUid uint) {
 }
 
 // 썸네일 삭제하기
-func (r *TsboardBoardViewRepository) RemoveThumbnails(fileUid uint) []string {
+func (r *NuboBoardViewRepository) RemoveThumbnails(fileUid uint) []string {
 	var uid uint
 	var path, fullPath string
 	var removes []string
@@ -485,7 +485,7 @@ func (r *TsboardBoardViewRepository) RemoveThumbnails(fileUid uint) []string {
 }
 
 // 게시글에 대한 좋아요를 변경하기
-func (r *TsboardBoardViewRepository) UpdateLikePost(param models.BoardViewLikeParameter) {
+func (r *NuboBoardViewRepository) UpdateLikePost(param models.BoardViewLikeParam) {
 	query := fmt.Sprintf(`UPDATE %s%s SET liked = ?, timestamp = ? 
 												WHERE post_uid = ? AND user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST_LIKE)
 
@@ -493,13 +493,13 @@ func (r *TsboardBoardViewRepository) UpdateLikePost(param models.BoardViewLikePa
 }
 
 // 조회수 업데이트 하기
-func (r *TsboardBoardViewRepository) UpdatePostHit(postUid uint) {
+func (r *NuboBoardViewRepository) UpdatePostHit(postUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET hit = hit + 1 WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
 	r.db.Exec(query, postUid)
 }
 
 // 게시글의 소속 게시판 변경하기
-func (r *TsboardBoardViewRepository) UpdatePostBoardUid(targetBoardUid uint, postUid uint) {
+func (r *NuboBoardViewRepository) UpdatePostBoardUid(targetBoardUid uint, postUid uint) {
 	query := fmt.Sprintf("UPDATE %s%s SET board_uid = ?, modified = ? WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_POST)
 

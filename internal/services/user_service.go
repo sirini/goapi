@@ -11,7 +11,7 @@ import (
 
 type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
-	ChangeUserInfo(info models.UpdateUserInfoParameter) error
+	ChangeUserInfo(info models.UpdateUserInfoParam) error
 	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
@@ -19,17 +19,17 @@ type UserService interface {
 	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
 }
 
-type TsboardUserService struct {
+type NuboUserService struct {
 	repos *repositories.Repository
 }
 
 // 리포지토리 묶음 주입받기
-func NewTsboardUserService(repos *repositories.Repository) *TsboardUserService {
-	return &TsboardUserService{repos: repos}
+func NewNuboUserService(repos *repositories.Repository) *NuboUserService {
+	return &NuboUserService{repos: repos}
 }
 
 // 비밀번호 변경하기
-func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
+func (s *NuboUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
 	id, code := s.repos.Auth.FindIDCodeByVerifyUid(verifyUid)
 	if id == "" || code == "" {
 		return false
@@ -47,7 +47,7 @@ func (s *TsboardUserService) ChangePassword(verifyUid uint, userCode string, new
 }
 
 // 사용자 정보 변경하기
-func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter) error {
+func (s *NuboUserService) ChangeUserInfo(param models.UpdateUserInfoParam) error {
 	if len(param.Password) == 64 {
 		s.repos.User.UpdatePassword(param.UserUid, param.Password)
 	}
@@ -86,7 +86,7 @@ func (s *TsboardUserService) ChangeUserInfo(param models.UpdateUserInfoParameter
 }
 
 // 사용자 권한 변경하기
-func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error {
+func (s *NuboUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error {
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
 		return fmt.Errorf("unauthorized access")
 	}
@@ -129,17 +129,17 @@ func (s *TsboardUserService) ChangeUserPermission(actionUserUid uint, perm model
 }
 
 // 사용자의 공개 정보 조회
-func (s *TsboardUserService) GetUserInfo(userUid uint) (models.UserInfoResult, error) {
+func (s *NuboUserService) GetUserInfo(userUid uint) (models.UserInfoResult, error) {
 	return s.repos.Auth.FindUserInfoByUid(userUid)
 }
 
 // 사용자의 레벨과 보유 포인트 가져오기
-func (s *TsboardUserService) GetUserLevelPoint(userUid uint) (int, int) {
+func (s *NuboUserService) GetUserLevelPoint(userUid uint) (int, int) {
 	return s.repos.User.GetUserLevelPoint(userUid)
 }
 
 // 사용자의 권한 조회
-func (s *TsboardUserService) GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult {
+func (s *NuboUserService) GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult {
 	result := models.UserPermissionReportResult{}
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
 		return result
@@ -161,7 +161,7 @@ func (s *TsboardUserService) GetUserPermission(actionUserUid uint, targetUserUid
 }
 
 // 사용자가 특정 유저를 신고하기
-func (s *TsboardUserService) ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool {
+func (s *NuboUserService) ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool {
 	isAllowedAction := s.repos.Auth.CheckPermissionForAction(actionUserUid, models.USER_ACTION_SEND_REPORT)
 	if !isAllowedAction {
 		return false

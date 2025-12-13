@@ -11,33 +11,33 @@ import (
 
 type HomeRepository interface {
 	AppendItem(rows *sql.Rows) ([]models.HomePostItem, error)
-	FindLatestPostsByImageDescription(param models.HomePostParameter) ([]models.HomePostItem, error)
-	FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error)
-	FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error)
-	FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error)
+	FindLatestPostsByImageDescription(param models.HomePostParam) ([]models.HomePostItem, error)
+	FindLatestPostsByTitleContent(param models.HomePostParam) ([]models.HomePostItem, error)
+	FindLatestPostsByUserUidCatUid(param models.HomePostParam) ([]models.HomePostItem, error)
+	FindLatestPostsByTag(param models.HomePostParam) ([]models.HomePostItem, error)
 	GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult
 	GetBoardIDs() []string
 	GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error)
 	GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error)
-	GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error)
+	GetLatestPosts(param models.HomePostParam) ([]models.HomePostItem, error)
 	InsertVisitorLog(userUid uint)
 }
 
-type TsboardHomeRepository struct {
+type NuboHomeRepository struct {
 	db    *sql.DB
 	board BoardRepository
 }
 
 // sql.DB, boardRepo 포인터 주입받기
-func NewTsboardHomeRepository(db *sql.DB, board BoardRepository) *TsboardHomeRepository {
-	return &TsboardHomeRepository{
+func NewNuboHomeRepository(db *sql.DB, board BoardRepository) *NuboHomeRepository {
+	return &NuboHomeRepository{
 		db:    db,
 		board: board,
 	}
 }
 
 // 홈화면에 보여줄 게시글 레코드들을 패킹해서 반환
-func (r *TsboardHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostItem, error) {
 	items := make([]models.HomePostItem, 0)
 	for rows.Next() {
 		item := models.HomePostItem{}
@@ -56,7 +56,7 @@ func (r *TsboardHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostIte
 }
 
 // 홈화면에서 게시글에 첨부된 이미지에 대한 AI 분석 내용으로 검색해서 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByImageDescription(param models.HomePostParameter) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) FindLatestPostsByImageDescription(param models.HomePostParam) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -79,7 +79,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByImageDescription(param models.H
 }
 
 // 홈화면에서 게시글 제목 혹은 내용 일부를 검색해서 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomePostParameter) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) FindLatestPostsByTitleContent(param models.HomePostParam) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -101,7 +101,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByTitleContent(param models.HomeP
 }
 
 // 홈화면에서 사용자 고유 번호 혹은 게시글 카테고리 번호로 검색해서 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.HomePostParameter) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) FindLatestPostsByUserUidCatUid(param models.HomePostParam) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -126,7 +126,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByUserUidCatUid(param models.Home
 }
 
 // 홈화면에서 태그 이름에 해당하는 최근 게시글들만 가져오기
-func (r *TsboardHomeRepository) FindLatestPostsByTag(param models.HomePostParameter) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) FindLatestPostsByTag(param models.HomePostParam) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND p.board_uid = %d", param.BoardUid)
@@ -149,7 +149,7 @@ func (r *TsboardHomeRepository) FindLatestPostsByTag(param models.HomePostParame
 }
 
 // 게시판 기본 설정값 가져오기
-func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult {
+func (r *NuboHomeRepository) GetBoardBasicSettings(boardUid uint) models.BoardBasicSettingResult {
 	var useCategory uint
 	settings := models.BoardBasicSettingResult{}
 
@@ -162,7 +162,7 @@ func (r *TsboardHomeRepository) GetBoardBasicSettings(boardUid uint) models.Boar
 }
 
 // 전체 게시판들의 ID만 가져오기
-func (r *TsboardHomeRepository) GetBoardIDs() []string {
+func (r *NuboHomeRepository) GetBoardIDs() []string {
 	var result []string
 	query := fmt.Sprintf("SELECT id FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
 
@@ -181,7 +181,7 @@ func (r *TsboardHomeRepository) GetBoardIDs() []string {
 }
 
 // 홈화면에서 게시판 목록들 가져오기
-func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error) {
+func (r *NuboHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error) {
 	boards := make([]models.HomeSidebarBoardResult, 0)
 	rows, err := stmt.Query(groupUid)
 	if err != nil {
@@ -203,7 +203,7 @@ func (r *TsboardHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]
 }
 
 // 홈화면 사이드바에 사용할 그룹 및 하위 게시판 목록들 가져오기
-func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error) {
+func (r *NuboHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error) {
 	groups := make([]models.HomeSidebarGroupResult, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 
@@ -242,7 +242,7 @@ func (r *TsboardHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupR
 }
 
 // 홈화면 최근 게시글들 가져오기
-func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) ([]models.HomePostItem, error) {
+func (r *NuboHomeRepository) GetLatestPosts(param models.HomePostParam) ([]models.HomePostItem, error) {
 	whereBoard := ""
 	if param.BoardUid > 0 {
 		whereBoard = fmt.Sprintf("AND board_uid = %d", param.BoardUid)
@@ -262,7 +262,7 @@ func (r *TsboardHomeRepository) GetLatestPosts(param models.HomePostParameter) (
 }
 
 // 방문자 기록하기
-func (r *TsboardHomeRepository) InsertVisitorLog(userUid uint) {
+func (r *NuboHomeRepository) InsertVisitorLog(userUid uint) {
 	query := fmt.Sprintf("INSERT INTO %s%s (user_uid, timestamp) VALUES (?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_ACCESS)
 

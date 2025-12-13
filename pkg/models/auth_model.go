@@ -7,7 +7,7 @@ type SignupResult struct {
 }
 
 // 인증 완료하기 파라미터
-type VerifyParameter struct {
+type VerifyParam struct {
 	Target   uint
 	Code     string
 	Id       string
@@ -50,7 +50,7 @@ type KakaoUser struct {
 }
 
 // 인증 메일 발송에 필요한 파라미터 정의
-type SignupParameter struct {
+type SignupParam struct {
 	ID       string
 	Password string
 	Name     string
@@ -72,7 +72,7 @@ const (
 )
 
 // 로그인 시 입력 구조 정의
-type SigninParameter struct {
+type SigninParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 }

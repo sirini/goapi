@@ -15,17 +15,17 @@ type ChatRepository interface {
 	LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error)
 }
 
-type TsboardChatRepository struct {
+type NuboChatRepository struct {
 	db *sql.DB
 }
 
 // sql.DB 포인터 주입받기
-func NewTsboardChatRepository(db *sql.DB) *TsboardChatRepository {
-	return &TsboardChatRepository{db: db}
+func NewNuboChatRepository(db *sql.DB) *NuboChatRepository {
+	return &NuboChatRepository{db: db}
 }
 
 // 쪽지 보내기
-func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint {
+func (r *NuboChatRepository) InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint {
 	query := fmt.Sprintf("INSERT INTO %s%s (to_uid, from_uid, message, timestamp) VALUES (?, ?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_CHAT)
 
@@ -42,7 +42,7 @@ func (r *TsboardChatRepository) InsertNewChat(actionUserUid uint, targetUserUid 
 }
 
 // 쪽지 목록들 반환
-func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error) {
+func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error) {
 	query := fmt.Sprintf(`SELECT MAX(c.uid) AS latest_uid, c.from_uid, MAX(c.message) AS latest_message, 
 												MAX(c.timestamp) AS latest_timestamp, u.name, u.profile 
 												FROM %s%s AS c JOIN %suser AS u ON c.from_uid = u.uid WHERE c.to_uid = ? 
@@ -69,7 +69,7 @@ func (r *TsboardChatRepository) LoadChatList(userUid uint, limit uint) ([]models
 }
 
 // 상대방과의 대화 내용 가져오기
-func (r *TsboardChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
+func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
 	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %s%s 
 												WHERE to_uid IN (?, ?) AND from_uid IN (?, ?) 
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_CHAT)

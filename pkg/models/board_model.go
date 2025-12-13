@@ -1,6 +1,9 @@
 package models
 
-import "mime/multipart"
+import (
+	"context"
+	"mime/multipart"
+)
 
 // 기본값들 정의
 const FAILED = 0
@@ -186,8 +189,8 @@ type BoardConfig struct {
 }
 
 // 게시글 가져오기 시 필요한 파라미터 정의
-type BoardListParameter struct {
-	HomePostParameter
+type BoardListParam struct {
+	HomePostParam
 	Page        uint
 	Direction   Paging
 	NoticeCount uint
@@ -204,7 +207,7 @@ type BoardListResult struct {
 }
 
 // 사용자의 포인트 변경하기에 필요한 파라미터 정의
-type ChangeUserPointParameter struct {
+type ChangeUserPointParam struct {
 	BoardUid uint
 	UserUid  uint
 	Action   PointAction
@@ -298,7 +301,7 @@ type BoardThumbnail struct {
 }
 
 // 게시글 보기에서 공통으로 쓰이는 파라미터 정의
-type BoardViewCommonParameter struct {
+type BoardViewCommonParam struct {
 	BoardUid uint `json:"boardUid"`
 	PostUid  uint `json:"postUid"`
 	UserUid  uint `json:"userUid"`
@@ -311,8 +314,8 @@ type BoardViewDownloadResult struct {
 }
 
 // 게시글 보기에 필요한 파라미터 정의
-type BoardViewParameter struct {
-	BoardViewCommonParameter
+type BoardViewParam struct {
+	BoardViewCommonParam
 	UpdateHit bool
 	Limit     uint
 }
@@ -331,14 +334,14 @@ type BoardViewResult struct {
 }
 
 // 게시글 좋아하기에 필요한 파라미터 정의
-type BoardViewLikeParameter struct {
-	BoardViewCommonParameter
+type BoardViewLikeParam struct {
+	BoardViewCommonParam
 	Liked bool `json:"liked"`
 }
 
 // 게시글 이동에 필요한 파라미터 정의
-type BoardMovePostParameter struct {
-	BoardViewCommonParameter
+type BoardMovePostParam struct {
+	BoardViewCommonParam
 	TargetBoardUid uint
 }
 
@@ -377,14 +380,14 @@ type EditorConfigResult struct {
 }
 
 // EXIF 저장할 때 필요한 파라미터 정의
-type EditorSaveExifParameter struct {
+type EditorSaveExifParam struct {
 	BoardExif
 	FileUid uint
 	PostUid uint
 }
 
 // 첨부파일 저장할 때 필요한 파라미터 정의
-type EditorSaveFileParameter struct {
+type EditorSaveFileParam struct {
 	BoardUid uint
 	PostUid  uint
 	Name     string
@@ -392,14 +395,14 @@ type EditorSaveFileParameter struct {
 }
 
 // 썸네일 이미지 저장할 때 필요한 파라미터 정의
-type EditorSaveThumbnailParameter struct {
+type EditorSaveThumbnailParam struct {
 	BoardThumbnail
 	FileUid uint
 	PostUid uint
 }
 
 // 게시글에 삽입한 이미지 목록 가져오는 파라미터 정의
-type EditorInsertImageParameter struct {
+type EditorInsertImageParam struct {
 	BoardUid uint
 	LastUid  uint
 	UserUid  uint
@@ -421,17 +424,25 @@ type EditorLoadPostResult struct {
 }
 
 // 게시글 수정 시 필요한 파라미터 정의
-type EditorModifyParameter struct {
-	EditorWriteParameter
+type EditorModifyParam struct {
+	EditorWriteParam
 	PostUid uint
 }
 
 // 게시글 수정 시 첨부된 파일 삭제하기에 필요한 파라미터 정의
-type EditorRemoveAttachedParameter struct {
+type EditorRemoveAttachedParam struct {
 	BoardUid uint
 	PostUid  uint
 	FileUid  uint
 	UserUid  uint
+}
+
+// 첨부파일을 저장할때 필요한 파라미터 정의
+type EditorSaveAttachedParam struct {
+	Context  context.Context
+	BoardUid uint
+	PostUid  uint
+	Files    []*multipart.FileHeader
 }
 
 // 태그 자동완성 결과 타입 정의
@@ -441,7 +452,8 @@ type EditorTagItem struct {
 }
 
 // 게시글 작성 시 필요한 파라미터 정의
-type EditorWriteParameter struct {
+type EditorWriteParam struct {
+	Context     context.Context
 	BoardUid    uint
 	UserUid     uint
 	CategoryUid uint

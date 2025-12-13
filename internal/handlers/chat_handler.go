@@ -15,17 +15,17 @@ type ChatHandler interface {
 	SaveChatHandler(c fiber.Ctx) error
 }
 
-type TsboardChatHandler struct {
+type NuboChatHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardChatHandler(service *services.Service) *TsboardChatHandler {
-	return &TsboardChatHandler{service: service}
+func NewNuboChatHandler(service *services.Service) *NuboChatHandler {
+	return &NuboChatHandler{service: service}
 }
 
 // 오고 간 쪽지들의 목록 가져오기
-func (h *TsboardChatHandler) LoadChatListHandler(c fiber.Ctx) error {
+func (h *NuboChatHandler) LoadChatListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
 	if err != nil {
@@ -40,11 +40,11 @@ func (h *TsboardChatHandler) LoadChatListHandler(c fiber.Ctx) error {
 }
 
 // 특정인과 나눈 최근 쪽지들의 내용 가져오기
-func (h *TsboardChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
+func (h *NuboChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, "Invalid target user uid, not a valid number", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
@@ -60,7 +60,7 @@ func (h *TsboardChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
 }
 
 // 쪽지 내용 저장하기
-func (h *TsboardChatHandler) SaveChatHandler(c fiber.Ctx) error {
+func (h *NuboChatHandler) SaveChatHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	message := c.FormValue("message")
 	if len(message) < 2 {

@@ -16,17 +16,17 @@ type BlogHandler interface {
 	BlogRssLoadHandler(c fiber.Ctx) error
 }
 
-type TsboardBlogHandler struct {
+type NuboBlogHandler struct {
 	service *services.Service
 }
 
 // services.Service 주입 받기
-func NewTsboardBlogHandler(service *services.Service) *TsboardBlogHandler {
-	return &TsboardBlogHandler{service: service}
+func NewNuboBlogHandler(service *services.Service) *NuboBlogHandler {
+	return &NuboBlogHandler{service: service}
 }
 
 // RSS 불러오기 핸들러
-func (h *TsboardBlogHandler) BlogRssLoadHandler(c fiber.Ctx) error {
+func (h *NuboBlogHandler) BlogRssLoadHandler(c fiber.Ctx) error {
 	c.Set("Content-Type", "application/rss+xml; charset=UTF-8")
 	id := c.Params("id")
 	boardUid := h.service.Board.GetBoardUid(id)
