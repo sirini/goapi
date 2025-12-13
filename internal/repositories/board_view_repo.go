@@ -105,10 +105,6 @@ func (r *NuboBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAt
 		if err != nil {
 			return nil, err
 		}
-		item.Size = utils.GetFileSize(path)
-		if item.Size < 1 {
-			continue
-		}
 		items = append(items, item)
 	}
 	return items, nil
@@ -144,6 +140,11 @@ func (r *NuboBoardViewRepository) GetAttachedImages(postUid uint) ([]models.Boar
 		ext := filepath.Ext(filePath)
 		lowerExt := strings.ToLower(ext)
 		if !imageExtensions[lowerExt] {
+			continue
+		}
+
+		imgSize := utils.GetFileSize(filePath)
+		if imgSize < 1 {
 			continue
 		}
 
