@@ -163,7 +163,7 @@ func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
 func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
 	var uid uint
-	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND status != ? LIMIT 1",
+	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
 	r.db.QueryRow(query, commentUid, userUid, models.CONTENT_REMOVED).Scan(&uid)
