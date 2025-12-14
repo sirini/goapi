@@ -144,29 +144,29 @@ func (r *NuboCommentRepository) GetPostWriterUid(postUid uint) uint {
 // 이 댓글에 답글이 하나라도 있는지 확인하기
 func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
 	var replyUid uint
-	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? LIMIT 1",
+	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 
-	r.db.QueryRow(query, commentUid).Scan(&replyUid)
+	r.db.QueryRow(query, commentUid, models.CONTENT_REMOVED).Scan(&replyUid)
 	if replyUid != commentUid {
 		return false
 	}
 
 	var uid uint
-	query = fmt.Sprintf("SELECT uid FROM %s%s WHERE reply_uid = ? AND uid != ? LIMIT 1",
+	query = fmt.Sprintf("SELECT uid FROM %s%s WHERE reply_uid = ? AND uid != ? AND status != ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 
-	r.db.QueryRow(query, commentUid, commentUid).Scan(&uid)
+	r.db.QueryRow(query, commentUid, commentUid, models.CONTENT_REMOVED).Scan(&uid)
 	return uid > 0
 }
 
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
 func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
 	var uid uint
-	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
+	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND status != ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
-	r.db.QueryRow(query, commentUid, userUid).Scan(&uid)
+	r.db.QueryRow(query, commentUid, userUid, models.CONTENT_REMOVED).Scan(&uid)
 	return uid > 0
 }
 
