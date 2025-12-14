@@ -13,7 +13,7 @@ import (
 
 type CommentService interface {
 	Like(param models.CommentLikeParam)
-	LoadList(param models.CommentListParam) (models.CommentListResult, error)
+	List(param models.CommentListParam) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParam) error
 	Remove(param models.CommentRemoveParam) error
 	Reply(param models.CommentReplyParam) (uint, error)
@@ -50,7 +50,7 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) {
 }
 
 // 댓글 목록 가져오기
-func (s *NuboCommentService) LoadList(param models.CommentListParam) (models.CommentListResult, error) {
+func (s *NuboCommentService) List(param models.CommentListParam) (models.CommentListResult, error) {
 	result := models.CommentListResult{}
 	userLv, _ := s.repos.User.GetUserLevelPoint(param.UserUid)
 	needLv, _ := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)

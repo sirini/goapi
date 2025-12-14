@@ -36,7 +36,7 @@ func (h *NuboCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	}
 
 	param.UserUid = uint(actionUserUid)
-	result, err := h.service.Comment.LoadList(param)
+	result, err := h.service.Comment.List(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
