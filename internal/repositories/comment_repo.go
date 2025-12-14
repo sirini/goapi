@@ -166,7 +166,7 @@ func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bo
 	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
-	r.db.QueryRow(query, commentUid, userUid, models.CONTENT_REMOVED).Scan(&uid)
+	r.db.QueryRow(query, commentUid, userUid).Scan(&uid)
 	return uid > 0
 }
 
