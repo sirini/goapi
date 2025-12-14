@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
@@ -74,12 +76,19 @@ func (h *NuboCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 // 댓글 삭제하기 핸들러
 func (h *NuboCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 	param := models.CommentRemoveParam{}
-	if err := c.Bind().Body(&param); err != nil {
+	boardUid, err := strconv.ParseUint(c.Query("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	removeTargetUid, err := strconv.ParseUint(c.Query("removeTargetUid"), 10, 32)
+	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	param.UserUid = uint(actionUserUid)
+	param.BoardUid = uint(boardUid)
+	param.RemoveTargetUid = uint(removeTargetUid)
 
 	if err := h.service.Comment.Remove(param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)

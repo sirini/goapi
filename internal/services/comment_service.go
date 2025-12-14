@@ -100,7 +100,7 @@ func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
 	}
 
 	if hasReply := s.repos.Comment.HasReplyComment(param.RemoveTargetUid); hasReply {
-		s.repos.Comment.UpdateComment(param.RemoveTargetUid, "")
+		s.repos.Comment.UpdateComment(param.RemoveTargetUid, "(deleted)")
 	} else {
 		s.repos.Comment.RemoveComment(param.RemoveTargetUid)
 	}
