@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
@@ -45,26 +43,15 @@ func (h *NuboCommentHandler) CommentListHandler(c fiber.Ctx) error {
 
 // 댓글에 좋아요 누르기 핸들러
 func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
+	param := models.CommentLikeParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	commentUid, err := strconv.ParseUint(c.FormValue("commentUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid comment uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	liked, err := strconv.ParseBool(c.FormValue("liked"))
-	if err != nil {
-		return utils.Err(c, "Invalid liked, it should be 0 or 1", models.CODE_INVALID_PARAMETER)
-	}
 
-	h.service.Comment.Like(models.CommentLikeParam{
-		BoardUid:   uint(boardUid),
-		CommentUid: uint(commentUid),
-		UserUid:    uint(actionUserUid),
-		Liked:      liked,
-	})
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	param.UserUid = uint(actionUserUid)
+
+	h.service.Comment.Like(param)
 	return utils.Ok(c, nil)
 }
 
