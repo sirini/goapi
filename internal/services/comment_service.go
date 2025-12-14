@@ -15,7 +15,7 @@ type CommentService interface {
 	Like(param models.CommentLikeParam)
 	LoadList(param models.CommentListParam) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParam) error
-	Remove(commentUid uint, boardUid uint, userUid uint) error
+	Remove(param models.CommentRemoveParam) error
 	Reply(param models.CommentReplyParam) (uint, error)
 	Write(param models.CommentWriteParam) (uint, error)
 }
@@ -83,26 +83,26 @@ func (s *NuboCommentService) LoadList(param models.CommentListParam) (models.Com
 // 기존 댓글 수정하기
 func (s *NuboCommentService) Modify(param models.CommentModifyParam) error {
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
-	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.CommentUid, param.UserUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.ModifyTargetUid, param.UserUid)
 	if !isAdmin && !isAuthor {
 		return fmt.Errorf("you have no permission to edit this comment")
 	}
-	s.repos.Comment.UpdateComment(param.CommentUid, param.Content)
+	s.repos.Comment.UpdateComment(param.ModifyTargetUid, param.Content)
 	return nil
 }
 
 // 댓글 삭제하기
-func (s *NuboCommentService) Remove(commentUid uint, boardUid uint, userUid uint) error {
-	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
-	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, commentUid, userUid)
+func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
+	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.RemoveTargetUid, param.UserUid)
 	if !isAdmin && !isAuthor {
 		return fmt.Errorf("you have no permission to remove this comment")
 	}
 
-	if hasReply := s.repos.Comment.HasReplyComment(commentUid); hasReply {
-		s.repos.Comment.UpdateComment(commentUid, "")
+	if hasReply := s.repos.Comment.HasReplyComment(param.RemoveTargetUid); hasReply {
+		s.repos.Comment.UpdateComment(param.RemoveTargetUid, "")
 	} else {
-		s.repos.Comment.RemoveComment(commentUid)
+		s.repos.Comment.RemoveComment(param.RemoveTargetUid)
 	}
 	return nil
 }

@@ -42,7 +42,14 @@ type CommentLikeParam struct {
 // 댓글 수정하기에 필요한 파라미터 정의
 type CommentModifyParam struct {
 	CommentWriteParam
-	CommentUid uint `json:"commentUid"`
+	ModifyTargetUid uint `json:"modifyTargetUid"`
+}
+
+// 댓글 삭제하기에 필요한 파라미터 정의
+type CommentRemoveParam struct {
+	BoardUid        uint `json:"boardUid"`
+	UserUid         uint `json:"userUid"`
+	RemoveTargetUid uint `json:"removeTargetUid"`
 }
 
 // 답글 작성하기에 필요한 파라미터 정의

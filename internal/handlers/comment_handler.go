@@ -70,20 +70,15 @@ func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 
 // 기존 댓글 내용 수정하기 핸들러
 func (h *NuboCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParams(c)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	commentUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid modify target uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.CommentModifyParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	err = h.service.Comment.Modify(models.CommentModifyParam{
-		CommentWriteParam: parameter,
-		CommentUid:        uint(commentUid),
-	})
-	if err != nil {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	param.UserUid = uint(actionUserUid)
+
+	if err := h.service.Comment.Modify(param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
@@ -91,18 +86,15 @@ func (h *NuboCommentHandler) ModifyCommentHandler(c fiber.Ctx) error {
 
 // 댓글 삭제하기 핸들러
 func (h *NuboCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
+	param := models.CommentRemoveParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	commentUid, err := strconv.ParseUint(c.FormValue("removeTargetUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid comment uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
 
-	err = h.service.Comment.Remove(uint(commentUid), uint(boardUid), uint(actionUserUid))
-	if err != nil {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	param.UserUid = uint(actionUserUid)
+
+	if err := h.service.Comment.Remove(param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
@@ -110,19 +102,20 @@ func (h *NuboCommentHandler) RemoveCommentHandler(c fiber.Ctx) error {
 
 // 기존 댓글에 답글 작성하기 핸들러
 func (h *NuboCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParams(c)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	replyTargetUid, err := strconv.ParseUint(c.FormValue("targetUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid reply target uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.CommentReplyParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	insertId, err := h.service.Comment.Reply(models.CommentReplyParam{
-		CommentWriteParam: parameter,
-		ReplyTargetUid:    uint(replyTargetUid),
-	})
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	param.UserUid = uint(actionUserUid)
+	param.Content = utils.Sanitize(param.Content)
+
+	if len(param.Content) < 10 {
+		return utils.Err(c, "content is too short", models.CODE_INVALID_PARAMETER)
+	}
+
+	insertId, err := h.service.Comment.Reply(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -131,12 +124,20 @@ func (h *NuboCommentHandler) ReplyCommentHandler(c fiber.Ctx) error {
 
 // 새 댓글 작성하기 핸들러
 func (h *NuboCommentHandler) WriteCommentHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckCommentParams(c)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	param := models.CommentWriteParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	insertId, err := h.service.Comment.Write(parameter)
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	param.UserUid = uint(actionUserUid)
+	param.Content = utils.Sanitize(param.Content)
+
+	if len(param.Content) < 10 {
+		return utils.Err(c, "content is too short", models.CODE_INVALID_PARAMETER)
+	}
+
+	insertId, err := h.service.Comment.Write(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
