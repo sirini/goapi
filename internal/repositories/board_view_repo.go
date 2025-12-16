@@ -105,6 +105,7 @@ func (r *NuboBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAt
 		if err != nil {
 			return nil, err
 		}
+		item.Size = utils.GetFileSize(path)
 		items = append(items, item)
 	}
 	return items, nil
