@@ -17,6 +17,7 @@ type BoardHandler interface {
 	DownloadHandler(c fiber.Ctx) error
 	GalleryListHandler(c fiber.Ctx) error
 	GalleryLoadPhotoHandler(c fiber.Ctx) error
+	LatestUserContentHandler(c fiber.Ctx) error
 	LikePostHandler(c fiber.Ctx) error
 	ListForMoveHandler(c fiber.Ctx) error
 	MovePostHandler(c fiber.Ctx) error
@@ -214,6 +215,21 @@ func (h *NuboBoardHandler) GalleryLoadPhotoHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
+	return utils.Ok(c, result)
+}
+
+// 특정 사용자의 최근 활동(글, 댓글)들 가져오기
+func (h *NuboBoardHandler) LatestUserContentHandler(c fiber.Ctx) error {
+	uid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	result := h.service.Board.GetLatestUserContents(uint(uid), uint(limit))
 	return utils.Ok(c, result)
 }
 

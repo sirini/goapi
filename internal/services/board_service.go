@@ -21,6 +21,7 @@ type BoardService interface {
 	GetGalleryList(param models.BoardListParam) models.GalleryListResult
 	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
 	GetInsertedImages(param models.EditorInsertImageParam) (models.EditorInsertImageResult, error)
+	GetLatestUserContents(userUid uint, limit uint) models.BoardWriterLatestContent
 	GetListItem(param models.BoardListParam) (models.BoardListResult, error)
 	GetMaxUid() uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
@@ -218,6 +219,16 @@ func (s *NuboBoardService) GetInsertedImages(param models.EditorInsertImageParam
 		TotalImageCount: totalImageCount,
 	}
 	return result, nil
+}
+
+// 사용자의 최근 활동(글, 댓글) 가져오기
+func (s *NuboBoardService) GetLatestUserContents(userUid uint, limit uint) models.BoardWriterLatestContent {
+	posts, _ := s.repos.BoardView.GetWriterLatestPost(userUid, limit)
+	comments, _ := s.repos.BoardView.GetWriterLatestComment(userUid, limit)
+	return models.BoardWriterLatestContent{
+		Posts:    posts,
+		Comments: comments,
+	}
 }
 
 // 게시판 목록글들 가져오기

@@ -372,6 +372,12 @@ type BoardWriterLatestPost struct {
 	Title   string `json:"title"`
 }
 
+// 게시글 작성자의 최근 (댓)글 리턴값 정의
+type BoardWriterLatestContent struct {
+	Posts    []BoardWriterLatestPost    `json:"posts"`
+	Comments []BoardWriterLatestComment `json:"comments"`
+}
+
 // 에디터에서 게시판 설정 및 카테고리 불러오기 결과 타입 정의
 type EditorConfigResult struct {
 	Config     BoardConfig `json:"config"`
