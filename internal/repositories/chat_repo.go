@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
@@ -64,7 +65,7 @@ func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.Ch
 		}
 		chatItems = append(chatItems, item)
 	}
-
+	slices.Reverse(chatItems)
 	return chatItems, nil
 }
 
@@ -88,6 +89,6 @@ func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid u
 		}
 		chatHistories = append(chatHistories, history)
 	}
-
+	slices.Reverse(chatHistories)
 	return chatHistories, nil
 }

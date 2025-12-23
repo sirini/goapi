@@ -15,3 +15,9 @@ type ChatHistory struct {
 	Message   string `json:"message"`
 	Timestamp uint64 `json:"timestamp"`
 }
+
+// 쪽지 보내기에 필요한 파라미터 정의
+type ChatSendMessage struct {
+	TargetUserUid uint   `json:"targetUserUid"`
+	Message       string `json:"message"`
+}

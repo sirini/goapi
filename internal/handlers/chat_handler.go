@@ -62,18 +62,13 @@ func (h *NuboChatHandler) LoadChatHistoryHandler(c fiber.Ctx) error {
 // 쪽지 내용 저장하기
 func (h *NuboChatHandler) SaveChatHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	message := c.FormValue("message")
-	if len(message) < 2 {
-		return utils.Err(c, "Your message is too short, aborted", models.CODE_INVALID_PARAMETER)
+	payload := models.ChatSendMessage{}
+	if err := c.Bind().Body(&payload); err != nil {
+		return utils.Err(c, "Invalid parameters", models.CODE_INVALID_PARAMETER)
 	}
 
-	targetUserUid64, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid target user uid parameter", models.CODE_INVALID_PARAMETER)
-	}
-
-	message = utils.Escape(message)
-	targetUserUid := uint(targetUserUid64)
+	message := utils.Escape(payload.Message)
+	targetUserUid := payload.TargetUserUid
 
 	if isPerm := h.service.Auth.CheckUserPermission(uint(actionUserUid), models.USER_ACTION_SEND_CHAT); !isPerm {
 		return utils.Err(c, "You don't have permission to send a chat message", models.CODE_NO_PERMISSION)
