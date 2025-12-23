@@ -72,10 +72,10 @@ func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.Ch
 // 상대방과의 대화 내용 가져오기
 func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
 	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %s%s 
-												WHERE to_uid IN (?, ?) AND from_uid IN (?, ?) 
+												WHERE (to_uid = ? AND from_uid = ?) OR (to_uid = ? AND from_uid = ?)
 												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_CHAT)
 
-	rows, err := r.db.Query(query, actionUserUid, targetUserUid, actionUserUid, targetUserUid, limit)
+	rows, err := r.db.Query(query, targetUserUid, actionUserUid, actionUserUid, targetUserUid, limit)
 	if err != nil {
 		return nil, err
 	}
