@@ -364,7 +364,7 @@ func (r *NuboBoardRepository) GetNormalPosts(param models.BoardListParam) ([]mod
 // 최근 사용된 해시태그 가져오기
 func (r *NuboBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
 	items := make([]models.BoardTag, 0)
-	query := fmt.Sprintf(`SELECT h.uid AS hashtag_uid, h.name AS hashtag_name, MAX(p.post_uid) AS latest_post 
+	query := fmt.Sprintf(`SELECT h.uid AS hashtag_uid, h.name AS hashtag_name, IFNULL(MAX(p.post_uid), 0) AS latest_post 
 												FROM %s%s p 
 												JOIN %s%s h ON p.hashtag_uid = h.uid 
 												WHERE board_uid = ? 
@@ -392,7 +392,7 @@ func (r *NuboBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models
 // 게시판 or 댓글의 현재 uid 값 반환하기
 func (r *NuboBoardRepository) GetMaxUid(table models.Table) uint {
 	var max uint
-	query := fmt.Sprintf("SELECT MAX(uid) AS last FROM %s%s", configs.Env.Prefix, table)
+	query := fmt.Sprintf("SELECT IFNULL(MAX(uid), 0) FROM %s%s", configs.Env.Prefix, table)
 	r.db.QueryRow(query).Scan(&max)
 	return max
 }

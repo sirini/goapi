@@ -107,8 +107,9 @@ func (r *NuboBoardEditRepository) GetInsertedImages(param models.EditorInsertIma
 // 내가 올린 이미지들의 가장 최근 고유 번호 반환
 func (r *NuboBoardEditRepository) GetMaxImageUid(boardUid uint, actionUserUid uint) (uint, error) {
 	var uid uint
-	query := fmt.Sprintf("SELECT MAX(uid) FROM %s%s WHERE board_uid = ? AND user_uid = ?",
+	query := fmt.Sprintf("SELECT IFNULL(MAX(uid), 0) FROM %s%s WHERE board_uid = ? AND user_uid = ?",
 		configs.Env.Prefix, models.TABLE_IMAGE)
+
 	err := r.db.QueryRow(query, boardUid, actionUserUid).Scan(&uid)
 	return uid, err
 }
