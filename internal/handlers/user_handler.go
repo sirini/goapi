@@ -11,6 +11,7 @@ import (
 
 type UserHandler interface {
 	ChangePasswordHandler(c fiber.Ctx) error
+	CheckReportedUserHandler(c fiber.Ctx) error
 	LoadUserInfoHandler(c fiber.Ctx) error
 	LoadUserPermissionHandler(c fiber.Ctx) error
 	ManageUserPermissionHandler(c fiber.Ctx) error
@@ -45,6 +46,18 @@ func (h *NuboUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Unable to change your password, internal error", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
+}
+
+// 이미 신고한 사용자인지 확인하기
+func (h *NuboUserHandler) CheckReportedUserHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	targetUserUid, err := strconv.ParseUint(c.Query("targetUserUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	result := h.service.User.CheckReportStatus(uint(actionUserUid), uint(targetUserUid))
+	return utils.Ok(c, result)
 }
 
 // 사용자 정보 열람

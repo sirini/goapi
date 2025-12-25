@@ -10,6 +10,7 @@ import (
 )
 
 type UserService interface {
+	CheckReportStatus(actionUserUid uint, targetUserUid uint) models.UserCheckReportResult
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info models.UpdateUserInfoParam) error
 	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
@@ -26,6 +27,14 @@ type NuboUserService struct {
 // 리포지토리 묶음 주입받기
 func NewNuboUserService(repos *repositories.Repository) *NuboUserService {
 	return &NuboUserService{repos: repos}
+}
+
+// 이미 신고한 사용자인지, 내 블랙리스트에 이미 들어가 있는지 확인
+func (s *NuboUserService) CheckReportStatus(actionUserUid uint, targetUserUid uint) models.UserCheckReportResult {
+	result := models.UserCheckReportResult{}
+	result.IsReported = s.repos.User.IsReported(actionUserUid, targetUserUid)
+	result.IsBannedByMe = s.repos.User.IsBannedByTarget(targetUserUid, actionUserUid)
+	return result
 }
 
 // 비밀번호 변경하기

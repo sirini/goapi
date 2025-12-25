@@ -37,6 +37,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	user.Get("/info", h.User.LoadUserInfoHandler)
 	user.Post("/change/password", h.User.ChangePasswordHandler)
 	user.Post("/report", h.User.ReportUserHandler, middlewares.JWTMiddleware())
+	user.Get("/report", h.User.CheckReportedUserHandler, middlewares.JWTMiddleware())
 	user.Get("/permission", h.User.LoadUserPermissionHandler, middlewares.JWTMiddleware())
 	user.Post("/manage", h.User.ManageUserPermissionHandler, middlewares.JWTMiddleware())
 }

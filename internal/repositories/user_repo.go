@@ -23,6 +23,7 @@ type UserRepository interface {
 	IsBlocked(userUid uint) bool
 	IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool
 	IsPermissionAdded(userUid uint) bool
+	IsReported(actionUserUid uint, targetUserUid uint) bool
 	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) models.UserPermissionResult
 	UpdatePassword(userUid uint, password string) error
@@ -194,6 +195,14 @@ func (r *NuboUserRepository) IsPermissionAdded(userUid uint) bool {
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE user_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_PERM)
 	r.db.QueryRow(query, userUid).Scan(&uid)
+	return uid > 0
+}
+
+// 현재 사용자가 대상 사용자를 이미 신고했는지 확인
+func (r *NuboUserRepository) IsReported(actionUserUid uint, targetUserUid uint) bool {
+	var uid uint
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_REPORT)
+	r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
 	return uid > 0
 }
 

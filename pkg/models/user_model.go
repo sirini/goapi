@@ -125,3 +125,15 @@ type UserReportParam struct {
 	CheckedBlackList bool   `json:"checkedBlackList"`
 	Content          string `json:"content"`
 }
+
+// 이미 내가 신고한 사용자인지 확인하는 파라미터 정의
+type UserCheckReportedParam struct {
+	ActionUserUid uint
+	TargetUserUid uint `json:"targetUserUid"`
+}
+
+// 내가 신고한 사용자인지, 내 블랙리스트에 있는 사용자인지 확인한 결과들
+type UserCheckReportResult struct {
+	IsReported   bool `json:"isReported"`
+	IsBannedByMe bool `json:"isBannedByMe"`
+}
