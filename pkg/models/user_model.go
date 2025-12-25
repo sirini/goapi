@@ -117,3 +117,11 @@ type UserBasicInfo struct {
 	Name    string `json:"name"`
 	Profile string `json:"profile"`
 }
+
+// 사용자 신고하기에 필요한 파라미터 정의
+type UserReportParam struct {
+	ActionUserUid    uint
+	TargetUserUid    uint   `json:"targetUserUid"`
+	CheckedBlackList bool   `json:"checkedBlackList"`
+	Content          string `json:"content"`
+}

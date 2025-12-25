@@ -16,7 +16,7 @@ type UserService interface {
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
 	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult
-	ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool
+	ReportTargetUser(param models.UserReportParam) bool
 }
 
 type NuboUserService struct {
@@ -161,14 +161,14 @@ func (s *NuboUserService) GetUserPermission(actionUserUid uint, targetUserUid ui
 }
 
 // 사용자가 특정 유저를 신고하기
-func (s *NuboUserService) ReportTargetUser(actionUserUid uint, targetUserUid uint, wantBlock bool, report string) bool {
-	isAllowedAction := s.repos.Auth.CheckPermissionForAction(actionUserUid, models.USER_ACTION_SEND_REPORT)
+func (s *NuboUserService) ReportTargetUser(param models.UserReportParam) bool {
+	isAllowedAction := s.repos.Auth.CheckPermissionForAction(param.ActionUserUid, models.USER_ACTION_SEND_REPORT)
 	if !isAllowedAction {
 		return false
 	}
-	if wantBlock {
-		s.repos.User.InsertBlackList(actionUserUid, targetUserUid)
+	if param.CheckedBlackList {
+		s.repos.User.InsertBlackList(param.ActionUserUid, param.TargetUserUid)
 	}
-	s.repos.User.InsertReportUser(actionUserUid, targetUserUid, utils.Escape(report))
+	s.repos.User.InsertReportUser(param)
 	return true
 }

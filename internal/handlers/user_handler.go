@@ -124,16 +124,14 @@ func (h *NuboUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 // 사용자 신고하기
 func (h *NuboUserHandler) ReportUserHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	content := c.FormValue("content")
-	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
-	if err != nil {
+	param := models.UserReportParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	checkedBlackList, err := strconv.ParseBool(c.FormValue("checkedBlackList"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	result := h.service.User.ReportTargetUser(uint(actionUserUid), uint(targetUserUid), checkedBlackList, content)
+
+	param.ActionUserUid = uint(actionUserUid)
+	param.Content = utils.Escape(param.Content)
+	result := h.service.User.ReportTargetUser(param)
 	if !result {
 		return utils.Err(c, "You have no permission to report other user", models.CODE_NO_PERMISSION)
 	}

@@ -14,7 +14,7 @@ type UserRepository interface {
 	GetUserBlackList(userUid uint) []uint
 	GetUserLevelPoint(userUid uint) (int, int)
 	InsertBlackList(actionUserUid uint, targetUserUid uint) error
-	InsertReportUser(actionUserUid uint, targetUserUid uint, report string) error
+	InsertReportUser(param models.UserReportParam) error
 	InsertNewUser(id string, pw string, name string) uint
 	InsertUserPermission(userUid uint, perm models.UserPermissionResult) error
 	InsertReportResponse(actionUserUid uint, targetUserUid uint, response string) error
@@ -100,16 +100,16 @@ func (r *NuboUserRepository) InsertBlackList(actionUserUid uint, targetUserUid u
 }
 
 // 다른 사용자를 신고하기
-func (r *NuboUserRepository) InsertReportUser(actionUserUid uint, targetUserUid uint, report string) error {
+func (r *NuboUserRepository) InsertReportUser(param models.UserReportParam) error {
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_REPORT)
 
 	var uid uint
-	err := r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
+	err := r.db.QueryRow(query, param.TargetUserUid, param.ActionUserUid).Scan(&uid)
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf(`INSERT INTO %s%s (to_uid, from_uid, request, response, timestamp, solved) 
 												VALUES (?, ?, ?, ? ,? ,?)`, configs.Env.Prefix, models.TABLE_REPORT)
-		r.db.Exec(query, targetUserUid, actionUserUid, report, "", time.Now().UnixMilli(), 0)
+		r.db.Exec(query, param.TargetUserUid, param.ActionUserUid, param.Content, "", time.Now().UnixMilli(), 0)
 	}
 	return nil
 }
