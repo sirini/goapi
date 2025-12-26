@@ -26,7 +26,6 @@ type UserRepository interface {
 	IsReported(actionUserUid uint, targetUserUid uint) bool
 	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) models.UserPermissionResult
-	UpdatePassword(userUid uint, password string) error
 	UpdatePointHistory(param models.UpdatePointParam) error
 	UpdateUserInfoString(userUid uint, name string, signature string) error
 	UpdateUserProfile(userUid uint, imagePath string) error
@@ -238,13 +237,6 @@ func (r *NuboUserRepository) LoadUserPermission(userUid uint) models.UserPermiss
 	result.SendChatMessage = sendChat > 0
 	result.SendReport = sendReport > 0
 	return result
-}
-
-// 사용자 비밀번호 변경하기
-func (r *NuboUserRepository) UpdatePassword(userUid uint, pw string) error {
-	query := fmt.Sprintf("UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	_, err := r.db.Exec(query, pw, userUid)
-	return err
 }
 
 // 사용자의 포인트 변경 이력 업데이트

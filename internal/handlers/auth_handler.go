@@ -240,7 +240,7 @@ func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	name := html.EscapeString(c.FormValue("name"))
 	signature := html.EscapeString(c.FormValue("signature"))
-	password := c.FormValue("password")
+	password := c.FormValue("password") // 일반 문자열이어야 함
 
 	if len(name) < 2 {
 		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
@@ -251,6 +251,13 @@ func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	userInfo, err := h.service.User.GetUserInfo(uint(actionUserUid))
 	if err != nil {
 		return utils.Err(c, "Unable to find your information", models.CODE_FAILED_OPERATION)
+	}
+
+	if len(password) > 7 {
+		newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err == nil {
+			h.service.Auth.ChangeHashForPassword(uint(actionUserUid), string(newBcryptHash))
+		}
 	}
 
 	header, _ := c.FormFile("profile")

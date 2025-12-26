@@ -7,6 +7,7 @@ import (
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
@@ -51,15 +52,16 @@ func (s *NuboUserService) ChangePassword(verifyUid uint, userCode string, newPas
 		return false
 	}
 
-	s.repos.User.UpdatePassword(userUid, newPassword)
+	newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return false
+	}
+	s.repos.Auth.UpdateUserPasswordHash(userUid, string(newBcryptHash))
 	return true
 }
 
 // 사용자 정보 변경하기
 func (s *NuboUserService) ChangeUserInfo(param models.UpdateUserInfoParam) error {
-	if len(param.Password) == 64 {
-		s.repos.User.UpdatePassword(param.UserUid, param.Password)
-	}
 	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
 
 	if param.Profile != nil {

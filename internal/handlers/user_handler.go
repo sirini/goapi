@@ -29,19 +29,20 @@ func NewNuboUserHandler(service *services.Service) *NuboUserHandler {
 
 // 비밀번호 변경하기
 func (h *NuboUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
-	userCode := c.FormValue("code")
-	newPassword := c.FormValue("password")
-
-	if len(userCode) != 6 || len(newPassword) != 64 {
-		return utils.Err(c, "Failed to change your password, invalid inputs", models.CODE_INVALID_PARAMETER)
-	}
-
-	verifyUid, err := strconv.ParseUint(c.FormValue("target"), 10, 32)
-	if err != nil {
+	param := models.UserChangePasswordParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	result := h.service.User.ChangePassword(uint(verifyUid), userCode, newPassword)
+	userCode := param.Code
+	verifyUid := param.Target
+	newPassword := param.Password // 일반 문자열이어야 함
+
+	if len(userCode) != 6 || len(newPassword) < 8 {
+		return utils.Err(c, "failed to change your password, invalid inputs", models.CODE_INVALID_PARAMETER)
+	}
+
+	result := h.service.User.ChangePassword(verifyUid, userCode, newPassword)
 	if !result {
 		return utils.Err(c, "Unable to change your password, internal error", models.CODE_FAILED_OPERATION)
 	}

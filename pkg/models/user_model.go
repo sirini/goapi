@@ -137,3 +137,10 @@ type UserCheckReportResult struct {
 	IsReported   bool `json:"isReported"`
 	IsBannedByMe bool `json:"isBannedByMe"`
 }
+
+// 새 비밀번호 지정에 필요한 파라미터 정의
+type UserChangePasswordParam struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
+	Target   uint   `json:"target"`
+}
