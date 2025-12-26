@@ -141,11 +141,11 @@ func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 // 첨부파일 다운로드 핸들러
 func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
+	boardUid, err := strconv.ParseUint(c.Query("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
+	fileUid, err := strconv.ParseUint(c.Query("fileUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
