@@ -43,9 +43,9 @@ func Connect(cfg *configs.Config) *sql.DB {
 	db.SetMaxOpenConns(int(maxOpen))
 	db.SetConnMaxLifetime(3 * time.Minute)
 
-	log.Printf("✔︎ Max idle connections: %s\n", cfg.DBMaxIdle)
-	log.Printf("✔︎ Max open connections: %s\n", cfg.DBMaxOpen)
-	log.Println("✔︎ Max lifetime of conn: 3 minutes")
+	log.Printf("⚙️ Max idle connections: %s\n", cfg.DBMaxIdle)
+	log.Printf("⚙️ Max open connections: %s\n", cfg.DBMaxOpen)
+	log.Println("⚙️ Max lifetime of conn: 3 minutes")
 	log.Println("✅ Database connected successfully, good to go!")
 	return db
 }
