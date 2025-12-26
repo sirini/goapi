@@ -15,6 +15,7 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board.Get("/photo/view", h.Board.GalleryLoadPhotoHandler)
 	board.Get("/tag/recent", h.Board.BoardRecentTagListHandler)
 	board.Get("/user/latest", h.Board.LatestUserContentHandler)
+	board.Get("/transfer", h.Board.TransferHandler)
 
 	board.Get("/download", h.Board.DownloadHandler, middlewares.JWTMiddleware())
 	board.Get("/move/list", h.Board.ListForMoveHandler, middlewares.JWTMiddleware())

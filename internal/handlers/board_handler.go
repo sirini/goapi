@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -22,15 +25,24 @@ type BoardHandler interface {
 	ListForMoveHandler(c fiber.Ctx) error
 	MovePostHandler(c fiber.Ctx) error
 	RemovePostHandler(c fiber.Ctx) error
+	TransferHandler(c fiber.Ctx) error
+}
+
+// 다운로드 시 검증용으로 쓸 임시 토큰 구조체
+type DownloadToken struct {
+	Name   string
+	Path   string
+	Expiry time.Time
 }
 
 type NuboBoardHandler struct {
-	service *services.Service
+	service              *services.Service
+	downloadTokenStorage map[string]DownloadToken
 }
 
 // services.Service 주입 받기
 func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
-	return &NuboBoardHandler{service: service}
+	return &NuboBoardHandler{service: service, downloadTokenStorage: make(map[string]DownloadToken)}
 }
 
 // 게시글 목록 가져오기 핸들러
@@ -153,6 +165,16 @@ func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
+
+	// 일회용 토큰 발급 (5분 동안 접근 가능)
+	token := uuid.New().String()
+	expiry := time.Now().Add(1 * time.Minute)
+	h.downloadTokenStorage[token] = DownloadToken{
+		Name:   result.Name,
+		Path:   result.Path,
+		Expiry: expiry,
+	}
+	result.Path = fmt.Sprintf("/board/transfer?token=%s", token)
 	return utils.Ok(c, result)
 }
 
@@ -301,4 +323,36 @@ func (h *NuboBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 
 	h.service.Board.RemovePost(uint(boardUid), uint(postUid), uint(actionUserUid))
 	return utils.Ok(c, nil)
+}
+
+// (내부용) 다운로드용 토큰 정리하기
+func (h *NuboBoardHandler) cleanupOldTokens() {
+	now := time.Now()
+	for oldToken, tokenData := range h.downloadTokenStorage {
+		if now.After(tokenData.Expiry) {
+			delete(h.downloadTokenStorage, oldToken)
+		}
+	}
+}
+
+// 일회용 토큰 값으로 파일 다운로드 하기
+func (h *NuboBoardHandler) TransferHandler(c fiber.Ctx) error {
+	h.cleanupOldTokens()
+
+	token := c.Query("token")
+	data, exists := h.downloadTokenStorage[token]
+
+	if !exists {
+		return c.Status(fiber.StatusForbidden).SendString("invalid token for downloading a file")
+	}
+	if time.Now().After(data.Expiry) {
+		return c.Status(fiber.StatusForbidden).SendString("already expired token")
+	}
+
+	c.Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Expires", "0")
+
+	filePath := fmt.Sprintf(".%s", data.Path)
+	return c.Download(filePath, data.Name)
 }
