@@ -242,15 +242,15 @@ func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	signature := html.EscapeString(c.FormValue("signature"))
 	password := c.FormValue("password") // 일반 문자열이어야 함
 
-	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
+	if len(name) < 2 || len(name) > 10 {
+		return utils.Err(c, "invalid length of name (2~10 characters would be acceptable)", models.CODE_INVALID_PARAMETER)
 	}
 	if isDup := h.service.Auth.CheckNameExists(name, uint(actionUserUid)); isDup {
-		return utils.Err(c, "Duplicated name, please choose another one", models.CODE_DUPLICATED_VALUE)
+		return utils.Err(c, "duplicated name, please choose another one", models.CODE_DUPLICATED_VALUE)
 	}
 	userInfo, err := h.service.User.GetUserInfo(uint(actionUserUid))
 	if err != nil {
-		return utils.Err(c, "Unable to find your information", models.CODE_FAILED_OPERATION)
+		return utils.Err(c, "unable to find your information", models.CODE_FAILED_OPERATION)
 	}
 
 	if len(password) > 7 {
