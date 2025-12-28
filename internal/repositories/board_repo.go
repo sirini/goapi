@@ -102,14 +102,26 @@ func (r *NuboBoardRepository) CheckLikedComment(commentUid uint, userUid uint) b
 func (r *NuboBoardRepository) FindPostsByImageDescription(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	keyword := "%" + param.Keyword + "%"
-	arrow, order := param.Direction.Query()
+	normalLimit := param.Limit - param.NoticeCount
+	offset := (param.Page - 1) * normalLimit
 	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status 
-												FROM %s%s p JOIN %s%s d ON p.uid = d.post_uid 
-												WHERE board_uid = ? AND status = ? AND p.uid %s ? AND d.%s LIKE ? 
-												GROUP BY p.uid ORDER BY p.uid %s LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_IMAGE_DESC, arrow, option, order)
-
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, param.SinceUid, keyword, param.Bunch-param.NoticeCount)
+												FROM %s%s AS p
+												JOIN (
+													SELECT DISTINCT d.post_uid
+													FROM %s%s AS d
+													JOIN %s%s AS p2 ON d.post_uid = p2.uid
+													WHERE p2.board_uid = ?
+														AND p2.status = ?
+														AND d.%s LIKE ?
+													ORDER BY d.post_uid DESC
+													LIMIT ? OFFSET ?
+												) AS filtered ON p.uid = filtered.post_uid
+												ORDER BY p.uid DESC`,
+		configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_IMAGE_DESC,
+		configs.Env.Prefix, models.TABLE_POST,
+		option)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, keyword, normalLimit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,19 +133,15 @@ func (r *NuboBoardRepository) FindPostsByImageDescription(param models.BoardList
 func (r *NuboBoardRepository) FindPostsByTitleContent(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
 	keyword := "%" + param.Keyword + "%"
-	arrow, order := param.Direction.Query()
-	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s LIKE ? AND uid %s ?
-												ORDER BY uid %s LIMIT ?`,
-		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-
-	rows, err := r.db.Query(
-		query,
-		param.BoardUid,
-		models.CONTENT_NORMAL,
-		keyword,
-		param.SinceUid,
-		param.Bunch-param.NoticeCount,
-	)
+	normalLimit := param.Limit - param.NoticeCount
+	offset := (param.Page - 1) * normalLimit
+	query := fmt.Sprintf(`SELECT t.uid, t.user_uid, t.category_uid, t.title, t.content, t.submitted, t.modified, t.hit, t.status 
+												FROM %s%s AS t
+												JOIN (SELECT uid FROM %s%s 
+													WHERE board_uid = ? AND status = ? AND %s LIKE ?
+													ORDER BY uid DESC LIMIT ? OFFSET ?) AS p
+												ON t.uid = p.uid`, configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST, option)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, keyword, normalLimit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -144,24 +152,20 @@ func (r *NuboBoardRepository) FindPostsByTitleContent(param models.BoardListPara
 // 게시글 작성자 혹은 분류명으로 검색해서 가져오기
 func (r *NuboBoardRepository) FindPostsByNameCategory(param models.BoardListParam) ([]models.BoardListItem, error) {
 	option := param.Option.String()
-	arrow, order := param.Direction.Query()
 	table := models.TABLE_USER
 	if param.Option == models.SEARCH_CATEGORY {
 		table = models.TABLE_BOARD_CAT
 	}
 	uid := r.GetUidByTable(table, param.Keyword)
-	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status = ? AND %s = ? AND uid %s ?
-												ORDER BY uid %s LIMIT ?`,
-		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, option, arrow, order)
-
-	rows, err := r.db.Query(
-		query,
-		param.BoardUid,
-		models.CONTENT_NORMAL,
-		uid,
-		param.SinceUid,
-		param.Bunch-param.NoticeCount,
-	)
+	normalLimit := param.Limit - param.NoticeCount
+	offset := (param.Page - 1) * normalLimit
+	query := fmt.Sprintf(`SELECT t.uid, t.user_uid, t.category_uid, t.title, t.content, t.submitted, t.modified, t.hit, t.status 
+												FROM %s%s AS t
+												JOIN (SELECT uid FROM %s%s
+													WHERE board_uid = ? AND status = ? AND %s = ?
+													ORDER BY uid DESC LIMIT ? OFFSET ?) AS p
+												ON t.uid = p.uid`, configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST, option)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, uid, normalLimit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -171,24 +175,25 @@ func (r *NuboBoardRepository) FindPostsByNameCategory(param models.BoardListPara
 
 // 게시글 태그로 검색해서 가져오기
 func (r *NuboBoardRepository) FindPostsByHashtag(param models.BoardListParam) ([]models.BoardListItem, error) {
-	arrow, order := param.Direction.Query()
-	tagUidStr, tagCount := r.GetTagUids(param.Keyword)
-	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, 
-												p.submitted, p.modified, p.hit, p.status
-												FROM %s%s AS p JOIN %s%s AS ph ON p.uid = ph.post_uid
-												WHERE p.board_uid = ? AND p.status = ? AND p.uid %s ? AND ph.hashtag_uid IN (%s)
-												GROUP BY ph.post_uid HAVING (COUNT(ph.hashtag_uid) = ?)
-												ORDER BY p.uid %s LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST_HASHTAG, arrow, tagUidStr, order)
-
-	rows, err := r.db.Query(
-		query,
-		param.BoardUid,
-		models.CONTENT_NORMAL,
-		param.SinceUid,
-		tagCount,
-		param.Bunch-param.NoticeCount,
-	)
+	tagUidStr, _ := r.GetTagUids(param.Keyword)
+	normalLimit := param.Limit - param.NoticeCount
+	offset := (param.Page - 1) * normalLimit
+	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status 
+												FROM %s%s AS p
+												JOIN (
+													SELECT DISTINCT ph.post_uid
+													FROM %s%s AS ph
+													JOIN %s%s AS p2 ON ph.post_uid = p2.uid
+													WHERE ph.board_uid = ?
+														AND p2.status = ?
+														AND ph.hashtag_uid IN (%s)
+													ORDER BY ph.post_uid DESC
+													LIMIT ? OFFSET ?
+												) AS filtered ON p.uid = filtered.post_uid
+												 ORDER BY p.uid DESC`, configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_POST_HASHTAG,
+		configs.Env.Prefix, models.TABLE_POST, tagUidStr)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, normalLimit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -348,12 +353,15 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 
 // 비밀글을 포함한 일반 게시글들 가져오기
 func (r *NuboBoardRepository) GetNormalPosts(param models.BoardListParam) ([]models.BoardListItem, error) {
-	arrow, order := param.Direction.Query()
-	query := fmt.Sprintf(`SELECT %s FROM %s%s WHERE board_uid = ? AND status IN (?, ?) AND uid %s ?
-												ORDER BY uid %s LIMIT ?`,
-		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST, arrow, order)
-
-	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.SinceUid, param.Bunch-param.NoticeCount)
+	normalLimit := param.Limit - param.NoticeCount
+	offset := (param.Page - 1) * normalLimit
+	query := fmt.Sprintf(`SELECT t.uid, t.user_uid, t.category_uid, t.title, t.content, t.submitted, t.modified, t.hit, t.status 
+												FROM %s%s AS t
+												JOIN (SELECT uid FROM %s%s 
+													WHERE board_uid = ? AND status IN (?, ?) 
+													ORDER BY uid DESC LIMIT ? OFFSET ?) AS p
+												ON t.uid = p.uid`, configs.Env.Prefix, models.TABLE_POST, configs.Env.Prefix, models.TABLE_POST)
+	rows, err := r.db.Query(query, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, normalLimit, offset)
 	if err != nil {
 		return nil, err
 	}

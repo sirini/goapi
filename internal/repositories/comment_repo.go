@@ -51,11 +51,10 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 	offset := (param.Page - 1) * param.Limit
 	query := fmt.Sprintf(`SELECT t.uid, t.reply_uid, t.user_uid, t.content, t.submitted, t.modified, t.status 
 												FROM %s%s AS t 
-												JOIN (SELECT uid FROM %s%s WHERE post_uid = ? LIMIT ? OFFSET ?) AS p 
+												JOIN (SELECT uid FROM %s%s WHERE post_uid = ? AND status IN (?, ?) LIMIT ? OFFSET ?) AS p 
 												ON t.uid = p.uid
-												WHERE t.status != ?
 												ORDER BY t.reply_uid ASC`, configs.Env.Prefix, models.TABLE_COMMENT, configs.Env.Prefix, models.TABLE_COMMENT)
-	rows, err := r.db.Query(query, param.PostUid, param.Limit, offset, models.CONTENT_REMOVED)
+	rows, err := r.db.Query(query, param.PostUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.Limit, offset)
 	if err != nil {
 		return nil, err
 	}

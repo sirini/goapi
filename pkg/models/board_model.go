@@ -190,9 +190,12 @@ type BoardConfig struct {
 
 // 게시글 가져오기 시 필요한 파라미터 정의
 type BoardListParam struct {
-	HomePostParam
+	Limit       uint   `json:"limit"`
+	Option      Search `json:"option"`
+	Keyword     string `json:"keyword"`
+	UserUid     uint   `json:"userUid"`
+	BoardUid    uint   `json:"boardUid"`
 	Page        uint
-	Direction   Paging
 	NoticeCount uint
 }
 

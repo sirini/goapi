@@ -11,8 +11,6 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board := api.Group("/board")
 	board.Get("/list", h.Board.BoardListHandler)
 	board.Get("/view", h.Board.BoardViewHandler)
-	board.Get("/photo/list", h.Board.GalleryListHandler)
-	board.Get("/photo/view", h.Board.GalleryLoadPhotoHandler)
 	board.Get("/tag/recent", h.Board.BoardRecentTagListHandler)
 	board.Get("/user/latest", h.Board.LatestUserContentHandler)
 	board.Get("/transfer", h.Board.TransferHandler)
