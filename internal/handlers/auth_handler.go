@@ -3,7 +3,6 @@ package handlers
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"html"
 	"strconv"
 	"strings"
 
@@ -238,8 +237,8 @@ func (h *NuboAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 // 로그인 한 사용자 정보 업데이트
 func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	name := html.EscapeString(c.FormValue("name"))
-	signature := html.EscapeString(c.FormValue("signature"))
+	name := c.FormValue("name")
+	signature := c.FormValue("signature")
 	password := c.FormValue("password") // 일반 문자열이어야 함
 
 	if len(name) < 2 || len(name) > 30 {
