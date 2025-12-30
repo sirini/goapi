@@ -152,7 +152,7 @@ func (r *NuboBoardEditRepository) GetSuggestionTags(input string, bunch uint) ([
 	return items, nil
 }
 
-// 내가 올린 이미지 총 갯수 반환
+// 내가 올린 이미지 총 개수 반환
 func (r *NuboBoardEditRepository) GetTotalImageCount(boardUid uint, actionUserUid uint) (uint, error) {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE board_uid = ? AND user_uid = ?",

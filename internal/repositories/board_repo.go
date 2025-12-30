@@ -37,6 +37,10 @@ type BoardRepository interface {
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetTagUids(names string) (string, int)
 	GetTotalPostCount(boardUid uint) uint
+	GetTotalPostCountByImageDescription(param models.BoardListParam) uint
+	GetTotalPostCountByTitleContent(param models.BoardListParam) uint
+	GetTotalPostCountByNameCategory(param models.BoardListParam) uint
+	GetTotalPostCountByHashtag(param models.BoardListParam) uint
 	GetUidByTable(table models.Table, name string) uint
 	GetWriterInfoForLoop(stmt *sql.Stmt, userUid uint) models.BoardWriter
 	GetWriterInfo(userUid uint) models.BoardWriter
@@ -331,7 +335,7 @@ func (r *NuboBoardRepository) GetLikeCount(postUid uint) uint {
 	return count
 }
 
-// 반복문에서 사용하는 게시글의 좋아요 갯수 가져오기
+// 반복문에서 사용하는 게시글의 좋아요 개수 가져오기
 func (r *NuboBoardRepository) GetLikedCountForLoop(stmt *sql.Stmt, postUid uint) uint {
 	var count uint
 	stmt.QueryRow(postUid, 1).Scan(&count)
@@ -429,13 +433,79 @@ func (r *NuboBoardRepository) GetTagUids(keyword string) (string, int) {
 	return result, len(strUids)
 }
 
-// 게시판에 등록된 글 갯수 반환
+// 게시판에 등록된 글 개수 반환
 func (r *NuboBoardRepository) GetTotalPostCount(boardUid uint) uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE board_uid = ? AND status != ?",
+	query := fmt.Sprintf("SELECT COUNT(*) AS total FROM %s%s WHERE board_uid = ? AND status IN (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_POST)
 
-	r.db.QueryRow(query, boardUid, models.CONTENT_REMOVED).Scan(&count)
+	r.db.QueryRow(query, boardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, models.CONTENT_NOTICE).Scan(&count)
+	return count
+}
+
+// 이미지 설명글로 검색된 글 개수 반환
+func (r *NuboBoardRepository) GetTotalPostCountByImageDescription(param models.BoardListParam) uint {
+	var count uint
+	option := param.Option.String()
+	keyword := "%" + param.Keyword + "%"
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s%s AS p
+												JOIN (
+													SELECT DISTINCT d.post_uid FROM %s%s AS d
+													JOIN %s%s AS p2 ON d.post_uid = p2.uid
+													WHERE p2.board_uid = ?
+														AND p2.status = ?
+														AND d.%s LIKE ?	
+												) AS filtered ON p.uid = filtered.post_uid`,
+		configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_IMAGE_DESC,
+		configs.Env.Prefix, models.TABLE_POST,
+		option)
+	r.db.QueryRow(query, param.BoardUid, models.CONTENT_NORMAL, keyword).Scan(&count)
+	return count
+}
+
+// 제목 or 내용으로 검색된 글 개수 반환
+func (r *NuboBoardRepository) GetTotalPostCountByTitleContent(param models.BoardListParam) uint {
+	var count uint
+	option := param.Option.String()
+	keyword := "%" + param.Keyword + "%"
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s%s WHERE board_uid = ? AND status = ? AND %s LIKE ?`,
+		configs.Env.Prefix, models.TABLE_POST, option)
+	r.db.QueryRow(query, param.BoardUid, models.CONTENT_NORMAL, keyword).Scan(&count)
+	return count
+}
+
+// 작성자 이름 or 카테고리 이름으로 검색된 글 개수 반환
+func (r *NuboBoardRepository) GetTotalPostCountByNameCategory(param models.BoardListParam) uint {
+	var count uint
+	option := param.Option.String()
+	table := models.TABLE_USER
+	if param.Option == models.SEARCH_CATEGORY {
+		table = models.TABLE_BOARD_CAT
+	}
+	uid := r.GetUidByTable(table, param.Keyword)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s%s WHERE board_uid = ? AND status = ? AND %s = ?`,
+		configs.Env.Prefix, models.TABLE_POST, option)
+	r.db.QueryRow(query, param.BoardUid, models.CONTENT_NORMAL, uid).Scan(&count)
+	return count
+}
+
+// 해시태그로 검색된 글 개수 반환
+func (r *NuboBoardRepository) GetTotalPostCountByHashtag(param models.BoardListParam) uint {
+	var count uint
+	tagUidStr, _ := r.GetTagUids(param.Keyword)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s%s AS p
+												JOIN (
+													SELECT DISTINCT ph.post_uid FROM %s%s AS ph
+													JOIN %s%s AS p2 ON ph.post_uid = p2.uid
+													WHERE ph.board_uid = ?
+														AND p2.status = ?
+														AND ph.hashtag_uid IN (%s)
+												) AS filtered ON p.uid = filtered.post_uid`,
+		configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_POST_HASHTAG,
+		configs.Env.Prefix, models.TABLE_POST, tagUidStr)
+	r.db.QueryRow(query, param.BoardUid, models.CONTENT_NORMAL).Scan(&count)
 	return count
 }
 

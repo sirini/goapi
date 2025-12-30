@@ -234,7 +234,7 @@ func (r *NuboAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []m
 	return items
 }
 
-// 게시판 or 댓글의 좋아요 갯수 가져오기
+// 게시판 or 댓글의 좋아요 개수 가져오기
 func (r *NuboAdminRepository) FindLikeByUid(table models.Table, targetUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s_uid = ? AND liked = ?", configs.Env.Prefix, table, table)
@@ -341,7 +341,7 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoa
 	return items
 }
 
-// 게시글에 달린 댓글 갯수 가져오기
+// 게시글에 달린 댓글 개수 가져오기
 func (r *NuboAdminRepository) GetCommentCount(postUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_COMMENT)
@@ -716,7 +716,7 @@ func (r *NuboAdminRepository) GetStatistic(table models.Table, column models.Sta
 	return result
 }
 
-// 지정된 그룹에 소속된 게시판 갯수 반환
+// 지정된 그룹에 소속된 게시판 개수 반환
 func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
@@ -724,7 +724,7 @@ func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	return count
 }
 
-// 지정 테이블의 총 레코드 갯수 반환
+// 지정 테이블의 총 레코드 개수 반환
 func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 	var count uint
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, table)

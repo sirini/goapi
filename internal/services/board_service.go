@@ -242,20 +242,26 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 	}
 	result := models.BoardListResult{}
 	param.NoticeCount = uint(len(notices))
+	var totalPostCount uint
 
 	if len(param.Keyword) < 2 {
 		items, err = s.repos.Board.GetNormalPosts(param)
+		totalPostCount = s.repos.Board.GetTotalPostCount(param.BoardUid)
 	} else {
 		switch param.Option {
 		case models.SEARCH_TAG:
 			items, err = s.repos.Board.FindPostsByHashtag(param)
+			totalPostCount = s.repos.Board.GetTotalPostCountByHashtag(param)
 		case models.SEARCH_CATEGORY:
 		case models.SEARCH_WRITER:
 			items, err = s.repos.Board.FindPostsByNameCategory(param)
+			totalPostCount = s.repos.Board.GetTotalPostCountByNameCategory(param)
 		case models.SEARCH_IMAGE_DESC:
 			items, err = s.repos.Board.FindPostsByImageDescription(param)
+			totalPostCount = s.repos.Board.GetTotalPostCountByImageDescription(param)
 		default:
 			items, err = s.repos.Board.FindPostsByTitleContent(param)
+			totalPostCount = s.repos.Board.GetTotalPostCountByTitleContent(param)
 		}
 	}
 	if err != nil {
@@ -263,7 +269,7 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 	}
 
 	result = models.BoardListResult{
-		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
+		TotalPostCount: totalPostCount,
 		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
 		Notices:        notices,
 		Posts:          items,
