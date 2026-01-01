@@ -76,3 +76,13 @@ type SigninParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 }
+
+// 이메일이 사용중인지 확인할 때의 파라미터 정의
+type CheckEmailParam struct {
+	Email string `json:"email"`
+}
+
+// 닉네임이 사용중인지 확인할 때의 파라미터 정의
+type CheckNameParam struct {
+	Name string `json:"name"`
+}

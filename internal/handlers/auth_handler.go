@@ -38,28 +38,38 @@ func NewNuboAuthHandler(service *services.Service) *NuboAuthHandler {
 
 // (회원가입 시) 이메일 주소가 이미 등록되어 있는지 확인하기
 func (h *NuboAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
-	id := c.FormValue("email")
-	if !utils.IsValidEmail(id) {
-		return utils.Err(c, "Invalid email address", models.CODE_INVALID_PARAMETER)
+	param := models.CheckEmailParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	id := param.Email
+	if len(id) < 6 {
+		return utils.Err(c, "invalid email, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Auth.CheckEmailExists(id)
 	if result {
-		return utils.Err(c, "Email address is already in use", models.CODE_DUPLICATED_VALUE)
+		return utils.Err(c, "email address is already in use", models.CODE_DUPLICATED_VALUE)
 	}
 	return utils.Ok(c, nil)
 }
 
 // (회원가입 시) 이름이 이미 등록되어 있는지 확인하기
 func (h *NuboAuthHandler) CheckNameHandler(c fiber.Ctx) error {
-	name := c.FormValue("name")
+	param := models.CheckNameParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	name := param.Name
 	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, "invalid name, too short", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Auth.CheckNameExists(name, 0)
 	if result {
-		return utils.Err(c, "Name is already in use", models.CODE_DUPLICATED_VALUE)
+		return utils.Err(c, "name is already in use", models.CODE_DUPLICATED_VALUE)
 	}
 	return utils.Ok(c, nil)
 }
