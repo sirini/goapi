@@ -49,10 +49,7 @@ func (h *NuboAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
 	}
 
 	result := h.service.Auth.CheckEmailExists(id)
-	if result {
-		return utils.Err(c, "email address is already in use", models.CODE_DUPLICATED_VALUE)
-	}
-	return utils.Ok(c, nil)
+	return utils.Ok(c, result)
 }
 
 // (회원가입 시) 이름이 이미 등록되어 있는지 확인하기
@@ -68,10 +65,7 @@ func (h *NuboAuthHandler) CheckNameHandler(c fiber.Ctx) error {
 	}
 
 	result := h.service.Auth.CheckNameExists(name, 0)
-	if result {
-		return utils.Err(c, "name is already in use", models.CODE_DUPLICATED_VALUE)
-	}
-	return utils.Ok(c, nil)
+	return utils.Ok(c, result)
 }
 
 // 로그인 한 사용자의 정보 불러오기
