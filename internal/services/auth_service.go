@@ -156,11 +156,8 @@ func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult,
 		}
 	} else {
 		code := uuid.New().String()[:6]
-		body := strings.ReplaceAll(templates.VerificationBody, "{{Host}}", param.Hostname)
-		body = strings.ReplaceAll(body, "{{Name}}", name)
-		body = strings.ReplaceAll(body, "{{Code}}", code)
-		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-		subject := fmt.Sprintf("[%s] Your verification code: %s", param.Hostname, code)
+		body := strings.ReplaceAll(param.Template, "{{Code}}", code)
+		subject := fmt.Sprintf("[%s] Verification code: %s", param.Hostname, code)
 
 		result := utils.SendMail(param.ID, subject, body)
 		if result {

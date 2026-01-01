@@ -48,6 +48,7 @@ type SignupParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
+	Template string `json:"template"`
 	Hostname string
 }
 
