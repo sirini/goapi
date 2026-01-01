@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepository interface {
@@ -121,11 +122,14 @@ func (r *NuboUserRepository) InsertNewUser(id string, pw string, name string) ui
 	if isDupId || isDupName {
 		return models.FAILED
 	}
-
+	newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
+	if err != nil {
+		return models.FAILED
+	}
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 											(id, name, password, profile, level, point, signature, signup, signin, blocked)
 											VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_USER)
-	result, err := r.db.Exec(query, id, name, pw, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
+	result, err := r.db.Exec(query, id, name, newBcryptHash, "", 1, 100, "", time.Now().UnixMilli(), 0, 0)
 	if err != nil {
 		return models.FAILED
 	}
