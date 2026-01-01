@@ -171,11 +171,11 @@ func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error)
 				body = strings.ReplaceAll(body, "{{Name}}", utils.Unescape(writerInfo.Name))
 				body = strings.ReplaceAll(body, "{{Commenter}}", utils.Unescape(commenterInfo.Name))
 				body = strings.ReplaceAll(body, "{{Comment}}", param.Content)
-				body = strings.ReplaceAll(body, "{{Link}}", fmt.Sprintf("%s%s/board/%s/%d", configs.Env.URL, configs.Env.URLPrefix, config.Id, param.PostUid))
+				body = strings.ReplaceAll(body, "{{Link}}", fmt.Sprintf("%s%s/board/%s/view/%d", configs.Env.URL, configs.Env.URLPrefix, config.Id, param.PostUid))
 				body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
 				subject := fmt.Sprintf("[%s] %s has just commented on your post!", config.Name, commenterInfo.Name)
-
-				utils.SendMail(writerInfo.Id, subject, body)
+				from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
+				utils.SendMail(writerInfo.Id, from, subject, body)
 			}()
 		}
 	}

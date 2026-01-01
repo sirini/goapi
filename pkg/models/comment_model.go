@@ -64,4 +64,5 @@ type CommentWriteParam struct {
 	PostUid  uint   `json:"postUid"`
 	UserUid  uint   `json:"userUid"`
 	Content  string `json:"content"`
+	Hostname string
 }

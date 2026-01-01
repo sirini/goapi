@@ -32,6 +32,7 @@ type Config struct {
 	JWTSecretKey      string
 	JWTAccessHours    string
 	JWTRefreshDays    string
+	ResendKey         string
 	GmailID           string
 	GmailAppPassword  string
 	OAuthGoogleID     string
@@ -84,6 +85,7 @@ func LoadConfig() {
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		JWTAccessHours:    getEnv("JWT_ACCESS_HOURS", "2"),
 		JWTRefreshDays:    getEnv("JWT_REFRESH_DAYS", "30"),
+		ResendKey:         getEnv("RESEND_API_KEY", ""),
 		GmailID:           getEnv("GMAIL_ID", "sirini@gmail.com"),
 		GmailAppPassword:  getEnv("GMAIL_APP_PASSWORD", ""),
 		OAuthGoogleID:     getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),

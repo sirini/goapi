@@ -104,7 +104,8 @@ func (s *NuboAuthService) ResetPassword(id string, hostname string) bool {
 		body = strings.ReplaceAll(body, "{{Code}}", code)
 		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
 		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", hostname)
-		return utils.SendMail(id, title, body)
+		from := fmt.Sprintf("Admin <noreply@%s>", hostname)
+		return utils.SendMail(id, from, title, body)
 	}
 	return true
 }
@@ -149,24 +150,22 @@ func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult,
 		return signupResult, fmt.Errorf("name(%s) is already in use", name)
 	}
 
-	if configs.Env.GmailAppPassword == "" {
+	code := uuid.New().String()[:6]
+	body := strings.ReplaceAll(param.Template, "{{Code}}", code)
+	from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
+	subject := fmt.Sprintf("[%s] Verification code: %s", param.Hostname, code)
+	isSent := utils.SendMail(param.ID, from, subject, body)
+
+	// 메일 발송이 안되면 그냥 사용자 바로 추가 처리
+	if !isSent {
 		target = s.repos.User.InsertNewUser(param.ID, param.Password, name)
 		if target < 1 {
 			return signupResult, fmt.Errorf("failed to add a new user")
 		}
-	} else {
-		code := uuid.New().String()[:6]
-		body := strings.ReplaceAll(param.Template, "{{Code}}", code)
-		subject := fmt.Sprintf("[%s] Verification code: %s", param.Hostname, code)
-
-		result := utils.SendMail(param.ID, subject, body)
-		if result {
-			target = s.repos.Auth.SaveVerificationCode(param.ID, code)
-		}
 	}
 
 	signupResult = models.SignupResult{
-		Sendmail: configs.Env.GmailAppPassword != "",
+		Sendmail: isSent,
 		Target:   target,
 	}
 	return signupResult, nil

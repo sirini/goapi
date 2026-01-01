@@ -128,6 +128,7 @@ func (h *NuboCommentHandler) WriteCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	param.UserUid = uint(actionUserUid)
 	param.Content = utils.Sanitize(param.Content)
+	param.Hostname = c.Hostname()
 
 	if len(param.Content) < 10 {
 		return utils.Err(c, "content is too short", models.CODE_INVALID_PARAMETER)
