@@ -1,11 +1,5 @@
 package models
 
-// 회원가입 시 리턴 타입
-type SignupResult struct {
-	Sendmail bool `json:"sendmail"`
-	Target   uint `json:"target"`
-}
-
 // 인증 완료하기 파라미터
 type VerifyParam struct {
 	Target   uint   `json:"target"`
@@ -55,6 +49,12 @@ type SignupParam struct {
 	Password string `json:"password"`
 	Name     string `json:"name"`
 	Hostname string
+}
+
+// 회원가입 시 리턴 타입
+type SignupResult struct {
+	Sendmail bool `json:"sendmail"`
+	Target   uint `json:"target"`
 }
 
 // JWT 컨텍스트 키값 설정
