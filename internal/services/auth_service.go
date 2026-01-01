@@ -196,7 +196,7 @@ func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string,
 func (s *NuboAuthService) VerifyEmail(param models.VerifyParam) bool {
 	result := s.repos.Auth.CheckVerificationCode(param)
 	if result {
-		s.repos.User.InsertNewUser(param.Id, param.Password, utils.Escape(param.Name))
+		s.repos.User.InsertNewUser(param.ID, param.Password, utils.Escape(param.Name))
 		return true
 	}
 	return false

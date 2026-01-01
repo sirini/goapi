@@ -8,11 +8,11 @@ type SignupResult struct {
 
 // 인증 완료하기 파라미터
 type VerifyParam struct {
-	Target   uint
-	Code     string
-	Id       string
-	Password string
-	Name     string
+	Target   uint   `json:"target"`
+	Code     string `json:"code"`
+	ID       string `json:"id"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
 }
 
 // 비밀번호 초기화 시 리턴 타입
@@ -51,9 +51,9 @@ type KakaoUser struct {
 
 // 인증 메일 발송에 필요한 파라미터 정의
 type SignupParam struct {
-	ID       string
-	Password string
-	Name     string
+	ID       string `json:"id"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
 	Hostname string
 }
 

@@ -183,20 +183,16 @@ func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
 
 // 회원가입 하기
 func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
-	id := c.FormValue("email")
-	pw := c.FormValue("password")
-	name := c.FormValue("name")
-
-	if len(pw) != 64 || !utils.IsValidEmail(id) {
-		return utils.Err(c, "Failed to sign up, invalid ID or password", models.CODE_INVALID_PARAMETER)
+	param := models.SignupParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
+	if !utils.IsValidEmail(param.ID) {
+		return utils.Err(c, "invalid id, not an email address", models.CODE_INVALID_PARAMETER)
+	}
+	param.Hostname = c.Hostname()
 
-	result, err := h.service.Auth.Signup(models.SignupParam{
-		ID:       id,
-		Password: pw,
-		Name:     name,
-		Hostname: c.Hostname(),
-	})
+	result, err := h.service.Auth.Signup(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -205,35 +201,22 @@ func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
 
 // 인증 완료하기
 func (h *NuboAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
-	targetStr := c.FormValue("target")
-	code := c.FormValue("code")
-	id := c.FormValue("email")
-	pw := c.FormValue("password")
-	name := c.FormValue("name")
-
-	if len(pw) != 64 || !utils.IsValidEmail(id) {
-		return utils.Err(c, "Failed to verify, invalid ID or password", models.CODE_INVALID_PARAMETER)
+	param := models.VerifyParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
+	if !utils.IsValidEmail(param.ID) {
+		return utils.Err(c, "invalid id, not an email address", models.CODE_INVALID_PARAMETER)
 	}
-	if len(code) != 6 {
-		return utils.Err(c, "Invalid code, wrong length", models.CODE_INVALID_PARAMETER)
+	if len(param.Name) < 2 {
+		return utils.Err(c, "invalid name, too short", models.CODE_INVALID_PARAMETER)
 	}
-	target, err := strconv.ParseUint(targetStr, 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid target, not a valid number", models.CODE_INVALID_PARAMETER)
+	if len(param.Code) != 6 {
+		return utils.Err(c, "invalid code, wrong length", models.CODE_INVALID_PARAMETER)
 	}
-	result := h.service.Auth.VerifyEmail(models.VerifyParam{
-		Target:   uint(target),
-		Code:     code,
-		Id:       id,
-		Password: pw,
-		Name:     name,
-	})
-
+	result := h.service.Auth.VerifyEmail(param)
 	if !result {
-		return utils.Err(c, "Failed to verify code", models.CODE_FAILED_OPERATION)
+		return utils.Err(c, "failed to verify code", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
