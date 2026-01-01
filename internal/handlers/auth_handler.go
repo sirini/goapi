@@ -215,10 +215,7 @@ func (h *NuboAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 		return utils.Err(c, "invalid code, wrong length", models.CODE_INVALID_PARAMETER)
 	}
 	result := h.service.Auth.VerifyEmail(param)
-	if !result {
-		return utils.Err(c, "failed to verify code", models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, nil)
+	return utils.Ok(c, result)
 }
 
 // 로그인 한 사용자 정보 업데이트
