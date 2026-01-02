@@ -181,6 +181,10 @@ func (h *NuboBoardHandler) LatestUserContentHandler(c fiber.Ctx) error {
 // 게시글 좋아하기 핸들러
 func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 1 {
+		return utils.Err(c, "unauthorized error, only logged in user can like/unlike post", models.CODE_INVALID_TOKEN)
+	}
+
 	param := models.BoardViewLikeParam{}
 	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
