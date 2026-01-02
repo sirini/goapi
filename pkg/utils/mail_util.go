@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/resend/resend-go/v2"
@@ -38,7 +37,6 @@ func SendMailByResend(to string, from string, subject string, body string) bool 
 // Resend가 있으면 우선 이용하고, 없다면 Gmail을 차선으로 이용해서 메일 발송
 func SendMail(to string, from string, subject string, body string) bool {
 	if strings.HasPrefix(configs.Env.ResendKey, "re_") {
-		from := fmt.Sprintf("Admin <noreply@%s>", from)
 		if ok := SendMailByResend(to, from, subject, body); ok {
 			return true
 		}

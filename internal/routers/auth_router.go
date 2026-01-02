@@ -11,7 +11,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth := api.Group("/auth")
 	auth.Post("/signin", h.Auth.SigninHandler)
 	auth.Post("/signup", h.Auth.SignupHandler)
-	auth.Post("/reset/password", h.Auth.ResetPasswordHandler)
+	auth.Post("/reset-password", h.Auth.RequestResetPasswordHandler)
 	auth.Post("/refresh", h.Auth.RefreshAccessTokenHandler)
 	auth.Post("/checkemail", h.Auth.CheckEmailHandler)
 	auth.Post("/checkname", h.Auth.CheckNameHandler)
@@ -35,7 +35,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	// 사용자 관련 라우터들
 	user := auth.Group("/user")
 	user.Get("/info", h.User.LoadUserInfoHandler)
-	user.Post("/change/password", h.User.ChangePasswordHandler)
+	user.Post("/change-password", h.User.ChangePasswordHandler)
 	user.Post("/report", middlewares.JWTMiddleware(), h.User.ReportUserHandler)
 	user.Get("/report", middlewares.JWTMiddleware(), h.User.CheckReportedUserHandler)
 	user.Get("/permission", middlewares.JWTMiddleware(), h.User.LoadUserPermissionHandler)

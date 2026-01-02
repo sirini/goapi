@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -19,7 +18,7 @@ type AuthHandler interface {
 	CheckNameHandler(c fiber.Ctx) error
 	LoadMyInfoHandler(c fiber.Ctx) error
 	LogoutHandler(c fiber.Ctx) error
-	ResetPasswordHandler(c fiber.Ctx) error
+	RequestResetPasswordHandler(c fiber.Ctx) error
 	RefreshAccessTokenHandler(c fiber.Ctx) error
 	SigninHandler(c fiber.Ctx) error
 	SignupHandler(c fiber.Ctx) error
@@ -44,8 +43,8 @@ func (h *NuboAuthHandler) CheckEmailHandler(c fiber.Ctx) error {
 	}
 
 	id := param.Email
-	if len(id) < 6 {
-		return utils.Err(c, "invalid email, too short", models.CODE_INVALID_PARAMETER)
+	if len(id) < 6 || !utils.IsValidEmail(id) {
+		return utils.Err(c, "invalid email", models.CODE_INVALID_PARAMETER)
 	}
 
 	result := h.service.Auth.CheckEmailExists(id)
@@ -91,20 +90,19 @@ func (h *NuboAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
-// 비밀번호 초기화하기
-func (h *NuboAuthHandler) ResetPasswordHandler(c fiber.Ctx) error {
-	id := c.FormValue("email")
-	if !utils.IsValidEmail(id) {
-		return utils.Err(c, "Failed to reset password, invalid ID(email)", models.CODE_INVALID_PARAMETER)
+// 비밀번호 초기화 요청하기 핸들러
+func (h *NuboAuthHandler) RequestResetPasswordHandler(c fiber.Ctx) error {
+	param := models.ResetPasswordParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	result := h.service.Auth.ResetPassword(id, c.Hostname())
-	if !result {
-		return utils.Err(c, "Unable to reset password, internal error", models.CODE_FAILED_OPERATION)
+	if len(param.Email) < 6 || !utils.IsValidEmail(param.Email) {
+		return utils.Err(c, "invalid email", models.CODE_INVALID_PARAMETER)
 	}
-	return utils.Ok(c, &models.ResetPasswordResult{
-		Sendmail: configs.Env.GmailAppPassword != "",
-	})
+	param.Hostname = c.Hostname()
+	result := h.service.Auth.ResetPassword(param)
+	return utils.Ok(c, result)
 }
 
 // 사용자의 기존 (액세스) 토큰이 만료되었을 때, 리프레시 토큰 유효한지 보고 새로 발급

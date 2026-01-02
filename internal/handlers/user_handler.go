@@ -43,10 +43,7 @@ func (h *NuboUserHandler) ChangePasswordHandler(c fiber.Ctx) error {
 	}
 
 	result := h.service.User.ChangePassword(verifyUid, userCode, newPassword)
-	if !result {
-		return utils.Err(c, "Unable to change your password, internal error", models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, nil)
+	return utils.Ok(c, result)
 }
 
 // 이미 신고한 사용자인지 확인하기

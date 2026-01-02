@@ -9,7 +9,6 @@ import (
 )
 
 type Config struct {
-	Nuxt4Port         string
 	GoPort            string
 	Domain            string
 	Title             string
@@ -63,7 +62,6 @@ func LoadConfig() {
 	Env = Config{
 		Version:           getEnv("GOAPI_VERSION", "2.0.0"),
 		GoPort:            getEnv("GOAPI_PORT", "3006"),
-		Nuxt4Port:         getEnv("NUXT4_PORT", "3000"),
 		Domain:            getEnv("GOAPI_DOMAIN", "http://localhost"),
 		Title:             getEnv("GOAPI_TITLE", "NUBO"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),

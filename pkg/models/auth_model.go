@@ -1,5 +1,12 @@
 package models
 
+// 비밀번호 초기화 파라미터
+type ResetPasswordParam struct {
+	Email    string `json:"email"`
+	Template string `json:"template"`
+	Hostname string
+}
+
 // 인증 완료하기 파라미터
 type VerifyParam struct {
 	Target   uint   `json:"target"`
@@ -7,11 +14,6 @@ type VerifyParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
-}
-
-// 비밀번호 초기화 시 리턴 타입
-type ResetPasswordResult struct {
-	Sendmail bool `json:"sendmail"`
 }
 
 // 구글 OAuth 응답

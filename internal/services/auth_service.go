@@ -10,7 +10,6 @@ import (
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
-	"github.com/sirini/goapi/pkg/templates"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
@@ -23,7 +22,7 @@ type AuthService interface {
 	GetMyInfo(userUid uint) models.MyInfoResult
 	GetUserAndHash(id string) (models.MyInfoResult, string)
 	Logout(userUid uint)
-	ResetPassword(id string, hostname string) bool
+	ResetPassword(param models.ResetPasswordParam) bool
 	Signin(id string, pw string) models.MyInfoResult
 	Signup(param models.SignupParam) (models.SignupResult, error)
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
@@ -83,31 +82,30 @@ func (s *NuboAuthService) Logout(userUid uint) {
 }
 
 // 비밀번호 초기화하기
-func (s *NuboAuthService) ResetPassword(id string, hostname string) bool {
-	userUid := s.repos.Auth.FindUserUidById(id)
+func (s *NuboAuthService) ResetPassword(param models.ResetPasswordParam) bool {
+	userUid := s.repos.Auth.FindUserUidById(param.Email)
 	if userUid < 1 {
 		return false
 	}
 
-	if configs.Env.GmailAppPassword == "" {
-		message := strings.ReplaceAll(templates.ResetPasswordChat, "{{Id}}", id)
+	code := uuid.New().String()[:6]
+	verifyUid := s.repos.Auth.SaveVerificationCode(param.Email, code)
+	body := strings.ReplaceAll(param.Template, "{{Code}}", code)
+	body = strings.ReplaceAll(body, "{{UserUid}}", strconv.Itoa(int(verifyUid)))
+	subject := fmt.Sprintf("[%s] Reset your password", param.Hostname)
+	from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
+	isSent := utils.SendMail(param.Email, from, subject, body)
+
+	if !isSent {
+		chatTemplate := "Request to reset password from {{Id}} ({{Uid}})"
+		message := strings.ReplaceAll(chatTemplate, "{{Id}}", param.Email)
 		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
 		insertId := s.repos.Chat.InsertNewChat(userUid, 1, message)
 		if insertId < 1 {
 			return false
 		}
-	} else {
-		code := uuid.New().String()[:6]
-		verifyUid := s.repos.Auth.SaveVerificationCode(id, code)
-		body := strings.ReplaceAll(templates.ResetPasswordBody, "{{Host}}", hostname)
-		body = strings.ReplaceAll(body, "{{Uid}}", strconv.Itoa(int(verifyUid)))
-		body = strings.ReplaceAll(body, "{{Code}}", code)
-		body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
-		title := strings.ReplaceAll(templates.ResetPasswordTitle, "{{Host}}", hostname)
-		from := fmt.Sprintf("Admin <noreply@%s>", hostname)
-		return utils.SendMail(id, from, title, body)
 	}
-	return true
+	return isSent
 }
 
 // 사용자 로그인 처리하기

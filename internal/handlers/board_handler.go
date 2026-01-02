@@ -100,16 +100,16 @@ func (h *NuboBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
 // 게시글 보기 핸들러
 func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	id := c.FormValue("id")
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
+	id := c.Query("id")
+	postUid, err := strconv.ParseUint(c.Query("postUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	updateHit, err := strconv.ParseBool(c.FormValue("needUpdateHit"))
+	updateHit, err := strconv.ParseBool(c.Query("needUpdateHit"))
 	if err != nil {
 		return utils.Err(c, "Invalid need update hit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	limit, err := strconv.ParseUint(c.FormValue("latestLimit"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("latestLimit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid latest limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
