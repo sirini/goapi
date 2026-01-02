@@ -11,9 +11,10 @@ func RegisterCommentRouters(api fiber.Router, h *handlers.Handler) {
 	comment := api.Group("/comment")
 	comment.Get("/list", h.Comment.CommentListHandler)
 
-	comment.Patch("/like", h.Comment.LikeCommentHandler, middlewares.JWTMiddleware())
-	comment.Patch("/modify", h.Comment.ModifyCommentHandler, middlewares.JWTMiddleware())
-	comment.Delete("/remove", h.Comment.RemoveCommentHandler, middlewares.JWTMiddleware())
-	comment.Post("/reply", h.Comment.ReplyCommentHandler, middlewares.JWTMiddleware())
-	comment.Post("/write", h.Comment.WriteCommentHandler, middlewares.JWTMiddleware())
+	protected := comment.Group("/", middlewares.JWTMiddleware())
+	protected.Patch("/like", h.Comment.LikeCommentHandler)
+	protected.Patch("/modify", h.Comment.ModifyCommentHandler)
+	protected.Delete("/remove", h.Comment.RemoveCommentHandler)
+	protected.Post("/reply", h.Comment.ReplyCommentHandler)
+	protected.Post("/write", h.Comment.WriteCommentHandler)
 }

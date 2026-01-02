@@ -11,7 +11,7 @@ func JWTMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 		if actionUserUid < 1 {
-			return c.SendStatus(fiber.StatusUnauthorized)
+			return utils.Err(c, "unauthorized: only logged-in users can operate functions", models.CODE_INVALID_TOKEN)
 		}
 		return c.Next()
 	}
@@ -25,7 +25,7 @@ func AdminMiddleware() fiber.Handler {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 		if actionUserUid != 1 {
-			return utils.Err(c, "Unauthorized access, you are not an administrator", models.CODE_NOT_ADMIN)
+			return utils.Err(c, "unauthorized: you are not an administrator", models.CODE_NOT_ADMIN)
 		}
 		return c.Next()
 	}

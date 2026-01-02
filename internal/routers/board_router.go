@@ -15,9 +15,10 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board.Get("/user/latest", h.Board.LatestUserContentHandler)
 	board.Get("/transfer", h.Board.TransferHandler)
 
-	board.Get("/download", h.Board.DownloadHandler, middlewares.JWTMiddleware())
-	board.Get("/move/list", h.Board.ListForMoveHandler, middlewares.JWTMiddleware())
-	board.Patch("/like", h.Board.LikePostHandler, middlewares.JWTMiddleware())
-	board.Post("/move/apply", h.Board.MovePostHandler, middlewares.JWTMiddleware())
-	board.Delete("/remove/post", h.Board.RemovePostHandler, middlewares.JWTMiddleware())
+	protected := board.Group("/", middlewares.JWTMiddleware())
+	protected.Get("/download", h.Board.DownloadHandler)
+	protected.Get("/move/list", h.Board.ListForMoveHandler)
+	protected.Patch("/like", h.Board.LikePostHandler)
+	protected.Post("/move/apply", h.Board.MovePostHandler)
+	protected.Delete("/remove/post", h.Board.RemovePostHandler)
 }
