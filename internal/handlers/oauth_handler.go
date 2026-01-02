@@ -80,7 +80,7 @@ func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.googleConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/google/callback", configs.Env.OAuthUrl),
+		RedirectURL:  fmt.Sprintf("http://localhost:%s/goapi/auth/google/callback", configs.Env.GoPort),
 		ClientID:     configs.Env.OAuthGoogleID,
 		ClientSecret: configs.Env.OAuthGoogleSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
@@ -92,32 +92,31 @@ func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 
 // 구글 OAuth 콜백 핸들러
 func (h *NuboOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
-	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthGoogleID == "" {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	token, err := utils.OAuth2ExchangeToken(c, h.googleConfig)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	client := h.googleConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.GoogleUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	userUid := h.UtilRegisterUser(userInfo.Email, userInfo.Name, userInfo.Picture)
 	if userUid < 1 {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	return h.UtilFinishLogin(c, userUid)
@@ -128,7 +127,7 @@ func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
-	h.naverRedirectURL = fmt.Sprintf("%s/naver/callback", configs.Env.OAuthUrl)
+	h.naverRedirectURL = fmt.Sprintf("http://localhost:%s/goapi/auth/naver/callback", configs.Env.GoPort)
 	url := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
 		configs.Env.OAuthNaverID,
@@ -140,9 +139,8 @@ func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 
 // 네이버 OAuth 콜백 핸들러
 func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
-	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthNaverID == "" {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	code := c.FormValue("code")
@@ -150,7 +148,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 
 	cookie := c.Cookies("nubo-oauth-state")
 	if cookie != state {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	apiURL := fmt.Sprintf(
@@ -163,7 +161,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	)
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	req.Header.Set("X-Naver-Client-Id", configs.Env.OAuthNaverID)
 	req.Header.Set("X-Naver-Client-Secret", configs.Env.OAuthNaverSecret)
@@ -171,22 +169,22 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	defer resp.Body.Close()
 
 	var tokenResp map[string]interface{}
 	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	accessToken, ok := tokenResp["access_token"].(string)
 	if !ok || accessToken == "" {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	h.naverConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/naver/callback", configs.Env.OAuthUrl),
+		RedirectURL:  fmt.Sprintf("http://localhost:%s/goapi/auth/google/callback", configs.Env.GoPort),
 		ClientID:     configs.Env.OAuthNaverID,
 		ClientSecret: configs.Env.OAuthNaverSecret,
 		Scopes:       []string{},
@@ -202,14 +200,14 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 
 	resp, err = client.Get("https://openapi.naver.com/v1/nid/me")
 	if err != nil || resp.StatusCode != http.StatusOK {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.NaverUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	id := userInfo.Response.Email
@@ -217,7 +215,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	profile := userInfo.Response.ProfileImage
 	userUid := h.UtilRegisterUser(id, name, profile)
 	if userUid < 1 {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	return h.UtilFinishLogin(c, userUid)
@@ -229,7 +227,7 @@ func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.kakaoConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/kakao/callback", configs.Env.OAuthUrl),
+		RedirectURL:  fmt.Sprintf("http://localhost:%s/goapi/auth/kakao/callback", configs.Env.GoPort),
 		ClientID:     configs.Env.OAuthKakaoID,
 		ClientSecret: configs.Env.OAuthKakaoSecret,
 		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},
@@ -245,27 +243,26 @@ func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 
 // 카카오 OAuth 콜백 핸들러
 func (h *NuboOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
-	redirectPath := fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix)
 	if configs.Env.OAuthKakaoID == "" {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	token, err := utils.OAuth2ExchangeToken(c, h.kakaoConfig)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	client := h.kakaoConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://kapi.kakao.com/v2/user/me")
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	defer resp.Body.Close()
 
 	var userInfo models.KakaoUser
 	err = json.NewDecoder(resp.Body).Decode(&userInfo)
 	if err != nil {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 
 	id := userInfo.KakaoAccount.Email
@@ -273,7 +270,7 @@ func (h *NuboOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 	profile := userInfo.KakaoAccount.Profile.ProfileImageUrl
 	userUid := h.UtilRegisterUser(id, name, profile)
 	if userUid < 1 {
-		return c.Redirect().To(redirectPath)
+		return c.Redirect().To(configs.Env.Domain)
 	}
 	return h.UtilFinishLogin(c, userUid)
 }
@@ -299,5 +296,5 @@ func (h *NuboOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
 	utils.SaveCookie(c, "nubo-auth-token", auth, accessHours)
 	utils.SaveCookie(c, "nubo-auth-refresh", refresh, refreshDays*24)
 
-	return c.Redirect().To(fmt.Sprintf("%s%s", configs.Env.URL, configs.Env.URLPrefix))
+	return c.Redirect().To(configs.Env.Domain)
 }

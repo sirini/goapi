@@ -43,8 +43,8 @@ func main() {
 	goapi := app.Group("/goapi")
 	routers.RegisterRouters(goapi, handler)
 
-	port := fmt.Sprintf(":%s", configs.Env.Port)
-	log.Printf("🚀 GOAPI for NUBO %v is running on %v", configs.Env.Version, configs.Env.Port)
+	port := fmt.Sprintf(":%s", configs.Env.GoPort)
+	log.Printf("🚀 GOAPI for NUBO %v is running on %v", configs.Env.Version, configs.Env.GoPort)
 
 	app.Listen(port)
 }

@@ -53,18 +53,18 @@ func (h *NuboBlogHandler) BlogRssLoadHandler(c fiber.Ctx) error {
 		pubDate := t.Format(time.RFC1123)
 		item := fmt.Sprintf(`<item>
           <title>%s</title>
-          <link>%s%s/blog/%s/%d</link>
+          <link>%s/blog/%s/%d</link>
           <description>%s</description>
           <author>%s</author>
           <pubDate>%s</pubDate>
-          <guid isPermaLink="true">%s%s/blog/%s/%d</guid>
+          <guid isPermaLink="true">%s/blog/%s/%d</guid>
         </item>`,
 			utils.Unescape(post.Title),
-			configs.Env.URL, configs.Env.URLPrefix, id, post.Uid,
+			configs.Env.Domain, id, post.Uid,
 			utils.Unescape(post.Content),
 			writer.Name,
 			pubDate,
-			configs.Env.URL, configs.Env.URLPrefix, id, post.Uid,
+			configs.Env.Domain, id, post.Uid,
 		)
 		items = append(items, item)
 
@@ -75,7 +75,7 @@ func (h *NuboBlogHandler) BlogRssLoadHandler(c fiber.Ctx) error {
 
 	var rss string
 	rss = strings.ReplaceAll(templates.RssBody, "#BLOG.TITLE#", utils.Unescape(config.Name))
-	rss = strings.ReplaceAll(rss, "#BLOG.LINK#", fmt.Sprintf("%s%s/blog/%s", configs.Env.URL, configs.Env.URLPrefix, id))
+	rss = strings.ReplaceAll(rss, "#BLOG.LINK#", fmt.Sprintf("%s/blog/%s", configs.Env.Domain, id))
 	rss = strings.ReplaceAll(rss, "#BLOG.INFO#", utils.Unescape(config.Info))
 	rss = strings.ReplaceAll(rss, "#BLOG.LANG#", "ko-kr")
 	rss = strings.ReplaceAll(rss, "#BLOG.DATE#", latestDate)

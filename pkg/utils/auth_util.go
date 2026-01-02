@@ -87,7 +87,7 @@ func IsValidEmail(email string) bool {
 // 쿠키에 저장
 func SaveCookie(c fiber.Ctx, name string, value string, hours int) {
 	isSecure := false
-	if strings.HasPrefix(configs.Env.URL, "https://") {
+	if strings.HasPrefix(configs.Env.Domain, "https://") {
 		isSecure = true
 	}
 
@@ -123,14 +123,14 @@ func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 func OAuth2ExchangeToken(c fiber.Ctx, cfg oauth2.Config) (*oauth2.Token, error) {
 	cookie := c.Cookies("nubo-oauth-state")
 	if cookie != c.FormValue("state") {
-		c.Redirect().To(configs.Env.URL)
+		c.Redirect().To(configs.Env.Domain)
 		return nil, fmt.Errorf("empty oauth state from cookie")
 	}
 
 	code := c.FormValue("code")
 	token, err := cfg.Exchange(context.Background(), code)
 	if err != nil {
-		c.Redirect().To(configs.Env.URL)
+		c.Redirect().To(configs.Env.Domain)
 		return nil, err
 	}
 	return token, nil
