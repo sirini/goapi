@@ -58,16 +58,16 @@ var Env Config
 // .env 파일에서 설정 내용 불러오기
 func LoadConfig() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("No .env file found. Please make sure that this goapi binary is locate in tsboard.git directory.")
+		log.Fatal("No .env file found. Please make sure that this goapi binary is locate in the nubo.git directory.")
 	}
 
 	Env = Config{
-		Version:           getEnv("GOAPI_VERSION", ""),
+		Version:           getEnv("GOAPI_VERSION", "2.0.0"),
 		Port:              getEnv("GOAPI_PORT", "3006"),
 		OAuthUrl:          getEnv("GOAPI_OAUTH_URL", "http://localhost:3006/goapi/auth"),
-		URL:               getEnv("GOAPI_URL", "http://localhost:3000"),
+		URL:               getEnv("GOAPI_URL", "http://localhost:3006"),
 		URLPrefix:         getEnv("GOAPI_URL_PREFIX", ""),
-		Title:             getEnv("GOAPI_TITLE", "TSBOARD"),
+		Title:             getEnv("GOAPI_TITLE", "NUBO"),
 		ProfileSize:       getEnv("GOAPI_PROFILE_SIZE", "256"),
 		ContentInsertSize: getEnv("GOAPI_CONTENT_INSERT_SIZE", "640"),
 		ThumbnailSize:     getEnv("GOAPI_THUMBNAIL_SIZE", "512"),
@@ -76,8 +76,8 @@ func LoadConfig() {
 		DBHost:            getEnv("DB_HOST", "localhost"),
 		DBUser:            getEnv("DB_USER", ""),
 		DBPass:            getEnv("DB_PASS", ""),
-		DBName:            getEnv("DB_NAME", "tsboard"),
-		Prefix:            getEnv("DB_TABLE_PREFIX", "tsb_"),
+		DBName:            getEnv("DB_NAME", "nubo"),
+		Prefix:            getEnv("DB_TABLE_PREFIX", "nubo_"),
 		DBPort:            getEnv("DB_PORT", "3306"),
 		DBSocket:          getEnv("DB_UNIX_SOCKET", ""),
 		DBMaxIdle:         getEnv("DB_MAX_IDLE", "10"),
@@ -150,18 +150,13 @@ func GetFileSizeLimit() int {
 
 // JWT 유효 기간 (access: hours, refresh: days) 반환
 func GetJWTAccessRefresh() (int, int) {
-	var access, refresh int
-
-	accessHours, err := strconv.ParseInt(Env.JWTAccessHours, 10, 32)
-	if err != nil {
-		access = 2
+	access := 2
+	if accessHours, err := strconv.ParseInt(Env.JWTAccessHours, 10, 32); err == nil {
+		access = int(accessHours)
 	}
-	access = int(accessHours)
-
-	refreshDays, err := strconv.ParseInt(Env.JWTRefreshDays, 10, 32)
-	if err != nil {
-		refresh = 30
+	refresh := 30
+	if refreshDays, err := strconv.ParseInt(Env.JWTRefreshDays, 10, 32); err == nil {
+		refresh = int(refreshDays)
 	}
-	refresh = int(refreshDays)
 	return access, refresh
 }

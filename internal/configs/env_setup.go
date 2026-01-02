@@ -105,7 +105,7 @@ func Update(db *sql.DB, prefix string) {
 	green := color.New(color.FgGreen).SprintFunc()
 
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-	fmt.Printf(" → Update from ~v1.0.3 to %s\n", yellow("v1.0.4"))
+	fmt.Printf(" → Update from ~v1.0.5 to %s\n", yellow("v2.0.0"))
 
 	if err := createTradeTable(db, prefix); err != nil {
 		fmt.Printf("%s\n", red(err.Error()))
