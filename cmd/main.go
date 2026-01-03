@@ -45,7 +45,7 @@ func main() {
 	log.Printf("⚙️ Port: %s\n", configs.Env.GoPort)
 	log.Printf("⚙️ Max body size: %d bytes", sizeLimit)
 
-	goapi := app.Group(fmt.Sprintf("/%s", configs.Env.GoapiPath))
+	goapi := app.Group(configs.Env.GoapiPath)
 	routers.RegisterRouters(goapi, handler)
 
 	port := fmt.Sprintf(":%s", configs.Env.GoPort)
