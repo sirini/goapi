@@ -80,7 +80,7 @@ func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.googleConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/google/callback", configs.Env.Domain),
+		RedirectURL:  fmt.Sprintf("%s/api/oauth/google/callback", configs.Env.Domain),
 		ClientID:     configs.Env.OAuthGoogleID,
 		ClientSecret: configs.Env.OAuthGoogleSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
@@ -127,7 +127,7 @@ func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
-	h.naverRedirectURL = fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.Domain)
+	h.naverRedirectURL = fmt.Sprintf("%s/api/oauth/naver/callback", configs.Env.Domain)
 	url := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
 		configs.Env.OAuthNaverID,
@@ -184,7 +184,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	}
 
 	h.naverConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.Domain),
+		RedirectURL:  fmt.Sprintf("%s/api/oauth/naver/callback", configs.Env.Domain),
 		ClientID:     configs.Env.OAuthNaverID,
 		ClientSecret: configs.Env.OAuthNaverSecret,
 		Scopes:       []string{},
@@ -227,7 +227,7 @@ func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
 
 	h.kakaoConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/kakao/callback", configs.Env.Domain),
+		RedirectURL:  fmt.Sprintf("%s/api/oauth/kakao/callback", configs.Env.Domain),
 		ClientID:     configs.Env.OAuthKakaoID,
 		ClientSecret: configs.Env.OAuthKakaoSecret,
 		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},

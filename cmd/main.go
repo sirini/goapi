@@ -39,13 +39,13 @@ func main() {
 		BodyLimit: sizeLimit,
 	})
 
-	log.Printf("⚙️ Goapi path: %s\n", configs.Env.GoapiPath)
+	log.Printf("⚙️ Goapi base: %s\n", configs.Env.GoapiBase)
 	log.Printf("⚙️ Domain: %s\n", configs.Env.Domain)
 	log.Printf("⚙️ Title: %s\n", configs.Env.Title)
 	log.Printf("⚙️ Port: %s\n", configs.Env.GoPort)
 	log.Printf("⚙️ Max body size: %d bytes", sizeLimit)
 
-	goapi := app.Group(configs.Env.GoapiPath)
+	goapi := app.Group(fmt.Sprintf("/%s", configs.Env.GoapiBase))
 	routers.RegisterRouters(goapi, handler)
 
 	port := fmt.Sprintf(":%s", configs.Env.GoPort)

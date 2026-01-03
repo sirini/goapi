@@ -10,7 +10,7 @@ import (
 
 type Config struct {
 	GoPort            string
-	GoapiPath         string
+	GoapiBase         string
 	Domain            string
 	Title             string
 	Version           string
@@ -62,7 +62,7 @@ func LoadConfig() {
 
 	Env = Config{
 		Version:           getEnv("GOAPI_VERSION", "2.0.0"),
-		GoapiPath:         "/goapi",
+		GoapiBase:         getEnv("GOAPI_BASE", "goapi"),
 		GoPort:            getEnv("GOAPI_PORT", "3006"),
 		Domain:            getEnv("GOAPI_DOMAIN", "http://localhost"),
 		Title:             getEnv("GOAPI_TITLE", "NUBO"),
