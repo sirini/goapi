@@ -38,13 +38,18 @@ func main() {
 	app := fiber.New(fiber.Config{
 		BodyLimit: sizeLimit,
 	})
-	log.Printf("📎 Max body size: %d bytes", sizeLimit)
 
-	goapi := app.Group("/goapi")
+	log.Printf("⚙️ Goapi path: %s\n", configs.Env.GoapiPath)
+	log.Printf("⚙️ Domain: %s\n", configs.Env.Domain)
+	log.Printf("⚙️ Title: %s\n", configs.Env.Title)
+	log.Printf("⚙️ Port: %s\n", configs.Env.GoPort)
+	log.Printf("⚙️ Max body size: %d bytes", sizeLimit)
+
+	goapi := app.Group(fmt.Sprintf("/%s", configs.Env.GoapiPath))
 	routers.RegisterRouters(goapi, handler)
 
 	port := fmt.Sprintf(":%s", configs.Env.GoPort)
-	log.Printf("🚀 GOAPI for NUBO %v is running on %v", configs.Env.Version, configs.Env.GoPort)
+	log.Printf("🚀 GOAPI for NUBO %v is running on %v\n", configs.Env.Version, configs.Env.GoPort)
 
 	app.Listen(port)
 }
