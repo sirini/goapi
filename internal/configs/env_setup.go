@@ -125,22 +125,22 @@ func isAlreadyInstalled() bool {
 	return !info.IsDir()
 }
 
-// NUBO (TSBOARD) 설치 웰컴 메시지 보여주기
+// NUBO 설치 웰컴 메시지 보여주기
 func welcome() {
 	fmt.Print(`
-.:::     .::.::     .::.:: .::       .::::     
-.: .::   .::.::     .::.:    .::   .::    .::  
-.:: .::  .::.::     .::.:     .::.::        .::
-.::  .:: .::.::     .::.::: .:   .::        .::
-.::   .: .::.::     .::.:     .::.::        .::
-.::    .: ::.::     .::.:      .:  .::     .:: 
-.::      .::  .:::::   .:::: .::     .::::     
+
+███╗░░██╗██╗░░░██╗██████╗░░█████╗░
+████╗░██║██║░░░██║██╔══██╗██╔══██╗
+██╔██╗██║██║░░░██║██████╦╝██║░░██║
+██║╚████║██║░░░██║██╔══██╗██║░░██║
+██║░╚███║╚██████╔╝██████╦╝╚█████╔╝
+╚═╝░░╚══╝░╚═════╝░╚═════╝░░╚════╝░
                                                                                
-Networked Utilities & Builtin Options | https://nubohub.org                                              
+a new unified board | https://nubohub.org                                              
 `)
 }
 
-// NUBO (TSBOARD)에서 DB정보 사용을 위한 정보 확인하기
+// NUBO 에서 DB정보 사용을 위한 정보 확인하기
 func askDBInfo() DBInfo {
 	dbInfo := DBInfo{}
 	reader := bufio.NewReader(os.Stdin)
@@ -175,18 +175,18 @@ func askDBInfo() DBInfo {
 		pass, _ := reader.ReadString('\n')
 		pass = strings.TrimSpace(pass)
 
-		fmt.Print(" → Enter the dbname (default is tsboard): ")
+		fmt.Print(" → Enter the dbname (default is nubo): ")
 		name, _ := reader.ReadString('\n')
 		name = strings.TrimSpace(name)
 		if name == "" {
-			name = "tsboard"
+			name = "nubo"
 		}
 
-		fmt.Print(" → Enter the prefix of tables (default is `tsb_`): ")
+		fmt.Print(" → Enter the prefix of tables (default is `nubo_`): ")
 		prefix, _ := reader.ReadString('\n')
 		prefix = strings.TrimSpace(prefix)
 		if prefix == "" {
-			prefix = "tsb_"
+			prefix = "nubo_"
 		}
 
 		fmt.Print(" → Enter the port number (default is 3306): ")

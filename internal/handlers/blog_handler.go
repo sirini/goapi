@@ -75,11 +75,11 @@ func (h *NuboBlogHandler) BlogRssLoadHandler(c fiber.Ctx) error {
 
 	var rss string
 	rss = strings.ReplaceAll(templates.RssBody, "#BLOG.TITLE#", utils.Unescape(config.Name))
-	rss = strings.ReplaceAll(rss, "#BLOG.LINK#", fmt.Sprintf("%s/blog/%s", configs.Env.Domain, id))
+	rss = strings.ReplaceAll(rss, "#BLOG.LINK#", fmt.Sprintf("%s/board/%s", configs.Env.Domain, id))
 	rss = strings.ReplaceAll(rss, "#BLOG.INFO#", utils.Unescape(config.Info))
 	rss = strings.ReplaceAll(rss, "#BLOG.LANG#", "ko-kr")
 	rss = strings.ReplaceAll(rss, "#BLOG.DATE#", latestDate)
-	rss = strings.ReplaceAll(rss, "#BLOG.GENERATOR#", fmt.Sprintf("TSBOARD %s [tsboard.dev]", configs.Env.Version))
+	rss = strings.ReplaceAll(rss, "#BLOG.GENERATOR#", fmt.Sprintf("NUBO %s", configs.Env.Version))
 	rss = strings.ReplaceAll(rss, "#BLOG.ITEM#", strings.Join(items, ""))
 
 	return c.SendString(rss)
