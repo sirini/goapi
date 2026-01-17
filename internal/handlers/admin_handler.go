@@ -408,7 +408,7 @@ func (h *NuboAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
 
 // 대시보드에서 그룹,게시판,회원 목록들 불러오는 핸들러
 func (h *NuboAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
-	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	bunch, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -419,7 +419,7 @@ func (h *NuboAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 
 // 대시보드에서 최근 글,댓글,신고 목록들 불러오는 핸들러
 func (h *NuboAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
-	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	bunch, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -430,7 +430,7 @@ func (h *NuboAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
 
 // 대시보드에서 통계 데이터 불러오는 핸들러
 func (h *NuboAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
-	bunch, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	bunch, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
