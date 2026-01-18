@@ -689,27 +689,40 @@ func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 
 // 대시보드용 각종 통계 데이터 반환
 func (r *NuboAdminRepository) GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic {
-	result := models.AdminDashboardStatistic{}
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", configs.Env.Prefix, table)
-	err := r.db.QueryRow(query).Scan(&result.Total)
+	result := models.AdminDashboardStatistic{
+		History: make([]models.AdminDashboardStatus, 0, days),
+	}
+	prefix := configs.Env.Prefix
+	columnName := column.String()
+	totalQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", prefix, table)
+	_ = r.db.QueryRow(totalQuery).Scan(&result.Total)
+
+	historyQuery := fmt.Sprintf(`SELECT DATE_FORMAT(FROM_UNIXTIME(%s / 1000), '%%Y-%%m-%%d') AS date_str, COUNT(*) AS cnt
+		FROM %s%s WHERE %s >= UNIX_TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL ? DAY)) * 1000
+		GROUP BY date_str ORDER BY date_str DESC`, columnName, prefix, table, columnName)
+
+	rows, err := r.db.Query(historyQuery, days-1)
 	if err != nil {
 		return result
 	}
+	defer rows.Close()
+
+	statsMap := make(map[string]uint64)
+	for rows.Next() {
+		var dateStr string
+		var count uint64
+		if err := rows.Scan(&dateStr, &count); err == nil {
+			statsMap[dateStr] = count
+		}
+	}
 
 	now := time.Now()
-	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	columnName := column.String()
-
-	for d := 0; d < days; d++ {
-		start := day.AddDate(0, 0, d*-1).UnixMilli()
-		end := day.AddDate(0, 0, (d+1)*-1).UnixMilli()
-
-		history := models.AdminDashboardStatus{}
-		history.Date = uint64(start)
-		query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s BETWEEN ? AND ?", configs.Env.Prefix, table, columnName)
-		err = r.db.QueryRow(query, end, start).Scan(&history.Visit)
-		if err != nil {
-			return result
+	for d := range days {
+		targetDate := now.AddDate(0, 0, -d)
+		dateKey := targetDate.Format("2006-01-02")
+		history := models.AdminDashboardStatus{
+			Date:  uint64(targetDate.UnixMilli()),
+			Visit: uint(statsMap[dateKey]),
 		}
 		result.History = append(result.History, history)
 	}

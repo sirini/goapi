@@ -39,6 +39,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	bPoint.Get("/load", h.Admin.BoardPointLoadHandler)
 	bPoint.Patch("/update", h.Admin.ChangeBoardPointHandler)
 
+	dashboard.Get("/usage", h.Admin.DashboardUploadUsageHandler)
 	dashboard.Get("/item", h.Admin.DashboardItemLoadHandler)
 	dashboard.Get("/latest", h.Admin.DashboardLatestLoadHandler)
 	dashboard.Get("/statistic", h.Admin.DashboardStatisticLoadHandler)

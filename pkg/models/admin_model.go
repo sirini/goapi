@@ -1,5 +1,10 @@
 package models
 
+import (
+	"sync"
+	"time"
+)
+
 // 대시보드 통계 추출 시 필요한 컬럼 타입 정의
 type StatisticColumn uint8
 
@@ -70,6 +75,38 @@ type AdminCreateBoardResult struct {
 	Name    string `json:"name"`
 	Info    string `json:"info"`
 	Manager Pair   `json:"manager"`
+}
+
+// 대시보드에서 볼 업로드 사용량 캐시
+type UploadUsageCache struct {
+	mu          sync.RWMutex
+	TotalBytes  uint64
+	LastUpdated time.Time
+}
+
+// 사용량 구조체 노출
+var AdminUploadUsage = &UploadUsageCache{}
+
+// 업로드 사용량 업데이트
+func (s *UploadUsageCache) Update(bytes uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.TotalBytes = bytes
+	s.LastUpdated = time.Now()
+}
+
+// 캐시 읽기 함수
+func (s *UploadUsageCache) Get() (uint64, time.Time) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.TotalBytes, s.LastUpdated
+}
+
+// 캐시 만료 여부 확인
+func (s *UploadUsageCache) IsExpired() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.LastUpdated.IsZero() || time.Since(s.LastUpdated) > 1*time.Hour
 }
 
 // 대시보드 아이템(그룹, 게시판, 회원 최신순 목록) 반환값 정의

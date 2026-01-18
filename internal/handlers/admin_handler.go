@@ -30,6 +30,7 @@ type AdminHandler interface {
 	ChangeGroupIdHandler(c fiber.Ctx) error
 	CreateBoardHandler(c fiber.Ctx) error
 	CreateGroupHandler(c fiber.Ctx) error
+	DashboardUploadUsageHandler(c fiber.Ctx) error
 	DashboardItemLoadHandler(c fiber.Ctx) error
 	DashboardLatestLoadHandler(c fiber.Ctx) error
 	DashboardStatisticLoadHandler(c fiber.Ctx) error
@@ -404,6 +405,16 @@ func (h *NuboAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
 
 	result := h.service.Admin.CreateNewGroup(newGroupId)
 	return utils.Ok(c, result)
+}
+
+// 대시보드에서 업로드 폴더의 총 사용량 가져오는 핸들러
+func (h *NuboAdminHandler) DashboardUploadUsageHandler(c fiber.Ctx) error {
+	path := c.Query("path")
+	if len(path) < 1 {
+		return utils.Err(c, "invalid a path", models.CODE_INVALID_PARAMETER)
+	}
+	size := h.service.Admin.GetDashboardUploadUsage(path)
+	return utils.Ok(c, size)
 }
 
 // 대시보드에서 그룹,게시판,회원 목록들 불러오는 핸들러

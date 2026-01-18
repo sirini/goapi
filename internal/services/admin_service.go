@@ -2,7 +2,9 @@ package services
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -22,6 +24,7 @@ type AdminService interface {
 	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
 	GetCommentList(param models.AdminLatestParam) models.AdminLatestCommentResult
+	GetDashboardUploadUsage(path string) uint64
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
@@ -191,6 +194,35 @@ func (s *NuboAdminService) GetCommentList(param models.AdminLatestParam) models.
 		Comments: comments,
 		MaxUid:   param.MaxUid,
 	}
+}
+
+// 첨부파일 총 용량 가져오기
+func (s *NuboAdminService) GetDashboardUploadUsage(path string) uint64 {
+	if !models.AdminUploadUsage.IsExpired() {
+		size, _ := models.AdminUploadUsage.Get()
+		return size
+	}
+
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return 0
+	}
+
+	var size uint64
+	filepath.WalkDir(realPath, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			info, err := d.Info()
+			if err == nil {
+				size += uint64(info.Size())
+			}
+		}
+		return nil
+	})
+	models.AdminUploadUsage.Update(size)
+	return size
 }
 
 // 대시보드용 그룹, 게시판, 회원 목록 가져오기
