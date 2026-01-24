@@ -357,11 +357,10 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 		keyword := "%" + param.Keyword + "%"
 		switch param.Option {
 		case models.SEARCH_WRITER:
-			col := "t_user.name"
-			whereClauses = append(whereClauses, fmt.Sprintf("%s LIKE ?", col))
+			whereClauses = append(whereClauses, "t_user.name LIKE ?")
 			whereArgs = append(whereArgs, keyword)
 		case models.SEARCH_CONTENT:
-			whereClauses = append(whereClauses, "content LIKE ?")
+			whereClauses = append(whereClauses, "c.content LIKE ?")
 			whereArgs = append(whereArgs, keyword)
 		}
 	}
@@ -374,7 +373,11 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 			COALESCE(l.like_count, 0) AS like_count
 		FROM %s%s c
 		JOIN (
-			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
+			SELECT c.uid FROM %s%s c
+			LEFT JOIN %s%s AS t_user ON c.user_uid = t_user.uid
+			WHERE %s 
+			ORDER BY c.uid DESC 
+			LIMIT ? OFFSET ?
 		) AS sub ON c.uid = sub.uid
 		LEFT JOIN %s%s AS t_user ON c.user_uid = t_user.uid
 		LEFT JOIN %s%s AS t_board ON c.board_uid = t_board.uid
@@ -385,6 +388,7 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 		ORDER BY c.uid DESC`,
 		configs.Env.Prefix, models.TABLE_COMMENT,
 		configs.Env.Prefix, models.TABLE_COMMENT,
+		configs.Env.Prefix, models.TABLE_USER,
 		whereQuery,
 		configs.Env.Prefix, models.TABLE_USER,
 		configs.Env.Prefix, models.TABLE_BOARD,
