@@ -66,7 +66,6 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	latest.Get("/search/comment", h.Admin.LatestCommentSearchHandler)
 	latest.Get("/search/post", h.Admin.LatestPostSearchHandler)
 
-	report.Get("/list", h.Admin.ReportListLoadHandler)
 	report.Get("/search", h.Admin.ReportListSearchHandler)
 
 	user.Get("/list", h.Admin.UserListLoadHandler)

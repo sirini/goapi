@@ -46,7 +46,6 @@ type AdminHandler interface {
 	RemoveCommentHandler(c fiber.Ctx) error
 	RemovePostHandler(c fiber.Ctx) error
 	RemoveGroupHandler(c fiber.Ctx) error
-	ReportListLoadHandler(c fiber.Ctx) error
 	ReportListSearchHandler(c fiber.Ctx) error
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
@@ -492,19 +491,18 @@ func (h *NuboAdminHandler) GroupListLoadHandler(c fiber.Ctx) error {
 
 // 최근 댓글 불러오는 핸들러
 func (h *NuboAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
 	parameter := models.AdminLatestParam{
 		Page:    uint(page),
-		Bunch:   uint(bunch),
-		MaxUid:  0,
+		Limit:   uint(limit),
 		Option:  models.SEARCH_NONE,
 		Keyword: "",
 	}
@@ -514,19 +512,19 @@ func (h *NuboAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
 
 // 댓글 검색하는 핸들러
 func (h *NuboAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.Query("keyword"))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -534,8 +532,7 @@ func (h *NuboAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 
 	parameter := models.AdminLatestParam{
 		Page:    uint(page),
-		Bunch:   uint(bunch),
-		MaxUid:  0,
+		Limit:   uint(limit),
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
@@ -560,15 +557,15 @@ func (h *NuboAdminHandler) LatestPostLoadHandler(c fiber.Ctx) error {
 
 // 게시글 검색하는 핸들러
 func (h *NuboAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -580,8 +577,7 @@ func (h *NuboAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 
 	parameter := models.AdminLatestParam{
 		Page:    uint(page),
-		Bunch:   uint(bunch),
-		MaxUid:  0,
+		Limit:   uint(limit),
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
@@ -659,44 +655,25 @@ func (h *NuboAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 	return utils.Ok(c, nil)
 }
 
-// 신고 목록 가져오기 핸들러
-func (h *NuboAdminHandler) ReportListLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	reports := h.service.Admin.GetReportList(uint(page), uint(bunch), isSolved)
-	return utils.Ok(c, reports)
-}
-
 // 신고 목록 검색하기 핸들러
 func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	isSolved, err := strconv.ParseBool(c.FormValue("isSolved"))
+	isSolved, err := strconv.ParseBool(c.Query("isSolved"))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.Query("keyword"))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -705,8 +682,7 @@ func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 	parameter := models.AdminReportParam{
 		AdminLatestParam: models.AdminLatestParam{
 			Page:    uint(page),
-			Bunch:   uint(bunch),
-			MaxUid:  0,
+			Limit:   uint(limit),
 			Option:  models.Search(option),
 			Keyword: keyword,
 		},
@@ -810,23 +786,23 @@ func (h *NuboAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
 
 // 사용자 목록 조회하는 핸들러
 func (h *NuboAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	isBlocked, err := strconv.ParseBool(c.FormValue("isBlocked"))
+	isBlocked, err := strconv.ParseBool(c.Query("isBlocked"))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
+	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
+	keyword, err := url.QueryUnescape(c.Query("keyword"))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -835,8 +811,7 @@ func (h *NuboAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
 	parameter := models.AdminUserParam{
 		AdminLatestParam: models.AdminLatestParam{
 			Page:    uint(page),
-			Bunch:   uint(bunch),
-			MaxUid:  0,
+			Limit:   uint(limit),
 			Option:  models.Search(option),
 			Keyword: keyword,
 		},

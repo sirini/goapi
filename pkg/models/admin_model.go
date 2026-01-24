@@ -134,7 +134,6 @@ type AdminDashboardReport struct {
 type AdminDashboardLatest struct {
 	Posts    []AdminDashboardLatestContent `json:"posts"`
 	Comments []AdminDashboardLatestContent `json:"comments"`
-	Reports  []AdminDashboardReport        `json:"reports"`
 }
 
 // 대시보드 최근 통계들 반환값 정의
@@ -217,11 +216,10 @@ type AdminLatestCommentResult struct {
 
 // (댓)글 검색하기에 필요한 파라미터 정의
 type AdminLatestParam struct {
-	Page    uint
-	Bunch   uint
-	MaxUid  uint
-	Option  Search
-	Keyword string
+	Page    uint   `json:"page"`
+	Limit   uint   `json:"limit"`
+	Option  Search `json:"option"`
+	Keyword string `json:"keyword"`
 }
 
 // 신고 목록 검색하기에 필요한 파라미터 정의
@@ -246,6 +244,7 @@ type AdminLatestPostResult struct {
 
 // 신고 목록 반환값 정의
 type AdminReportItem struct {
+	Uid      uint        `json:"uid"`
 	To       BoardWriter `json:"to"`
 	From     BoardWriter `json:"from"`
 	Request  string      `json:"request"`

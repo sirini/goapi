@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
@@ -31,7 +32,6 @@ type AdminRepository interface {
 	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
 	GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent
 	GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent
-	GetDashboardReports(bunch uint) []models.AdminDashboardReport
 	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
 	GetGroupList() []models.AdminGroupConfig
@@ -352,7 +352,7 @@ func (r *NuboAdminRepository) GetCommentCount(postUid uint) uint {
 // (검색된) 댓글 목록 가져오기
 func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment {
 	items := make([]models.AdminLatestComment, 0)
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	last := (param.Page - 1) * param.Limit
 	whereQuery := ""
 	if param.Option == models.SEARCH_CONTENT {
 		whereQuery = "AND content LIKE '%" + param.Keyword + "%'"
@@ -361,7 +361,7 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
 												WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_COMMENT, whereQuery)
-	rows, err := r.db.Query(query, last, param.Bunch)
+	rows, err := r.db.Query(query, last, param.Limit)
 	if err != nil {
 		return items
 	}
@@ -492,29 +492,6 @@ func (r *NuboAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDashbo
 	return items
 }
 
-// 대시보드용 최근 신고 목록 가져오기
-func (r *NuboAdminRepository) GetDashboardReports(bunch uint) []models.AdminDashboardReport {
-	items := make([]models.AdminDashboardReport, 0)
-	query := fmt.Sprintf("SELECT uid, from_uid, request FROM %s%s ORDER BY uid DESC LIMIT ?",
-		configs.Env.Prefix, models.TABLE_REPORT)
-	rows, err := r.db.Query(query, bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		item := models.AdminDashboardReport{}
-		err = rows.Scan(&item.Uid, &item.Writer.UserUid, &item.Content)
-		if err != nil {
-			return items
-		}
-		item.Writer = r.FindWriterByUid(item.Writer.UserUid)
-		items = append(items, item)
-	}
-	return items
-}
-
 // 게시판 레벨 제한값 가져오기
 func (r *NuboAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
 	result := models.AdminBoardLevelPolicy{}
@@ -547,27 +524,50 @@ func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 // 신고 목록 가져오기
 func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []models.AdminReportItem {
 	items := make([]models.AdminReportItem, 0)
-	isSolvedQuery := "<"
+
+	isSolved := 0
 	if param.IsSolved {
-		isSolvedQuery = "="
+		isSolved = 1
 	}
 
-	whereQuery := ""
+	whereClauses := []string{"solved = ?"}
+	whereArgs := []any{isSolved}
+
 	if len(param.Keyword) > 0 {
-		if param.Option == models.SEARCH_REPORT_TO || param.Option == models.SEARCH_REPORT_FROM {
-			writerUid := r.FindWriterUidByName(param.Keyword)
-			whereQuery = fmt.Sprintf("AND %s_uid = %d", param.Option.String(), writerUid)
-		} else if param.Option == models.SEARCH_REPORT_REQUEST {
-			whereQuery = "AND request LIKE '%" + param.Keyword + "%'"
+		switch param.Option {
+		case models.SEARCH_REPORT_TO, models.SEARCH_REPORT_FROM:
+			col := "t_user.name"
+			if param.Option == models.SEARCH_REPORT_FROM {
+				col = "f_user.name"
+			}
+			whereClauses = append(whereClauses, fmt.Sprintf("%s LIKE ?", col))
+			whereArgs = append(whereArgs, "%"+param.Keyword+"%")
+		case models.SEARCH_REPORT_REQUEST:
+			whereClauses = append(whereClauses, "request LIKE ?")
+			whereArgs = append(whereArgs, "%"+param.Keyword+"%")
 		}
 	}
 
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
-	query := fmt.Sprintf(`SELECT to_uid, from_uid, request, response, timestamp 
-												FROM %s%s WHERE uid < ? AND solved %s 1 
-												%s ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_REPORT, isSolvedQuery, whereQuery)
-	rows, err := r.db.Query(query, last, param.Bunch)
+	whereQuery := strings.Join(whereClauses, " AND ")
+	offset := (param.Page - 1) * param.Limit
+	query := fmt.Sprintf(`SELECT r.uid,
+			r.to_uid, r.from_uid, r.request, r.response, r.timestamp,
+			t_user.name as to_name, f_user.name as from_name
+		FROM %s%s r
+		JOIN (
+			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
+		) AS sub ON r.uid = sub.uid
+		LEFT JOIN %suser AS t_user ON r.to_uid = t_user.uid
+		LEFT JOIN %suser AS f_user ON r.from_uid = f_user.uid
+		ORDER BY r.uid DESC`,
+		configs.Env.Prefix, models.TABLE_REPORT,
+		configs.Env.Prefix, models.TABLE_REPORT,
+		whereQuery,
+		configs.Env.Prefix, configs.Env.Prefix,
+	)
+
+	whereArgs = append(whereArgs, param.Limit, offset)
+	rows, err := r.db.Query(query, whereArgs...)
 	if err != nil {
 		return items
 	}
@@ -575,13 +575,14 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []mod
 
 	for rows.Next() {
 		item := models.AdminReportItem{}
-		err := rows.Scan(&item.To.UserUid, &item.From.UserUid, &item.Request, &item.Response, &item.Date)
-		if err != nil {
-			return items
+		err := rows.Scan(
+			&item.Uid, &item.To.UserUid, &item.From.UserUid,
+			&item.Request, &item.Response, &item.Date,
+			&item.To.Name, &item.From.Name,
+		)
+		if err == nil {
+			items = append(items, item)
 		}
-		item.To = r.FindWriterByUid(item.To.UserUid)
-		item.From = r.FindWriterByUid(item.From.UserUid)
-		items = append(items, item)
 	}
 	return items
 }
@@ -623,7 +624,7 @@ func (r *NuboAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActionP
 // (검색된) 게시글 가져오기
 func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []models.AdminLatestPost {
 	items := make([]models.AdminLatestPost, 0)
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	last := (param.Page - 1) * param.Limit
 	whereQuery := ""
 	if param.Option == models.SEARCH_TITLE || param.Option == models.SEARCH_CONTENT {
 		whereQuery = fmt.Sprintf("AND %s LIKE %s", param.Option.String(), "'%"+param.Keyword+"%'")
@@ -635,7 +636,7 @@ func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []model
 	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, title, submitted, hit, status 
 												FROM %s%s WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_POST, whereQuery)
-	rows, err := r.db.Query(query, last, param.Bunch)
+	rows, err := r.db.Query(query, last, param.Limit)
 	if err != nil {
 		return items
 	}
@@ -748,18 +749,19 @@ func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 // (검색된) 사용자 목록 반환
 func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
 	items := make([]models.AdminUserItem, 0)
-	last := 1 + param.MaxUid - (param.Page-1)*param.Bunch
+	last := (param.Page - 1) * param.Limit
 	isBlockedQuery := "<"
 	if param.IsBlocked {
 		isBlockedQuery = "="
 	}
 
 	whereQuery := ""
-	if param.Option == models.SEARCH_USER_NAME {
+	switch param.Option {
+	case models.SEARCH_USER_NAME:
 		whereQuery = "AND name LIKE '%" + param.Keyword + "%'"
-	} else if param.Option == models.SEARCH_USER_ID {
+	case models.SEARCH_USER_ID:
 		whereQuery = "AND id LIKE '%" + param.Keyword + "%'"
-	} else if param.Option == models.SEARCH_USER_LEVEL {
+	case models.SEARCH_USER_LEVEL:
 		whereQuery = "AND level = " + param.Keyword
 	}
 
@@ -767,7 +769,7 @@ func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.
 												FROM %s%s WHERE uid < ? AND blocked %s 1 %s
 												ORDER BY uid DESC LIMIT ?`,
 		configs.Env.Prefix, models.TABLE_USER, isBlockedQuery, whereQuery)
-	rows, err := r.db.Query(query, last, param.Bunch)
+	rows, err := r.db.Query(query, last, param.Limit)
 	if err != nil {
 		return items
 	}
