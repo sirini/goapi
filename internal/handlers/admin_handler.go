@@ -32,14 +32,11 @@ type AdminHandler interface {
 	CreateGroupHandler(c fiber.Ctx) error
 	DashboardUploadUsageHandler(c fiber.Ctx) error
 	DashboardItemLoadHandler(c fiber.Ctx) error
-	DashboardLatestLoadHandler(c fiber.Ctx) error
 	DashboardStatisticLoadHandler(c fiber.Ctx) error
 	GetAdminCandidatesHandler(c fiber.Ctx) error
 	GroupGeneralLoadHandler(c fiber.Ctx) error
 	GroupListLoadHandler(c fiber.Ctx) error
-	LatestCommentLoadHandler(c fiber.Ctx) error
 	LatestCommentSearchHandler(c fiber.Ctx) error
-	LatestPostLoadHandler(c fiber.Ctx) error
 	LatestPostSearchHandler(c fiber.Ctx) error
 	RemoveBoardCategoryHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
@@ -427,17 +424,6 @@ func (h *NuboAdminHandler) DashboardItemLoadHandler(c fiber.Ctx) error {
 	return utils.Ok(c, items)
 }
 
-// 대시보드에서 최근 글,댓글,신고 목록들 불러오는 핸들러
-func (h *NuboAdminHandler) DashboardLatestLoadHandler(c fiber.Ctx) error {
-	bunch, err := strconv.ParseUint(c.Query("limit"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	latests := h.service.Admin.GetDashboardLatests(uint(bunch))
-	return utils.Ok(c, latests)
-}
-
 // 대시보드에서 통계 데이터 불러오는 핸들러
 func (h *NuboAdminHandler) DashboardStatisticLoadHandler(c fiber.Ctx) error {
 	bunch, err := strconv.ParseUint(c.Query("limit"), 10, 32)
@@ -489,27 +475,6 @@ func (h *NuboAdminHandler) GroupListLoadHandler(c fiber.Ctx) error {
 	return utils.Ok(c, list)
 }
 
-// 최근 댓글 불러오는 핸들러
-func (h *NuboAdminHandler) LatestCommentLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	parameter := models.AdminLatestParam{
-		Page:    uint(page),
-		Limit:   uint(limit),
-		Option:  models.SEARCH_NONE,
-		Keyword: "",
-	}
-	comments := h.service.Admin.GetCommentList(parameter)
-	return utils.Ok(c, comments)
-}
-
 // 댓글 검색하는 핸들러
 func (h *NuboAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
@@ -530,29 +495,14 @@ func (h *NuboAdminHandler) LatestCommentSearchHandler(c fiber.Ctx) error {
 	}
 	keyword = utils.Escape(keyword)
 
-	parameter := models.AdminLatestParam{
+	param := models.AdminLatestParam{
 		Page:    uint(page),
 		Limit:   uint(limit),
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
-	comments := h.service.Admin.GetCommentList(parameter)
+	comments := h.service.Admin.GetSearchedComments(param)
 	return utils.Ok(c, comments)
-}
-
-// 최근 글 불러오는 핸들러
-func (h *NuboAdminHandler) LatestPostLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.FormValue("page"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	posts := h.service.Admin.GetLatestPosts(uint(page), uint(bunch))
-	return utils.Ok(c, posts)
 }
 
 // 게시글 검색하는 핸들러
@@ -575,13 +525,13 @@ func (h *NuboAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 	}
 	keyword = utils.Escape(keyword)
 
-	parameter := models.AdminLatestParam{
+	param := models.AdminLatestParam{
 		Page:    uint(page),
 		Limit:   uint(limit),
 		Option:  models.Search(option),
 		Keyword: keyword,
 	}
-	result := h.service.Admin.GetSearchedPosts(parameter)
+	result := h.service.Admin.GetSearchedPosts(param)
 	return utils.Ok(c, result)
 }
 
@@ -679,7 +629,7 @@ func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 	}
 	keyword = utils.Escape(keyword)
 
-	parameter := models.AdminReportParam{
+	param := models.AdminReportParam{
 		AdminLatestParam: models.AdminLatestParam{
 			Page:    uint(page),
 			Limit:   uint(limit),
@@ -688,7 +638,7 @@ func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 		},
 		IsSolved: isSolved,
 	}
-	reports := h.service.Admin.GetSearchedReports(parameter)
+	reports := h.service.Admin.GetSearchedReports(param)
 	return utils.Ok(c, reports)
 }
 

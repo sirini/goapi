@@ -23,22 +23,17 @@ type AdminService interface {
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
-	GetCommentList(param models.AdminLatestParam) models.AdminLatestCommentResult
 	GetDashboardUploadUsage(path string) uint64
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
-	GetDashboardLatests(bunch uint) models.AdminDashboardLatest
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
 	GetExistBoardIds(boardId string, bunch uint) []models.Triple
 	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupConfig
-	GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult
-	GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult
-	GetReportList(page uint, limit uint, isSolved bool) models.AdminReportResult
-	GetSearchedComments(param models.AdminLatestParam) models.AdminLatestCommentResult
-	GetSearchedPosts(param models.AdminLatestParam) models.AdminLatestPostResult
+	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
+	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportParam) []models.AdminReportItem
-	GetUserList(param models.AdminUserParam) models.AdminUserItemResult
+	GetUserList(param models.AdminUserParam) []models.AdminUserItem
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
@@ -185,14 +180,6 @@ func (s *NuboAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBoard
 	return result, nil
 }
 
-// (검색된) 댓글 목록 가져오기
-func (s *NuboAdminService) GetCommentList(param models.AdminLatestParam) models.AdminLatestCommentResult {
-	comments := s.repos.Admin.GetCommentList(param)
-	return models.AdminLatestCommentResult{
-		Comments: comments,
-	}
-}
-
 // 첨부파일 총 용량 가져오기
 func (s *NuboAdminService) GetDashboardUploadUsage(path string) uint64 {
 	if !models.AdminUploadUsage.IsExpired() {
@@ -231,17 +218,6 @@ func (s *NuboAdminService) GetDashboardItems(bunch uint) models.AdminDashboardIt
 		Groups:  groups,
 		Boards:  boards,
 		Members: members,
-	}
-	return result
-}
-
-// 대시보드용 최근 (댓)글 목록 가져오기
-func (s *NuboAdminService) GetDashboardLatests(limit uint) models.AdminDashboardLatest {
-	posts := s.repos.Admin.GetDashboardPosts(limit)
-	comments := s.repos.Admin.GetDashboardComments(limit)
-	result := models.AdminDashboardLatest{
-		Posts:    posts,
-		Comments: comments,
 	}
 	return result
 }
@@ -295,67 +271,14 @@ func (s *NuboAdminService) GetGroupList() []models.AdminGroupConfig {
 	return s.repos.Admin.GetGroupList()
 }
 
-// 최근 댓글들 가져오기
-func (s *NuboAdminService) GetLatestComments(page uint, bunch uint) models.AdminLatestCommentResult {
-	comments := s.repos.Admin.GetCommentList(models.AdminLatestParam{
-		Page:    page,
-		Limit:   bunch,
-		Option:  models.SEARCH_NONE,
-		Keyword: "",
-	})
-	return models.AdminLatestCommentResult{
-		Comments: comments,
-	}
-}
-
-// 최근 게시글들을 가져오기
-func (s *NuboAdminService) GetLatestPosts(page uint, bunch uint) models.AdminLatestPostResult {
-	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
-	posts := s.repos.Admin.GetPostList(models.AdminLatestParam{
-		Page:    page,
-		Limit:   bunch,
-		Option:  models.SEARCH_NONE,
-		Keyword: "",
-	})
-	return models.AdminLatestPostResult{
-		Posts:  posts,
-		MaxUid: maxUid,
-	}
-}
-
-// 최근 신고 목록 가져오기
-func (s *NuboAdminService) GetReportList(page uint, limit uint, isSolved bool) models.AdminReportResult {
-	maxUid := s.repos.Board.GetMaxUid(models.TABLE_REPORT)
-	parameter := models.AdminReportParam{
-		AdminLatestParam: models.AdminLatestParam{
-			Page:    page,
-			Limit:   limit,
-			Option:  models.SEARCH_REPORT_REQUEST,
-			Keyword: "",
-		},
-		IsSolved: isSolved,
-	}
-	reports := s.repos.Admin.GetReportList(parameter)
-	return models.AdminReportResult{
-		Reports: reports,
-		MaxUid:  maxUid,
-	}
-}
-
 // 검색된 댓글들 가져오기
-func (s *NuboAdminService) GetSearchedComments(param models.AdminLatestParam) models.AdminLatestCommentResult {
-	comments := s.repos.Admin.GetCommentList(param)
-	return models.AdminLatestCommentResult{
-		Comments: comments,
-	}
+func (s *NuboAdminService) GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment {
+	return s.repos.Admin.GetCommentList(param)
 }
 
 // 검색된 게시글들 가져오기
-func (s *NuboAdminService) GetSearchedPosts(param models.AdminLatestParam) models.AdminLatestPostResult {
-	posts := s.repos.Admin.GetPostList(param)
-	return models.AdminLatestPostResult{
-		Posts: posts,
-	}
+func (s *NuboAdminService) GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost {
+	return s.repos.Admin.GetPostList(param)
 }
 
 // 검색된 신고 목록 가져오기
@@ -364,11 +287,8 @@ func (s *NuboAdminService) GetSearchedReports(param models.AdminReportParam) []m
 }
 
 // (검색된) 사용자 목록 가져오기
-func (s *NuboAdminService) GetUserList(param models.AdminUserParam) models.AdminUserItemResult {
-	user := s.repos.Admin.GetUserList(param)
-	return models.AdminUserItemResult{
-		User: user,
-	}
+func (s *NuboAdminService) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
+	return s.repos.Admin.GetUserList(param)
 }
 
 // 사용자 정보 가져오기

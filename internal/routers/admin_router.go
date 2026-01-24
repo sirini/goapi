@@ -41,7 +41,6 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 
 	dashboard.Get("/usage", h.Admin.DashboardUploadUsageHandler)
 	dashboard.Get("/item", h.Admin.DashboardItemLoadHandler)
-	dashboard.Get("/latest", h.Admin.DashboardLatestLoadHandler)
 	dashboard.Get("/statistic", h.Admin.DashboardStatisticLoadHandler)
 
 	gGeneral := group.Group("/general")
@@ -59,14 +58,12 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	gList.Delete("/remove", h.Admin.RemoveGroupHandler)
 	gList.Post("/update", h.Admin.ChangeGroupIdHandler)
 
-	latest.Get("/comment", h.Admin.LatestCommentLoadHandler)
 	latest.Delete("/comment", h.Admin.RemoveCommentHandler)
-	latest.Get("/post", h.Admin.LatestPostLoadHandler)
 	latest.Delete("/post", h.Admin.RemovePostHandler)
-	latest.Get("/search/comment", h.Admin.LatestCommentSearchHandler)
-	latest.Get("/search/post", h.Admin.LatestPostSearchHandler)
+	latest.Get("/comments", h.Admin.LatestCommentSearchHandler)
+	latest.Get("/posts", h.Admin.LatestPostSearchHandler)
 
-	report.Get("/search", h.Admin.ReportListSearchHandler)
+	report.Get("/reports", h.Admin.ReportListSearchHandler)
 
 	user.Get("/list", h.Admin.UserListLoadHandler)
 	user.Get("/load", h.Admin.UserInfoLoadHandler)

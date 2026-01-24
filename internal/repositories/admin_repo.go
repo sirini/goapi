@@ -30,8 +30,6 @@ type AdminRepository interface {
 	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
 	GetCommentCount(postUid uint) uint
 	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
-	GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent
-	GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent
 	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
 	GetGroupList() []models.AdminGroupConfig
@@ -352,16 +350,49 @@ func (r *NuboAdminRepository) GetCommentCount(postUid uint) uint {
 // (검색된) 댓글 목록 가져오기
 func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment {
 	items := make([]models.AdminLatestComment, 0)
-	last := (param.Page - 1) * param.Limit
-	whereQuery := ""
-	if param.Option == models.SEARCH_CONTENT {
-		whereQuery = "AND content LIKE '%" + param.Keyword + "%'"
+	whereClauses := []string{"1=1"}
+	whereArgs := []any{}
+
+	if len(param.Keyword) > 0 {
+		keyword := "%" + param.Keyword + "%"
+		switch param.Option {
+		case models.SEARCH_WRITER:
+			col := "t_user.name"
+			whereClauses = append(whereClauses, fmt.Sprintf("%s LIKE ?", col))
+			whereArgs = append(whereArgs, keyword)
+		case models.SEARCH_CONTENT:
+			whereClauses = append(whereClauses, "content LIKE ?")
+			whereArgs = append(whereArgs, keyword)
+		}
 	}
 
-	query := fmt.Sprintf(`SELECT uid, post_uid, user_uid, content, submitted, status FROM %s%s 
-												WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_COMMENT, whereQuery)
-	rows, err := r.db.Query(query, last, param.Limit)
+	whereQuery := strings.Join(whereClauses, " AND ")
+	offset := (param.Page - 1) * param.Limit
+	query := fmt.Sprintf(`SELECT c.uid, c.post_uid, c.user_uid, c.content, c.submitted, c.status,
+			t_user.name AS user_name, t_user.profile AS user_profile,
+			t_board.id, t_board.type, t_board.name,
+			COALESCE(l.like_count, 0) AS like_count
+		FROM %s%s c
+		JOIN (
+			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
+		) AS sub ON c.uid = sub.uid
+		LEFT JOIN %s%s AS t_user ON c.user_uid = t_user.uid
+		LEFT JOIN %s%s AS t_board ON c.board_uid = t_board.uid
+		LEFT JOIN (
+			SELECT comment_uid, COUNT(*) AS like_count FROM %s%s WHERE liked = ?
+			GROUP BY comment_uid
+		) AS l ON c.uid = l.comment_uid
+		ORDER BY c.uid DESC`,
+		configs.Env.Prefix, models.TABLE_COMMENT,
+		configs.Env.Prefix, models.TABLE_COMMENT,
+		whereQuery,
+		configs.Env.Prefix, models.TABLE_USER,
+		configs.Env.Prefix, models.TABLE_BOARD,
+		configs.Env.Prefix, models.TABLE_COMMENT_LIKE,
+	)
+
+	whereArgs = append(whereArgs, param.Limit, offset, 1)
+	rows, err := r.db.Query(query, whereArgs...)
 	if err != nil {
 		return items
 	}
@@ -369,16 +400,12 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 
 	for rows.Next() {
 		item := models.AdminLatestComment{}
-		err := rows.Scan(&item.Uid, &item.PostUid, &item.Writer.UserUid, &item.Content, &item.Date, &item.Status)
+		err := rows.Scan(&item.Uid, &item.PostUid, &item.Writer.UserUid, &item.Content, &item.Date, &item.Status,
+			&item.Writer.Name, &item.Writer.Profile,
+			&item.Id, &item.Type, &item.Name, &item.Like)
 		if err != nil {
-			return items
+			continue
 		}
-		item.Writer = r.FindWriterByUid(item.Writer.UserUid)
-		item.Like = r.FindLikeByUid(models.TABLE_COMMENT, item.Uid)
-		boardUid := r.FindBoardUidByPostUid(item.PostUid)
-		boardId, boardType := r.FindBoardIdTypeByUid(boardUid)
-		item.Id = boardId
-		item.Type = boardType
 		items = append(items, item)
 	}
 	return items
@@ -431,62 +458,6 @@ func (r *NuboAdminRepository) GetGroupList() []models.AdminGroupConfig {
 		}
 		item.Manager = r.FindWriterByUid(item.Manager.UserUid)
 		item.Count = r.GetTotalBoardCount(item.Uid)
-		items = append(items, item)
-	}
-	return items
-}
-
-// 대시보드용 최근 댓글 목록 가져오기
-func (r *NuboAdminRepository) GetDashboardComments(bunch uint) []models.AdminDashboardLatestContent {
-	items := make([]models.AdminDashboardLatestContent, 0)
-	query := fmt.Sprintf("SELECT uid, post_uid, user_uid, content FROM %s%s ORDER BY uid DESC LIMIT ?",
-		configs.Env.Prefix, models.TABLE_COMMENT)
-	rows, err := r.db.Query(query, bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		item := models.AdminDashboardLatestContent{}
-		var postUid, userUid uint
-		err = rows.Scan(&item.Uid, &postUid, &userUid, &item.Content)
-		if err != nil {
-			return items
-		}
-		boardUid := r.FindBoardUidByPostUid(postUid)
-		boardId, boardType := r.FindBoardIdTypeByUid(boardUid)
-		item.Writer = r.FindWriterByUid(userUid)
-		item.Id = boardId
-		item.Type = boardType
-		items = append(items, item)
-	}
-	return items
-}
-
-// 대시보드용 최근 게시글 목록 가져오기
-func (r *NuboAdminRepository) GetDashboardPosts(bunch uint) []models.AdminDashboardLatestContent {
-	items := make([]models.AdminDashboardLatestContent, 0)
-	query := fmt.Sprintf("SELECT uid, board_uid, user_uid, title FROM %s%s ORDER BY uid DESC LIMIT ?",
-		configs.Env.Prefix, models.TABLE_POST)
-	rows, err := r.db.Query(query, bunch)
-	if err != nil {
-		return items
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		item := models.AdminDashboardLatestContent{}
-		var boardUid, userUid uint
-		err = rows.Scan(&item.Uid, &boardUid, &userUid, &item.Content)
-		if err != nil {
-			return items
-		}
-
-		boardId, boardType := r.FindBoardIdTypeByUid(boardUid)
-		item.Writer = r.FindWriterByUid(userUid)
-		item.Id = boardId
-		item.Type = boardType
 		items = append(items, item)
 	}
 	return items
@@ -552,18 +523,19 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []mod
 	offset := (param.Page - 1) * param.Limit
 	query := fmt.Sprintf(`SELECT r.uid,
 			r.to_uid, r.from_uid, r.request, r.response, r.timestamp,
-			t_user.name as to_name, f_user.name as from_name
+			t_user.name, f_user.name
 		FROM %s%s r
 		JOIN (
 			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
 		) AS sub ON r.uid = sub.uid
-		LEFT JOIN %suser AS t_user ON r.to_uid = t_user.uid
-		LEFT JOIN %suser AS f_user ON r.from_uid = f_user.uid
+		LEFT JOIN %s%s AS t_user ON r.to_uid = t_user.uid
+		LEFT JOIN %s%s AS f_user ON r.from_uid = f_user.uid
 		ORDER BY r.uid DESC`,
 		configs.Env.Prefix, models.TABLE_REPORT,
 		configs.Env.Prefix, models.TABLE_REPORT,
 		whereQuery,
-		configs.Env.Prefix, configs.Env.Prefix,
+		configs.Env.Prefix, models.TABLE_USER,
+		configs.Env.Prefix, models.TABLE_USER,
 	)
 
 	whereArgs = append(whereArgs, param.Limit, offset)
