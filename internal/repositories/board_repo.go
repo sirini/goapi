@@ -275,7 +275,7 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 			p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status,
 			u.name, u.profile,
 			c.name,
-			(SELECT path FROM %s%s WHERE post_uid = p.uid LIMIT 1),
+			COALESCE((SELECT path FROM %s%s WHERE post_uid = p.uid LIMIT 1), ''),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
 			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1)
@@ -327,24 +327,27 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 	var count uint
 	prefix := configs.Env.Prefix
 
-	fromClause := fmt.Sprintf("%s%s AS p", prefix, models.TABLE_POST)
-	whereClauses := []string{"p.board_uid = ?"}
+	whereClauses := []string{"board_uid = ?"}
 	args := []any{param.BoardUid}
 
-	if len(param.Keyword) > 0 {
-		whereClauses = append(whereClauses, "p.status = ?")
-		args = append(args, models.CONTENT_NORMAL)
+	whereClauses = append(whereClauses, "status IN (?, ?)")
+	args = append(args, models.CONTENT_NORMAL, models.CONTENT_SECRET)
 
+	if len(param.Keyword) > 0 {
 		switch param.Option {
 		case models.SEARCH_IMAGE_DESC:
-			fromClause += fmt.Sprintf(" JOIN %s%s AS d ON p.uid = d.post_uid", prefix, models.TABLE_IMAGE_DESC)
-			whereClauses = append(whereClauses, fmt.Sprintf("d.%s LIKE ?", param.Option.String()))
+			whereClauses = append(whereClauses, fmt.Sprintf(`EXISTS (
+				SELECT 1 FROM %s%s AS d 
+				WHERE d.post_uid = uid AND d.%s LIKE ?
+			)`, prefix, models.TABLE_IMAGE_DESC, param.Option.String()))
 			args = append(args, "%"+param.Keyword+"%")
 
 		case models.SEARCH_TAG:
 			tagUidStr, _ := r.GetTagUids(param.Keyword)
-			fromClause += fmt.Sprintf(" JOIN %s%s AS ph ON p.uid = ph.post_uid", prefix, models.TABLE_POST_HASHTAG)
-			whereClauses = append(whereClauses, fmt.Sprintf("ph.hashtag_uid IN (%s)", tagUidStr))
+			whereClauses = append(whereClauses, fmt.Sprintf(`EXISTS (
+				SELECT 1 FROM %s%s AS ph 
+				WHERE ph.post_uid = uid AND ph.hashtag_uid IN (%s)
+			)`, prefix, models.TABLE_POST_HASHTAG, tagUidStr))
 
 		case models.SEARCH_WRITER, models.SEARCH_CATEGORY:
 			table := models.TABLE_USER
@@ -352,20 +355,17 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 				table = models.TABLE_BOARD_CAT
 			}
 			uid := r.GetUidByTable(table, param.Keyword)
-			whereClauses = append(whereClauses, fmt.Sprintf("p.%s = ?", param.Option.String()))
+			whereClauses = append(whereClauses, fmt.Sprintf("%s = ?", param.Option.String()))
 			args = append(args, uid)
 
 		default:
-			whereClauses = append(whereClauses, fmt.Sprintf("p.%s LIKE ?", param.Option.String()))
+			whereClauses = append(whereClauses, fmt.Sprintf("%s LIKE ?", param.Option.String()))
 			args = append(args, "%"+param.Keyword+"%")
 		}
-	} else {
-		whereClauses = append(whereClauses, "p.status IN (?, ?, ?)")
-		args = append(args, models.CONTENT_NORMAL, models.CONTENT_SECRET, models.CONTENT_NOTICE)
 	}
 
-	query := fmt.Sprintf("SELECT COUNT(DISTINCT p.uid) FROM %s WHERE %s",
-		fromClause, strings.Join(whereClauses, " AND "))
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s",
+		prefix, models.TABLE_POST, strings.Join(whereClauses, " AND "))
 
 	err := r.db.QueryRow(query, args...).Scan(&count)
 	if err != nil {
@@ -385,54 +385,69 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 	var args []any
 	prefix := configs.Env.Prefix
 
-	switch param.Option {
-	case models.SEARCH_IMAGE_DESC:
-		subQuery = fmt.Sprintf(`
+	if len(param.Keyword) > 0 {
+		switch param.Option {
+		case models.SEARCH_IMAGE_DESC:
+			subQuery = fmt.Sprintf(`
             SELECT DISTINCT d.post_uid as uid FROM %s%s AS d
             JOIN %s%s AS p2 ON d.post_uid = p2.uid
-            WHERE p2.board_uid = ? AND p2.status = ? AND d.%s LIKE ?
+            WHERE p2.board_uid = ? AND p2.status IN (?, ?) AND d.%s LIKE ?
             ORDER BY d.post_uid DESC LIMIT ? OFFSET ?`,
-			prefix, models.TABLE_IMAGE_DESC, prefix, models.TABLE_POST, param.Option.String())
-		args = append(args, param.BoardUid, models.CONTENT_NORMAL, "%"+param.Keyword+"%", normalLimit, offset)
+				prefix, models.TABLE_IMAGE_DESC,
+				prefix, models.TABLE_POST,
+				param.Option.String())
+			args = append(args, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, "%"+param.Keyword+"%", normalLimit, offset)
 
-	case models.SEARCH_TAG:
-		tagUids, _ := r.GetTagUids(param.Keyword)
-		subQuery = fmt.Sprintf(`
+		case models.SEARCH_TAG:
+			tagUids, _ := r.GetTagUids(param.Keyword)
+			subQuery = fmt.Sprintf(`
             SELECT DISTINCT ph.post_uid as uid FROM %s%s AS ph
             JOIN %s%s AS p2 ON ph.post_uid = p2.uid
-            WHERE ph.board_uid = ? AND p2.status = ? AND ph.hashtag_uid IN (%s)
+            WHERE ph.board_uid = ? AND p2.status IN (?, ?) AND ph.hashtag_uid IN (%s)
             ORDER BY ph.post_uid DESC LIMIT ? OFFSET ?`,
-			prefix, models.TABLE_POST_HASHTAG, prefix, models.TABLE_POST, tagUids)
-		args = append(args, param.BoardUid, models.CONTENT_NORMAL, normalLimit, offset)
+				prefix, models.TABLE_POST_HASHTAG,
+				prefix, models.TABLE_POST,
+				tagUids)
+			args = append(args, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, normalLimit, offset)
 
-	default:
-		whereCol := param.Option.String()
-		searchValue := any("%" + param.Keyword + "%")
+		case models.SEARCH_WRITER, models.SEARCH_CATEGORY:
+			whereCol := param.Option.String() + " ="
+			table := models.TABLE_USER
+			if param.Option == models.SEARCH_CATEGORY {
+				table = models.TABLE_BOARD_CAT
+			}
+			searchValue := r.GetUidByTable(table, param.Keyword)
+			subQuery = fmt.Sprintf(`
+            SELECT uid FROM %s%s 
+            WHERE board_uid = ? AND status IN (?, ?) AND %s ?
+            ORDER BY uid DESC LIMIT ? OFFSET ?`,
+				prefix, models.TABLE_POST, whereCol)
+			args = append(args, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, searchValue, normalLimit, offset)
 
-		switch param.Option {
-		case models.SEARCH_WRITER:
-			searchValue = r.GetUidByTable(models.TABLE_USER, param.Keyword)
-			whereCol += " ="
-		case models.SEARCH_CATEGORY:
-			searchValue = r.GetUidByTable(models.TABLE_BOARD_CAT, param.Keyword)
-			whereCol += " ="
-		default:
-			whereCol += " LIKE"
+		case models.SEARCH_TITLE, models.SEARCH_CONTENT:
+			whereCol := param.Option.String()
+			searchValue := "%" + param.Keyword + "%"
+			subQuery = fmt.Sprintf(`
+						SELECT uid FROM %s%s
+						WHERE board_uid = ? AND status IN (?, ?) AND %s LIKE ?
+						ORDER BY uid DESC LIMIT ? OFFSET ?`,
+				prefix, models.TABLE_POST, whereCol)
+			args = append(args, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, searchValue, normalLimit, offset)
 		}
-
+	} else {
 		subQuery = fmt.Sprintf(`
             SELECT uid FROM %s%s 
-            WHERE board_uid = ? AND status = ? AND %s ?
+            WHERE board_uid = ? AND status IN (?, ?)
             ORDER BY uid DESC LIMIT ? OFFSET ?`,
-			prefix, models.TABLE_POST, whereCol)
-		args = append(args, param.BoardUid, models.CONTENT_NORMAL, searchValue, normalLimit, offset)
+			prefix, models.TABLE_POST)
+		args = append(args, param.BoardUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, normalLimit, offset)
 	}
 
 	finalQuery := fmt.Sprintf(`SELECT 
             p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status,
             u.name, u.profile,
             c.name,
-            COALESCE(img.path, ''),
+						COALESCE((SELECT path FROM %s%s WHERE post_uid = p.uid LIMIT 1), ''),
             (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
             (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
             EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1)
@@ -440,15 +455,15 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
         JOIN (%s) AS sub ON p.uid = sub.uid
         LEFT JOIN %s%s AS u ON p.user_uid = u.uid
         LEFT JOIN %s%s AS c ON p.category_uid = c.uid
-        LEFT JOIN %s%s AS img ON p.uid = img.post_uid
         ORDER BY p.uid DESC`,
+		prefix, models.TABLE_FILE_THUMB,
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST, subQuery,
+		prefix, models.TABLE_POST,
+		subQuery,
 		prefix, models.TABLE_USER,
 		prefix, models.TABLE_BOARD_CAT,
-		prefix, models.TABLE_FILE_THUMB,
 	)
 
 	finalArgs := []any{models.CONTENT_REMOVED}
@@ -473,9 +488,10 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 			&item.Like,
 			&item.Liked,
 		)
-		if err == nil {
-			items = append(items, item)
+		if err != nil {
+			continue
 		}
+		items = append(items, item)
 	}
 
 	return items, nil

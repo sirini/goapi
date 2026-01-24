@@ -155,13 +155,13 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 	posts := make([]models.BoardListItem, 0)
 	var err error
 
+	result := models.BoardListResult{}
 	notices, err := s.repos.Board.GetNoticePosts(param.BoardUid, param.UserUid)
 	if err != nil {
-		return models.BoardListResult{}, err
+		return result, err
 	}
-	result := models.BoardListResult{}
-	param.NoticeCount = uint(len(notices))
 
+	param.NoticeCount = uint(len(notices))
 	totalPostCount := s.repos.Board.GetTotalCount(param)
 	posts, err = s.repos.Board.FindPosts(param)
 	if err != nil {
