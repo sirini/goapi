@@ -358,19 +358,18 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 		switch param.Option {
 		case models.SEARCH_WRITER:
 			whereClauses = append(whereClauses, "t_user.name LIKE ?")
-			whereArgs = append(whereArgs, keyword)
 		case models.SEARCH_CONTENT:
 			whereClauses = append(whereClauses, "c.content LIKE ?")
-			whereArgs = append(whereArgs, keyword)
 		}
+		whereArgs = append(whereArgs, keyword)
 	}
 
 	whereQuery := strings.Join(whereClauses, " AND ")
 	offset := (param.Page - 1) * param.Limit
 	query := fmt.Sprintf(`SELECT c.uid, c.post_uid, c.user_uid, c.content, c.submitted, c.status,
-			t_user.name AS user_name, t_user.profile AS user_profile,
+			t_user.name, t_user.profile,
 			t_board.id, t_board.type, t_board.name,
-			COALESCE(l.like_count, 0) AS like_count
+			COALESCE(l.like_count, 0)
 		FROM %s%s c
 		JOIN (
 			SELECT c.uid FROM %s%s c
@@ -600,19 +599,60 @@ func (r *NuboAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActionP
 // (검색된) 게시글 가져오기
 func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []models.AdminLatestPost {
 	items := make([]models.AdminLatestPost, 0)
-	last := (param.Page - 1) * param.Limit
-	whereQuery := ""
-	if param.Option == models.SEARCH_TITLE || param.Option == models.SEARCH_CONTENT {
-		whereQuery = fmt.Sprintf("AND %s LIKE %s", param.Option.String(), "'%"+param.Keyword+"%'")
-	} else if param.Option == models.SEARCH_WRITER {
-		writer := r.FindWriterUidByName(param.Keyword)
-		whereQuery = fmt.Sprintf("AND user_uid = %d", writer)
+	whereClauses := []string{"1=1"}
+	whereArgs := []any{}
+
+	if len(param.Keyword) > 0 {
+		keyword := "%" + param.Keyword + "%"
+		switch param.Option {
+		case models.SEARCH_TITLE:
+			whereClauses = append(whereClauses, "p.title LIKE ?")
+		case models.SEARCH_CONTENT:
+			whereClauses = append(whereClauses, "p.content LIKE ?")
+		case models.SEARCH_WRITER:
+			whereClauses = append(whereClauses, "t_user.name LIKE ?")
+		}
+		whereArgs = append(whereArgs, keyword)
 	}
 
-	query := fmt.Sprintf(`SELECT uid, board_uid, user_uid, title, submitted, hit, status 
-												FROM %s%s WHERE uid < ? %s ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_POST, whereQuery)
-	rows, err := r.db.Query(query, last, param.Limit)
+	whereQuery := strings.Join(whereClauses, " AND ")
+	offset := (param.Page - 1) * param.Limit
+	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.title, p.submitted, p.hit, p.status,
+			t_user.name, t_user.profile,
+			t_board.id, t_board.type, t_board.name,
+			COALESCE(c.comment_count, 0),
+			COALESCE(l.like_count, 0)
+		FROM %s%s p
+		JOIN (
+			SELECT p.uid FROM %s%s p
+			LEFT JOIN %s%s AS t_user ON p.user_uid = t_user.uid
+			WHERE %s
+			ORDER BY p.uid DESC
+			LIMIT ? OFFSET ?
+		)	AS sub ON p.uid = sub.uid
+		LEFT JOIN %s%s AS t_user ON p.user_uid = t_user.uid
+		LEFT JOIN %s%s AS t_board ON p.board_uid = t_board.uid
+		LEFT JOIN (
+			SELECT post_uid, COUNT(*) AS comment_count FROM %s%s
+			GROUP BY post_uid
+		) AS c ON p.uid = c.post_uid
+		LEFT JOIN (
+			SELECT post_uid, COUNT(*) AS like_count FROM %s%s WHERE liked = ?
+			GROUP BY post_uid
+		) AS l ON p.uid = l.post_uid
+		ORDER BY p.uid DESC`,
+		configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_POST,
+		configs.Env.Prefix, models.TABLE_USER,
+		whereQuery,
+		configs.Env.Prefix, models.TABLE_USER,
+		configs.Env.Prefix, models.TABLE_BOARD,
+		configs.Env.Prefix, models.TABLE_COMMENT,
+		configs.Env.Prefix, models.TABLE_POST_LIKE,
+	)
+
+	whereArgs = append(whereArgs, param.Limit, offset, 1)
+	rows, err := r.db.Query(query, whereArgs...)
 	if err != nil {
 		return items
 	}
@@ -620,17 +660,11 @@ func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []model
 
 	for rows.Next() {
 		item := models.AdminLatestPost{}
-		var boardUid uint
-		err := rows.Scan(&item.Uid, &boardUid, &item.Writer.UserUid, &item.Title, &item.Date, &item.Hit, &item.Status)
+		err := rows.Scan(&item.Uid, &item.Writer.UserUid, &item.Title, &item.Date, &item.Hit, &item.Status,
+			&item.Writer.Name, &item.Writer.Profile, &item.Id, &item.Type, &item.Name, &item.Comment, &item.Like)
 		if err != nil {
-			return items
+			continue
 		}
-		item.Comment = r.GetCommentCount(item.Uid)
-		item.Writer = r.FindWriterByUid(item.Writer.UserUid)
-		item.Like = r.FindLikeByUid(models.TABLE_POST, item.Uid)
-		boardId, boardType := r.FindBoardIdTypeByUid(boardUid)
-		item.Id = boardId
-		item.Type = boardType
 		items = append(items, item)
 	}
 	return items
