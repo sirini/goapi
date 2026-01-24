@@ -17,9 +17,6 @@ type BoardService interface {
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	GetBoardUid(id string) uint
 	GetEditorConfig(boardUid uint, userUid uint) models.EditorConfigResult
-	GetGalleryGridItem(param models.BoardListParam) ([]models.GalleryGridItem, error)
-	GetGalleryList(param models.BoardListParam) models.GalleryListResult
-	GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error)
 	GetInsertedImages(param models.EditorInsertImageParam) (models.EditorInsertImageResult, error)
 	GetLatestUserContents(userUid uint, limit uint) models.BoardWriterLatestContent
 	GetListItem(param models.BoardListParam) (models.BoardListResult, error)
@@ -113,84 +110,6 @@ func (s *NuboBoardService) GetEditorConfig(boardUid uint, userUid uint) models.E
 	}
 }
 
-// 갤러리에 사진 목록들 가져오기
-func (s *NuboBoardService) GetGalleryGridItem(param models.BoardListParam) ([]models.GalleryGridItem, error) {
-	posts := make([]models.BoardListItem, 0)
-	var err error
-	items := make([]models.GalleryGridItem, 0)
-
-	if len(param.Keyword) < 2 {
-		posts, err = s.repos.Board.GetNormalPosts(param)
-	} else {
-		switch param.Option {
-		case models.SEARCH_TAG:
-			posts, err = s.repos.Board.FindPostsByHashtag(param)
-		case models.SEARCH_CATEGORY:
-		case models.SEARCH_WRITER:
-			posts, err = s.repos.Board.FindPostsByNameCategory(param)
-		case models.SEARCH_IMAGE_DESC:
-			posts, err = s.repos.Board.FindPostsByImageDescription(param)
-		default:
-			posts, err = s.repos.Board.FindPostsByTitleContent(param)
-		}
-	}
-	if err != nil {
-		return items, err
-	}
-
-	for _, post := range posts {
-		images, _ := s.repos.BoardView.GetAttachedImages(post.Uid)
-		item := models.GalleryGridItem{
-			Uid:     post.Uid,
-			Like:    post.Like,
-			Liked:   post.Liked,
-			Writer:  post.Writer,
-			Comment: post.Comment,
-			Title:   post.Title,
-			Images:  images,
-		}
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-// 갤러리 리스트 반환하기
-func (s *NuboBoardService) GetGalleryList(param models.BoardListParam) models.GalleryListResult {
-	images, _ := s.GetGalleryGridItem(param)
-	return models.GalleryListResult{
-		TotalPostCount: s.repos.Board.GetTotalPostCount(param.BoardUid),
-		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
-		Images:         images,
-	}
-}
-
-// 게시글 번호에 해당하는 첨부 사진들 가져오기 (GetPost() 후 호출됨)
-func (s *NuboBoardService) GetGalleryPhotos(boardUid uint, postUid uint, userUid uint) (models.GalleryPhotoResult, error) {
-	result := models.GalleryPhotoResult{}
-	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
-		return result, fmt.Errorf("you have been blocked by writer")
-	}
-
-	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
-	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
-	if userLv < needLv {
-		return result, fmt.Errorf("level restriction")
-	}
-	if needPt < 0 && userPt < utils.Abs(needPt) {
-		return result, fmt.Errorf("not enough point")
-	}
-
-	images, err := s.repos.BoardView.GetAttachedImages(postUid)
-	if err != nil {
-		return result, err
-	}
-	result = models.GalleryPhotoResult{
-		Config: s.repos.Board.GetBoardConfig(boardUid),
-		Images: images,
-	}
-	return result, nil
-}
-
 // 게시글에 내가 삽입한 이미지 목록들 가져오기
 func (s *NuboBoardService) GetInsertedImages(param models.EditorInsertImageParam) (models.EditorInsertImageResult, error) {
 	result := models.EditorInsertImageResult{}
@@ -233,7 +152,7 @@ func (s *NuboBoardService) GetLatestUserContents(userUid uint, limit uint) model
 
 // 게시판 목록글들 가져오기
 func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.BoardListResult, error) {
-	items := make([]models.BoardListItem, 0)
+	posts := make([]models.BoardListItem, 0)
 	var err error
 
 	notices, err := s.repos.Board.GetNoticePosts(param.BoardUid, param.UserUid)
@@ -242,28 +161,9 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 	}
 	result := models.BoardListResult{}
 	param.NoticeCount = uint(len(notices))
-	var totalPostCount uint
 
-	if len(param.Keyword) < 2 {
-		items, err = s.repos.Board.GetNormalPosts(param)
-		totalPostCount = s.repos.Board.GetTotalPostCount(param.BoardUid)
-	} else {
-		switch param.Option {
-		case models.SEARCH_TAG:
-			items, err = s.repos.Board.FindPostsByHashtag(param)
-			totalPostCount = s.repos.Board.GetTotalPostCountByHashtag(param)
-		case models.SEARCH_CATEGORY:
-		case models.SEARCH_WRITER:
-			items, err = s.repos.Board.FindPostsByNameCategory(param)
-			totalPostCount = s.repos.Board.GetTotalPostCountByNameCategory(param)
-		case models.SEARCH_IMAGE_DESC:
-			items, err = s.repos.Board.FindPostsByImageDescription(param)
-			totalPostCount = s.repos.Board.GetTotalPostCountByImageDescription(param)
-		default:
-			items, err = s.repos.Board.FindPostsByTitleContent(param)
-			totalPostCount = s.repos.Board.GetTotalPostCountByTitleContent(param)
-		}
-	}
+	totalPostCount := s.repos.Board.GetTotalCount(param)
+	posts, err = s.repos.Board.FindPosts(param)
 	if err != nil {
 		return result, err
 	}
@@ -272,7 +172,7 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 		TotalPostCount: totalPostCount,
 		Config:         s.repos.Board.GetBoardConfig(param.BoardUid),
 		Notices:        notices,
-		Posts:          items,
+		Posts:          posts,
 		BlackList:      s.repos.User.GetUserBlackList(param.UserUid),
 		IsAdmin:        s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid),
 	}

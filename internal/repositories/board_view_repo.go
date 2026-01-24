@@ -241,8 +241,9 @@ func (r *NuboBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) ui
 func (r *NuboBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
 	item := models.BoardListItem{}
 	var writerUid uint
-	query := fmt.Sprintf("SELECT %s FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
-		POST_COLUMNS, configs.Env.Prefix, models.TABLE_POST)
+	query := fmt.Sprintf(`SELECT uid, user_uid, category_uid, title, content, submitted, modified, hit, status 
+		FROM %s%s WHERE uid = ? AND status != ? LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_POST)
 
 	err := r.db.QueryRow(query, postUid, models.CONTENT_REMOVED).Scan(&item.Uid, &writerUid, &item.Category.Uid, &item.Title, &item.Content, &item.Submitted, &item.Modified, &item.Hit, &item.Status)
 	if err != nil {

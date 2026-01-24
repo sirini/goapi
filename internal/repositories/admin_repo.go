@@ -352,6 +352,7 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 	items := make([]models.AdminLatestComment, 0)
 	whereClauses := []string{"1=1"}
 	whereArgs := []any{}
+	prefix := configs.Env.Prefix
 
 	if len(param.Keyword) > 0 {
 		keyword := "%" + param.Keyword + "%"
@@ -385,13 +386,13 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 			GROUP BY comment_uid
 		) AS l ON c.uid = l.comment_uid
 		ORDER BY c.uid DESC`,
-		configs.Env.Prefix, models.TABLE_COMMENT,
-		configs.Env.Prefix, models.TABLE_COMMENT,
-		configs.Env.Prefix, models.TABLE_USER,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_USER,
 		whereQuery,
-		configs.Env.Prefix, models.TABLE_USER,
-		configs.Env.Prefix, models.TABLE_BOARD,
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_USER,
+		prefix, models.TABLE_BOARD,
+		prefix, models.TABLE_COMMENT_LIKE,
 	)
 
 	whereArgs = append(whereArgs, param.Limit, offset, 1)
@@ -498,7 +499,7 @@ func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 // 신고 목록 가져오기
 func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []models.AdminReportItem {
 	items := make([]models.AdminReportItem, 0)
-
+	prefix := configs.Env.Prefix
 	isSolved := 0
 	if param.IsSolved {
 		isSolved = 1
@@ -534,11 +535,11 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []mod
 		LEFT JOIN %s%s AS t_user ON r.to_uid = t_user.uid
 		LEFT JOIN %s%s AS f_user ON r.from_uid = f_user.uid
 		ORDER BY r.uid DESC`,
-		configs.Env.Prefix, models.TABLE_REPORT,
-		configs.Env.Prefix, models.TABLE_REPORT,
+		prefix, models.TABLE_REPORT,
+		prefix, models.TABLE_REPORT,
 		whereQuery,
-		configs.Env.Prefix, models.TABLE_USER,
-		configs.Env.Prefix, models.TABLE_USER,
+		prefix, models.TABLE_USER,
+		prefix, models.TABLE_USER,
 	)
 
 	whereArgs = append(whereArgs, param.Limit, offset)
@@ -601,6 +602,7 @@ func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []model
 	items := make([]models.AdminLatestPost, 0)
 	whereClauses := []string{"1=1"}
 	whereArgs := []any{}
+	prefix := configs.Env.Prefix
 
 	if len(param.Keyword) > 0 {
 		keyword := "%" + param.Keyword + "%"
@@ -641,14 +643,14 @@ func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []model
 			GROUP BY post_uid
 		) AS l ON p.uid = l.post_uid
 		ORDER BY p.uid DESC`,
-		configs.Env.Prefix, models.TABLE_POST,
-		configs.Env.Prefix, models.TABLE_POST,
-		configs.Env.Prefix, models.TABLE_USER,
+		prefix, models.TABLE_POST,
+		prefix, models.TABLE_POST,
+		prefix, models.TABLE_USER,
 		whereQuery,
-		configs.Env.Prefix, models.TABLE_USER,
-		configs.Env.Prefix, models.TABLE_BOARD,
-		configs.Env.Prefix, models.TABLE_COMMENT,
-		configs.Env.Prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_USER,
+		prefix, models.TABLE_BOARD,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_POST_LIKE,
 	)
 
 	whereArgs = append(whereArgs, param.Limit, offset, 1)

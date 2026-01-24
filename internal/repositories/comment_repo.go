@@ -12,8 +12,6 @@ import (
 type CommentRepository interface {
 	FindPostUserUidByUid(commentUid uint) (uint, uint)
 	GetComments(param models.CommentListParam) ([]models.CommentItem, error)
-	GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint
-	GetLikedCount(commentUid uint) uint
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
@@ -44,80 +42,6 @@ func (r *NuboCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, uin
 
 	r.db.QueryRow(query, commentUid).Scan(&postUid, &userUid)
 	return postUid, userUid
-}
-
-// 댓글들 가져오기
-func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]models.CommentItem, error) {
-	offset := (param.Page - 1) * param.Limit
-	query := fmt.Sprintf(`SELECT t.uid, t.reply_uid, t.user_uid, t.content, t.submitted, t.modified, t.status 
-												FROM %s%s AS t 
-												JOIN (SELECT uid FROM %s%s WHERE post_uid = ? AND status IN (?, ?) LIMIT ? OFFSET ?) AS p 
-												ON t.uid = p.uid
-												ORDER BY t.reply_uid ASC`, configs.Env.Prefix, models.TABLE_COMMENT, configs.Env.Prefix, models.TABLE_COMMENT)
-	rows, err := r.db.Query(query, param.PostUid, models.CONTENT_NORMAL, models.CONTENT_SECRET, param.Limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// 게시글 작성자 정보 가져오는 쿼리문 준비
-	query = fmt.Sprintf("SELECT name, profile, signature FROM %s%s WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_USER)
-	stmtWriter, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtWriter.Close()
-
-	// 댓글에 대한 좋아요 수 반환하는 쿼리문 준비
-	query = fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	stmtLikedCount, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtLikedCount.Close()
-
-	// 댓글에 좋아요를 클릭했는지 확인하는 쿼리문 준비
-	query = fmt.Sprintf("SELECT liked FROM %s%s WHERE comment_uid = ? AND user_uid = ? AND liked = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-	stmtLiked, err := r.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmtLiked.Close()
-
-	items := make([]models.CommentItem, 0)
-	for rows.Next() {
-		item := models.CommentItem{}
-		err = rows.Scan(&item.Uid, &item.ReplyUid, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status)
-		if err != nil {
-			return nil, err
-		}
-		item.PostUid = param.PostUid
-		item.Writer = r.board.GetWriterInfoForLoop(stmtWriter, item.Writer.UserUid)
-		item.Like = r.GetLikedCountForLoop(stmtLikedCount, item.Uid)
-		item.Liked = r.board.CheckLikedCommentForLoop(stmtLiked, item.Uid, param.UserUid)
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-// 반복문에서 사용하는 댓글에 대한 좋아요 수 반환
-func (r *NuboCommentRepository) GetLikedCountForLoop(stmt *sql.Stmt, commentUid uint) uint {
-	var count uint
-	stmt.QueryRow(commentUid, 1).Scan(&count)
-	return count
-}
-
-// 댓글에 대한 좋아요 수 반환
-func (r *NuboCommentRepository) GetLikedCount(commentUid uint) uint {
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE comment_uid = ? AND liked = ?",
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-
-	var count uint
-	r.db.QueryRow(query, commentUid, 1).Scan(&count)
-	return count
 }
 
 // 게시글 상태 가져오기
@@ -231,4 +155,61 @@ func (r *NuboCommentRepository) UpdateReplyUid(commentUid uint, replyUid uint) {
 		configs.Env.Prefix, models.TABLE_COMMENT)
 
 	r.db.Exec(query, replyUid, commentUid)
+}
+
+// 댓글 목록 가져오기
+func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]models.CommentItem, error) {
+	items := make([]models.CommentItem, 0)
+	offset := (param.Page - 1) * param.Limit
+	prefix := configs.Env.Prefix
+
+	query := fmt.Sprintf(`SELECT 
+			c.uid, c.reply_uid, c.user_uid, c.content, c.submitted, c.modified, c.status,
+			u.name, u.profile,
+			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND liked = 1),
+			EXISTS(SELECT 1 FROM %s%s WHERE comment_uid = c.uid AND user_uid = ? AND liked = 1)
+		FROM %s%s AS c
+		JOIN (
+			SELECT uid FROM %s%s 
+			WHERE post_uid = ? AND status IN (?, ?) 
+			ORDER BY reply_uid ASC, uid ASC 
+			LIMIT ? OFFSET ?
+		) AS p ON c.uid = p.uid
+		LEFT JOIN %s%s AS u ON c.user_uid = u.uid
+		ORDER BY c.reply_uid ASC, c.uid ASC`,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_USER,
+	)
+
+	rows, err := r.db.Query(query,
+		param.UserUid,
+		param.PostUid,
+		models.CONTENT_NORMAL,
+		models.CONTENT_SECRET,
+		param.Limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item := models.CommentItem{}
+		err := rows.Scan(
+			&item.Uid, &item.ReplyUid, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status,
+			&item.Writer.Name, &item.Writer.Profile,
+			&item.Like,
+			&item.Liked,
+		)
+		if err == nil {
+			item.PostUid = param.PostUid
+			items = append(items, item)
+		}
+	}
+
+	return items, nil
 }
