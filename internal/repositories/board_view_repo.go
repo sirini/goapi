@@ -23,7 +23,7 @@ type BoardViewRepository interface {
 	GetNeededLevelPoint(boardUid uint, action models.BoardAction) (int, int)
 	GetPrevPostUid(boardUid uint, postUid uint) uint
 	GetNextPostUid(boardUid uint, postUid uint) uint
-	GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error)
+	GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error)
 	GetTags(postUid uint) []models.Pair
 	GetTagName(hashtagUid uint) string
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
@@ -237,25 +237,57 @@ func (r *NuboBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) ui
 	return nextUid
 }
 
-// 게시글 보기 시 게시글 내용 가져오기
-func (r *NuboBoardViewRepository) GetPost(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
+// 게시글 보기 시 글 내용 가져오기
+func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
 	item := models.BoardListItem{}
-	var writerUid uint
-	query := fmt.Sprintf(`SELECT uid, user_uid, category_uid, title, content, submitted, modified, hit, status 
-		FROM %s%s WHERE uid = ? AND status != ? LIMIT 1`,
-		configs.Env.Prefix, models.TABLE_POST)
+	prefix := configs.Env.Prefix
 
-	err := r.db.QueryRow(query, postUid, models.CONTENT_REMOVED).Scan(&item.Uid, &writerUid, &item.Category.Uid, &item.Title, &item.Content, &item.Submitted, &item.Modified, &item.Hit, &item.Status)
+	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status,
+			u.name, u.profile,
+			c.name,
+			COALESCE((SELECT path FROM %s%s WHERE post_uid = p.uid LIMIT 1), ''),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
+			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1)
+		FROM %s%s AS p
+		LEFT JOIN %s%s AS u ON p.user_uid = u.uid
+		LEFT JOIN %s%s AS c ON p.category_uid = c.uid
+		WHERE p.uid = ? AND p.status != ?`,
+		prefix, models.TABLE_FILE_THUMB,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST,
+		prefix, models.TABLE_USER,
+		prefix, models.TABLE_BOARD_CAT,
+	)
+
+	err := r.db.QueryRow(query,
+		models.CONTENT_REMOVED,
+		actionUserUid,
+		postUid,
+		models.CONTENT_REMOVED,
+	).Scan(
+		&item.Uid,
+		&item.Writer.UserUid,
+		&item.Category.Uid,
+		&item.Title,
+		&item.Content,
+		&item.Submitted,
+		&item.Modified,
+		&item.Hit,
+		&item.Status,
+		&item.Writer.Name,
+		&item.Writer.Profile,
+		&item.Category.Name,
+		&item.Cover,
+		&item.Comment,
+		&item.Like,
+		&item.Liked,
+	)
 	if err != nil {
 		return item, err
 	}
-
-	item.Writer = r.board.GetWriterInfo(writerUid)
-	item.Like = r.board.GetLikeCount(postUid)
-	item.Liked = r.board.CheckLikedPost(postUid, actionUserUid)
-	item.Category = r.board.GetCategoryByUid(item.Category.Uid)
-	item.Comment = r.board.GetCommentCount(postUid)
-	item.Cover = r.board.GetCoverImage(postUid)
 	return item, nil
 }
 

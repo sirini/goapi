@@ -225,7 +225,7 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 		Point:    needPt,
 	})
 
-	post, err := s.repos.BoardView.GetPost(param.PostUid, param.UserUid)
+	post, err := s.repos.BoardView.GetPostItem(param.PostUid, param.UserUid)
 	if err != nil {
 		return result, err
 	}
@@ -291,7 +291,7 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) {
 // 게시글 수정 시 기존 정보들 가져오기
 func (s *NuboBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error) {
 	result := models.EditorLoadPostResult{}
-	post, err := s.repos.BoardView.GetPost(postUid, userUid)
+	post, err := s.repos.BoardView.GetPostItem(postUid, userUid)
 	if err != nil {
 		return result, err
 	}
