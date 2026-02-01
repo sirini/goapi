@@ -459,7 +459,7 @@ func (h *NuboAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 
 // 그룹 설정 및 소속 게시판 목록 반환하는 핸들러
 func (h *NuboAdminHandler) GroupGeneralLoadHandler(c fiber.Ctx) error {
-	groupId := c.FormValue("id")
+	groupId := c.Query("id")
 	config := h.service.Admin.GetGroupConfig(groupId)
 	boards := h.service.Admin.GetBoardList(config.Uid)
 
