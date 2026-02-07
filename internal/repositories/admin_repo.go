@@ -314,8 +314,34 @@ func (r *NuboAdminRepository) GetAdminCandidates(name string, bunch uint) ([]mod
 // 그룹 소속 게시판의 기본 정보 및 간단 통계 가져오기
 func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
 	items := make([]models.AdminGroupBoardItem, 0)
-	query := fmt.Sprintf("SELECT uid, id, admin_uid, type, name, info FROM %s%s WHERE group_uid = ?",
-		configs.Env.Prefix, models.TABLE_BOARD)
+	prefix := configs.Env.Prefix
+	query := fmt.Sprintf(`SELECT b.uid, b.id, b.admin_uid, b.type, b.name, b.info,
+										u.name, u.profile, u.signature,
+										COALESCE(p.cnt, 0),
+										COALESCE(c.cnt, 0),
+										COALESCE(f.cnt, 0),
+										COALESCE(i.cnt, 0)
+										FROM %s%s b
+										LEFT JOIN %s%s AS u ON b.admin_uid = u.uid
+										LEFT JOIN (
+											SELECT board_uid, COUNT(*) AS cnt FROM %s%s GROUP BY board_uid
+										) AS p ON b.uid = p.board_uid 
+										LEFT JOIN (
+											SELECT board_uid, COUNT(*) AS cnt FROM %s%s GROUP BY board_uid
+										) AS c ON b.uid = c.board_uid
+										LEFT JOIN (
+											SELECT board_uid, COUNT(*) AS cnt FROM %s%s GROUP BY board_uid
+										) AS f ON b.uid = f.board_uid
+										LEFT JOIN (
+											SELECT board_uid, COUNT(*) AS cnt FROM %s%s GROUP BY board_uid
+										) AS i ON b.uid = i.board_uid
+										WHERE b.group_uid = ?`,
+		prefix, models.TABLE_BOARD,
+		prefix, models.TABLE_USER,
+		prefix, models.TABLE_POST,
+		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_FILE,
+		prefix, models.TABLE_IMAGE)
 
 	rows, err := r.db.Query(query, groupUid)
 	if err != nil {
@@ -325,15 +351,15 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoa
 
 	for rows.Next() {
 		item := models.AdminGroupBoardItem{}
-		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid, &item.Type, &item.Name, &item.Info)
+		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid, &item.Type, &item.Name, &item.Info,
+			&item.Manager.Name, &item.Manager.Profile, &item.Manager.Signature,
+			&item.Total.Post,
+			&item.Total.Comment,
+			&item.Total.File,
+			&item.Total.Image)
 		if err != nil {
 			return items
 		}
-		item.Manager = r.FindWriterByUid(item.Manager.UserUid)
-		item.Total.Post = r.FindCountByBoardUid(models.TABLE_POST, item.Uid)
-		item.Total.Comment = r.FindCountByBoardUid(models.TABLE_COMMENT, item.Uid)
-		item.Total.File = r.FindCountByBoardUid(models.TABLE_FILE, item.Uid)
-		item.Total.Image = r.FindCountByBoardUid(models.TABLE_IMAGE, item.Uid)
 		items = append(items, item)
 	}
 	return items
