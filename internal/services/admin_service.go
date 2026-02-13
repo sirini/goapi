@@ -16,7 +16,7 @@ type AdminService interface {
 	ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error
 	ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
-	ChangeGroupId(groupUid uint, newGroupId string) error
+	ChangeGroupId(param models.AdminGroupChangeParam) error
 	CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult
 	CreateNewGroup(newGroupId string) models.AdminGroupConfig
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
@@ -91,12 +91,12 @@ func (s *NuboAdminService) ChangeGroupAdmin(groupUid uint, newAdminUid uint) err
 }
 
 // 그룹 ID 변경하기
-func (s *NuboAdminService) ChangeGroupId(groupUid uint, newGroupId string) error {
-	uid, _ := s.repos.Admin.FindGroupUidAdminUidById(newGroupId)
+func (s *NuboAdminService) ChangeGroupId(param models.AdminGroupChangeParam) error {
+	uid, _ := s.repos.Admin.FindGroupUidAdminUidById(param.NewGroupId)
 	if uid > 0 {
 		return fmt.Errorf("duplicated group id")
 	}
-	return s.repos.Admin.UpdateGroupId(groupUid, newGroupId)
+	return s.repos.Admin.UpdateGroupId(param.GroupUid, param.NewGroupId)
 }
 
 // 새 게시판 만들기

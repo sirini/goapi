@@ -177,6 +177,12 @@ type AdminGroupConfig struct {
 	Manager BoardWriter `json:"manager"`
 }
 
+// 그룹 ID 변경하는 파라미터 정의
+type AdminGroupChangeParam struct {
+	GroupUid   uint   `json:"groupUid"`
+	NewGroupId string `json:"newGroupId"`
+}
+
 // 최근 (댓)글 출력에 필요한 공통 반환값 정의
 type AdminLatestCommon struct {
 	Uid    uint        `json:"uid"`

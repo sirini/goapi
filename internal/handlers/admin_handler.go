@@ -364,13 +364,12 @@ func (h *NuboAdminHandler) ChangeGroupAdminHandler(c fiber.Ctx) error {
 
 // 그룹 ID 변경하기 핸들러
 func (h *NuboAdminHandler) ChangeGroupIdHandler(c fiber.Ctx) error {
-	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
-	if err != nil {
+	param := models.AdminGroupChangeParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	newGroupId := c.FormValue("changeGroupId")
 
-	err = h.service.Admin.ChangeGroupId(uint(groupUid), newGroupId)
+	err := h.service.Admin.ChangeGroupId(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
