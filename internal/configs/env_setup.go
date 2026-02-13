@@ -1,7 +1,6 @@
 package configs
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 )
@@ -125,145 +125,137 @@ func isAlreadyInstalled() bool {
 	return !info.IsDir()
 }
 
+// 터미널 화면 비우기
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
 // NUBO 설치 웰컴 메시지 보여주기
 func welcome() {
-	fmt.Print(`
+	clearScreen()
 
-███╗░░██╗██╗░░░██╗██████╗░░█████╗░
-████╗░██║██║░░░██║██╔══██╗██╔══██╗
-██╔██╗██║██║░░░██║██████╦╝██║░░██║
-██║╚████║██║░░░██║██╔══██╗██║░░██║
-██║░╚███║╚██████╔╝██████╦╝╚█████╔╝
-╚═╝░░╚══╝░╚═════╝░╚═════╝░░╚════╝░
-                                                                               
-a new unified board | https://nubohub.org                                              
-`)
+	cyan := color.New(color.FgCyan, color.Bold).SprintFunc()
+	fmt.Print(cyan(`
+
+  ███╗  ██╗██╗   ██╗██████╗  █████╗
+  ████╗ ██║██║   ██║██╔══██╗██╔══██╗
+  ██╔██╗██║██║   ██║██████╦╝██║  ██║
+  ██║╚████║██║   ██║██╔══██╗██║  ██║
+  ██║ ╚███║╚██████╔╝██████╦╝╚█████╔╝
+  ╚═╝  ╚══╝ ╚═════╝ ╚═════╝  ╚════╝
+
+`))
+	fmt.Println(color.HiBlackString(" a new unified board | https://nubohub.org"))
+	fmt.Println()
 }
 
 // NUBO 에서 DB정보 사용을 위한 정보 확인하기
 func askDBInfo() DBInfo {
 	dbInfo := DBInfo{}
-	reader := bufio.NewReader(os.Stdin)
-	red := color.New(color.FgRed).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
 
-	fmt.Println("")
-	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-	fmt.Printf(" NUBO is %s.\n We will now proceed with the installation process.\n\n", red("not installed yet"))
-	fmt.Printf(" Before installing NUBO, make sure that\n `%s` is already installed on your server.\n\n", yellow("libvips"))
-	fmt.Printf(" During the installation process,\n you will need the connection details\n for a pre-installed `%s` on your server.\n", yellow("MySQL(Mariadb)"))
-	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-	fmt.Println("")
+	yellow := color.New(color.FgYellow).SprintFunc()
+	blue := color.New(color.FgCyan).SprintFunc()
+
+	fmt.Println(color.HiBlackString("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯"))
+	fmt.Printf(" %s  NUBO is %s.\n", blue("ℹ"), color.RedString("not installed yet"))
+	fmt.Printf(" %s  Please ensure %s and %s are ready.\n", blue("ℹ"), yellow("libvips"), yellow("MySQL"))
+	fmt.Println(color.HiBlackString("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯"))
+	fmt.Println()
+
+	// Survey 질문 정의
+	var questions = []*survey.Question{
+		{
+			Name: "host",
+			Prompt: &survey.Input{
+				Message: "Database Hostname:",
+				Default: "localhost",
+				Help:    "IP address or domain of your MySQL server",
+			},
+		},
+		{
+			Name: "user",
+			Prompt: &survey.Input{
+				Message: "Username:",
+				Default: "root",
+			},
+		},
+		{
+			Name: "pass",
+			Prompt: &survey.Password{
+				Message: "Password:",
+			},
+		},
+		{
+			Name: "name",
+			Prompt: &survey.Input{
+				Message: "Database Name:",
+				Default: "nubo",
+			},
+		},
+		{
+			Name: "prefix",
+			Prompt: &survey.Input{
+				Message: "Table Prefix:",
+				Default: "nubo_",
+			},
+		},
+		{
+			Name: "port",
+			Prompt: &survey.Input{
+				Message: "Port Number:",
+				Default: "3306",
+			},
+		},
+		{
+			Name: "socket",
+			Prompt: &survey.Input{
+				Message: "Socket Path (Optional):",
+				Help:    "Ubuntu: /var/run/mysqld/mysqld.sock | Mac: /tmp/mysql.sock",
+			},
+		},
+		{
+			Name: "maxIdle",
+			Prompt: &survey.Input{
+				Message: "Max Idle Connections:",
+				Default: "10",
+			},
+		},
+		{
+			Name: "maxOpen",
+			Prompt: &survey.Input{
+				Message: "Max Open Connections:",
+				Default: "10",
+			},
+		},
+	}
 
 	for {
-		fmt.Print(" → Enter the hostname (default is localhost): ")
-		host, _ := reader.ReadString('\n')
-		host = strings.TrimSpace(host)
-		if host == "" {
-			host = "localhost"
+		err := survey.Ask(questions, &dbInfo)
+		if err != nil {
+			fmt.Println(color.RedString("✘ Installation cancelled: %v", err))
+			os.Exit(0)
 		}
 
-		fmt.Print(" → Enter the username (default is root): ")
-		user, _ := reader.ReadString('\n')
-		user = strings.TrimSpace(user)
-		if user == "" {
-			user = "root"
+		confirm := false
+		prompt := &survey.Confirm{
+			Message: "Are you sure all the information is correct?",
+			Default: true,
 		}
+		survey.AskOne(prompt, &confirm)
 
-		fmt.Print(" → Enter the password: ")
-		pass, _ := reader.ReadString('\n')
-		pass = strings.TrimSpace(pass)
-
-		fmt.Print(" → Enter the dbname (default is nubo): ")
-		name, _ := reader.ReadString('\n')
-		name = strings.TrimSpace(name)
-		if name == "" {
-			name = "nubo"
-		}
-
-		fmt.Print(" → Enter the prefix of tables (default is `nubo_`): ")
-		prefix, _ := reader.ReadString('\n')
-		prefix = strings.TrimSpace(prefix)
-		if prefix == "" {
-			prefix = "nubo_"
-		}
-
-		fmt.Print(" → Enter the port number (default is 3306): ")
-		port, _ := reader.ReadString('\n')
-		port = strings.TrimSpace(port)
-		if port == "" {
-			port = "3306"
-		}
-
-		fmt.Print(" → Enter the number of max idle (default is 10): ")
-		maxIdle, _ := reader.ReadString('\n')
-		maxIdle = strings.TrimSpace(maxIdle)
-		if maxIdle == "" {
-			maxIdle = "10"
-		}
-
-		fmt.Print(" → Enter the number of max open (default is 10): ")
-		maxOpen, _ := reader.ReadString('\n')
-		maxOpen = strings.TrimSpace(maxOpen)
-		if maxOpen == "" {
-			maxOpen = "10"
-		}
-
-		fmt.Println("")
-		fmt.Printf(" ✔︎ default path of mysqld.sock on Ubuntu is %s\n", yellow("/var/run/mysqld/mysqld.sock"))
-		fmt.Printf(" ✔︎ default path of mysqld.sock on Mac is %s\n", yellow("/tmp/mysql.sock"))
-		fmt.Printf(" ✔︎ Windows does not have this file, %s would be okay\n", yellow("keep empty"))
-		fmt.Println("")
-		fmt.Print(" → Enter the path of mysqld.sock: ")
-		socket, _ := reader.ReadString('\n')
-		socket = strings.TrimSpace(socket)
-
-		fmt.Println("")
-		fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-		fmt.Printf(" %s Hostname        : %s\n", green("✔︎"), yellow(host))
-		fmt.Printf(" %s Username        : %s\n", green("✔︎"), yellow(user))
-		fmt.Printf(" %s Password        : %s\n", green("✔︎"), yellow(pass))
-		fmt.Printf(" %s Database name   : %s\n", green("✔︎"), yellow(name))
-		fmt.Printf(" %s Prefix of table : %s\n", green("✔︎"), yellow(prefix))
-		fmt.Printf(" %s Port number     : %s\n", green("✔︎"), yellow(port))
-		fmt.Printf(" %s Socket path     : %s\n", green("✔︎"), yellow(socket))
-		fmt.Printf(" %s Max idle        : %s\n", green("✔︎"), yellow(maxIdle))
-		fmt.Printf(" %s Max open        : %s\n", green("✔︎"), yellow(maxOpen))
-		fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-
-		fmt.Println("")
-		fmt.Printf(" → Are you sure all the information you entered is correct? [%ses/%so/%suit]: ", green("Y"), yellow("N"), red("Q"))
-		isCorrect, _ := reader.ReadString('\n')
-		isCorrect = strings.TrimSpace(isCorrect)
-		answer := strings.ToLower(isCorrect)
-
-		if answer == "y" || answer == "yes" {
-			dbInfo.Host = host
-			dbInfo.User = user
-			dbInfo.Pass = pass
-			dbInfo.Name = name
-			dbInfo.Prefix = prefix
-			dbInfo.Port = port
-			dbInfo.Port = port
-			dbInfo.Socket = socket
-			dbInfo.MaxIdle = maxIdle
-			dbInfo.MaxOpen = maxOpen
+		if confirm {
+			fmt.Print(color.CyanString("\n➔ Testing database connection... "))
 
 			if isConn := testConnDB(dbInfo); !isConn {
-				fmt.Printf(" %s The NUBO %s to the database with the information you provided.\n", red("🞬"), red("could not connect"))
-				fmt.Printf(" %s Please try again.\n\n", red("🞬"))
+				fmt.Println(color.RedString("FAILED"))
+				fmt.Println(color.RedString("✘ Could not connect to the database. Please check your info and try again.\n"))
 				continue
-			} else {
-				break
 			}
-		} else if answer == "n" || answer == "no" {
-			continue
-		} else {
-			fmt.Printf(" %s The NUBO will now exit. To install or reinstall the NUBO, please delete the %s file first and then run this binary again.\n", red("🞬"), yellow(".env"))
-			return DBInfo{}
+			fmt.Println(color.GreenString("SUCCESS!"))
+			break
 		}
 	}
+
 	return dbInfo
 }
 
@@ -322,42 +314,55 @@ func testConnDB(dbInfo DBInfo) bool {
 
 // 관리자 ID, PW 정보 입력받기
 func askAdminInfo() AdminInfo {
+	blue := color.New(color.FgCyan).SprintFunc()
+
 	adminInfo := AdminInfo{}
-	reader := bufio.NewReader(os.Stdin)
-	red := color.New(color.FgRed).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-	green := color.New(color.FgGreen).SprintFunc()
+	var surveyAdmin = []*survey.Question{
+		{
+			Name: "Id",
+			Prompt: &survey.Input{
+				Message: "Admin's email:",
+				Default: "sirini@gmail.com",
+				Help:    "An email address of yours",
+			},
+		},
+		{
+			Name: "Pw",
+			Prompt: &survey.Password{
+				Message: "Admin's password:",
+				Help:    "Your password!",
+			},
+		},
+	}
 
 	for {
-		fmt.Println("")
-		fmt.Print(" → Enter the admin's email (e.g. sirini@gmail.com): ")
-		id, _ := reader.ReadString('\n')
-		id = strings.TrimSpace(id)
+		fmt.Println()
 
-		fmt.Print(" → Enter the password for admin: ")
-		pw, _ := reader.ReadString('\n')
-		pw = strings.TrimSpace(pw)
+		err := survey.Ask(surveyAdmin, &adminInfo)
+		if err != nil {
+			fmt.Println(color.RedString("✘ Installation cancelled: %v", err))
+			os.Exit(0)
+		}
 
-		fmt.Println("")
-		fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
-		fmt.Printf(" %s Admin's email   : %s\n", green("✔︎"), yellow(id))
-		fmt.Printf(" %s Password        : %s\n", green("✔︎"), yellow(pw))
-		fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
+		fmt.Println()
+		fmt.Println(color.HiBlackString("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯"))
+		fmt.Printf(" %s  Email: %s\n", blue("ℹ"), blue(adminInfo.Id))
+		fmt.Printf(" %s  Password: %s\n", blue("ℹ"), blue(adminInfo.Pw))
+		fmt.Println(color.HiBlackString("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯"))
+		fmt.Println()
 
-		fmt.Println("")
-		fmt.Printf(" → Are you sure all the information you entered is correct? [%ses/%so/%suit]: ", green("Y"), yellow("N"), red("Q"))
-		isCorrect, _ := reader.ReadString('\n')
-		isCorrect = strings.TrimSpace(isCorrect)
-		answer := strings.ToLower(isCorrect)
+		confirm := false
+		prompt := &survey.Confirm{
+			Message: "Are you sure all the information is correct?",
+			Default: true,
+		}
+		survey.AskOne(prompt, &confirm)
 
-		if answer == "y" || answer == "yes" {
-			adminInfo.Id = id
-			adminInfo.Pw = pw
+		if confirm {
+			fmt.Println()
+			fmt.Println(color.GreenString("Done! Now starting GOAPI for NUBO ..."))
+			fmt.Println()
 			break
-		} else if answer == "n" || answer == "no" {
-			continue
-		} else {
-			return AdminInfo{}
 		}
 	}
 	return adminInfo
