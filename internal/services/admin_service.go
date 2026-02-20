@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -17,7 +18,7 @@ type AdminService interface {
 	ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
 	ChangeGroupId(param models.AdminGroupChangeParam) error
-	CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult
+	CreateNewBoard(param models.AdminBoardCreateParam) (uint, error)
 	CreateNewGroup(newGroupId string) models.AdminGroupConfig
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
@@ -100,32 +101,24 @@ func (s *NuboAdminService) ChangeGroupId(param models.AdminGroupChangeParam) err
 }
 
 // 새 게시판 만들기
-func (s *NuboAdminService) CreateNewBoard(groupUid uint, newBoardId string) models.AdminCreateBoardResult {
-	result := models.AdminCreateBoardResult{}
-	if isAdded := s.repos.Admin.IsAdded(models.TABLE_BOARD, newBoardId); isAdded {
-		return result
+func (s *NuboAdminService) CreateNewBoard(param models.AdminBoardCreateParam) (uint, error) {
+	if isAdded := s.repos.Admin.IsAdded(models.TABLE_BOARD, param.Id); isAdded {
+		return 0, fmt.Errorf("already added")
 	}
 
-	boardUid := s.repos.Admin.CreateBoard(groupUid, newBoardId)
+	boardUid := s.repos.Admin.CreateBoard(param)
 	if boardUid < 1 {
-		return result
+		return 0, fmt.Errorf("failed to create a new board")
 	}
 
-	admin := s.repos.Admin.FindWriterByUid(models.CREATE_BOARD_ADMIN)
-	result = models.AdminCreateBoardResult{
-		Uid:  boardUid,
-		Type: models.CREATE_BOARD_TYPE,
-		Name: models.CREATE_BOARD_NAME,
-		Info: models.CREATE_BOARD_INFO,
-		Manager: models.Pair{
-			Uid:  models.CREATE_BOARD_ADMIN,
-			Name: admin.Name,
-		},
+	var cats []string
+	if len(param.Categories) > 3 {
+		cats = strings.Split(param.Categories, ",")
+	} else {
+		cats = []string{"qna", "news", "humor"}
 	}
-
-	defaultCats := []string{"free", "news", "qna", "etc"}
-	s.repos.Admin.CreateDefaultCategories(boardUid, defaultCats)
-	return result
+	s.repos.Admin.CreateCategories(boardUid, cats)
+	return boardUid, nil
 }
 
 // 새 그룹 만들기

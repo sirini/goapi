@@ -378,17 +378,16 @@ func (h *NuboAdminHandler) ChangeGroupIdHandler(c fiber.Ctx) error {
 
 // 게시판 생성하기 핸들러
 func (h *NuboAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
-	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	param := models.AdminBoardCreateParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	boardUid, err := h.service.Admin.CreateNewBoard(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	newBoardId := c.FormValue("newId")
-	if len(newBoardId) < 2 {
-		return utils.Err(c, "Invalid id, too short", models.CODE_INVALID_PARAMETER)
-	}
-
-	result := h.service.Admin.CreateNewBoard(uint(groupUid), newBoardId)
-	return utils.Ok(c, result)
+	return utils.Ok(c, boardUid)
 }
 
 // 그룹 생성하기 핸들러

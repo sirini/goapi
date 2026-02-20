@@ -26,26 +26,6 @@ func (s StatisticColumn) String() string {
 	}
 }
 
-// 게시판 생성 시 기본값 정의
-const (
-	CREATE_BOARD_ADMIN       = 1
-	CREATE_BOARD_TYPE        = 0 /* board */
-	CREATE_BOARD_NAME        = "board name"
-	CREATE_BOARD_INFO        = "description for this board"
-	CREATE_BOARD_ROWS        = 15
-	CREATE_BOARD_WIDTH       = 1000
-	CREATE_BOARD_USE_CAT     = 1
-	CREATE_BOARD_LV_LIST     = 0
-	CREATE_BOARD_LV_VIEW     = 0
-	CREATE_BOARD_LV_WRITE    = 1 /* 0 is not allowed */
-	CREATE_BOARD_LV_COMMENT  = 1 /* 0 is not allowed */
-	CREATE_BOARD_LV_DOWNLOAD = 1 /* 0 is not allowed */
-	CREATE_BOARD_PT_VIEW     = 0
-	CREATE_BOARD_PT_WRITE    = 5
-	CREATE_BOARD_PT_COMMENT  = 2
-	CREATE_BOARD_PT_DOWNLOAD = -10
-)
-
 // 그룹 생성 시 기본값 정의
 const CREATE_GROUP_ADMIN = 1
 
@@ -68,13 +48,27 @@ type AdminBoardPointPolicy struct {
 	BoardActionPoint
 }
 
-// 게시판 생성하기 시 반환값 정의
-type AdminCreateBoardResult struct {
-	Uid     uint   `json:"uid"`
-	Type    Board  `json:"type"`
-	Name    string `json:"name"`
-	Info    string `json:"info"`
-	Manager Pair   `json:"manager"`
+// 게시판 생성에 필요한 파라미터 정의
+type AdminBoardCreateParam struct {
+	AdminUid      uint   `json:"adminUid"`
+	Categories    string `json:"categories,omitempty"`
+	GroupUid      uint   `json:"groupUid"`
+	Id            string `json:"id"`
+	Info          string `json:"info"`
+	LevelComment  uint   `json:"levelComment"`
+	LevelDownload uint   `json:"levelDownload"`
+	LevelList     uint   `json:"levelList"`
+	LevelView     uint   `json:"levelView"`
+	LevelWrite    uint   `json:"levelWrite"`
+	Name          string `json:"name"`
+	PointComment  int    `json:"pointComment"`
+	PointDownload int    `json:"pointDownload"`
+	PointView     int    `json:"pointView"`
+	PointWrite    int    `json:"pointWrite"`
+	RowCount      uint   `json:"rowCount"`
+	Type          Board  `json:"type"`
+	UseCategory   bool   `json:"useCategory"`
+	Width         uint   `json:"width"`
 }
 
 // 대시보드에서 볼 업로드 사용량 캐시

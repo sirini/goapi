@@ -12,8 +12,8 @@ import (
 
 type AdminRepository interface {
 	CheckCategoryInBoard(boardUid uint, catUid uint) bool
-	CreateBoard(groupUid uint, newBoardId string) uint
-	CreateDefaultCategories(boardUid uint, cats []string)
+	CreateBoard(param models.AdminBoardCreateParam) uint
+	CreateCategories(boardUid uint, cats []string)
 	CreateGroup(newGroupId string) uint
 	FindPathByUid(table models.Table, targetUid uint) []string
 	FindBoardIdTypeByUid(boardUid uint) (string, models.Board)
@@ -83,7 +83,7 @@ func (r *NuboAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint) b
 }
 
 // 새 게시판 만들기
-func (r *NuboAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint {
+func (r *NuboAdminRepository) CreateBoard(param models.AdminBoardCreateParam) uint {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(id, group_uid, admin_uid, type, name, info,
 													row_count, width, use_category, level_list, level_view, level_write,
@@ -92,24 +92,24 @@ func (r *NuboAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint
 		configs.Env.Prefix, models.TABLE_BOARD)
 	result, err := r.db.Exec(
 		query,
-		newBoardId,
-		groupUid,
-		models.CREATE_BOARD_ADMIN,
-		models.CREATE_BOARD_TYPE,
-		models.CREATE_BOARD_NAME,
-		models.CREATE_BOARD_INFO,
-		models.CREATE_BOARD_ROWS,
-		models.CREATE_BOARD_WIDTH,
-		models.CREATE_BOARD_USE_CAT,
-		models.CREATE_BOARD_LV_LIST,
-		models.CREATE_BOARD_LV_VIEW,
-		models.CREATE_BOARD_LV_WRITE,
-		models.CREATE_BOARD_LV_COMMENT,
-		models.CREATE_BOARD_LV_DOWNLOAD,
-		models.CREATE_BOARD_PT_VIEW,
-		models.CREATE_BOARD_PT_WRITE,
-		models.CREATE_BOARD_PT_COMMENT,
-		models.CREATE_BOARD_PT_DOWNLOAD,
+		param.Id,
+		param.GroupUid,
+		models.CREATE_GROUP_ADMIN,
+		param.Type,
+		param.Name,
+		param.Info,
+		param.RowCount,
+		param.Width,
+		param.UseCategory,
+		param.LevelList,
+		param.LevelView,
+		param.LevelWrite,
+		param.LevelComment,
+		param.LevelDownload,
+		param.PointView,
+		param.PointWrite,
+		param.PointComment,
+		param.PointDownload,
 	)
 	if err != nil {
 		return models.FAILED
@@ -122,7 +122,7 @@ func (r *NuboAdminRepository) CreateBoard(groupUid uint, newBoardId string) uint
 }
 
 // 새 게시판 생성 시 함께 생성되는 기본 분류들 생성 처리
-func (r *NuboAdminRepository) CreateDefaultCategories(boardUid uint, cats []string) {
+func (r *NuboAdminRepository) CreateCategories(boardUid uint, cats []string) {
 	for _, cat := range cats {
 		query := fmt.Sprintf("INSERT INTO %s%s (board_uid, name) VALUES (?, ?)", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 		r.db.Exec(query, boardUid, cat)
