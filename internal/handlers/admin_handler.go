@@ -13,19 +13,7 @@ import (
 )
 
 type AdminHandler interface {
-	AddBoardCategoryHandler(c fiber.Ctx) error
 	BoardGeneralLoadHandler(c fiber.Ctx) error
-	BoardLevelLoadHandler(c fiber.Ctx) error
-	BoardPointLoadHandler(c fiber.Ctx) error
-	ChangeBoardAdminHandler(c fiber.Ctx) error
-	ChangeBoardGroupHandler(c fiber.Ctx) error
-	ChangeBoardInfoHandler(c fiber.Ctx) error
-	ChangeBoardLevelHandler(c fiber.Ctx) error
-	ChangeBoardNameHandler(c fiber.Ctx) error
-	ChangeBoardPointHandler(c fiber.Ctx) error
-	ChangeBoardRowHandler(c fiber.Ctx) error
-	ChangeBoardTypeHandler(c fiber.Ctx) error
-	ChangeBoardWidthHandler(c fiber.Ctx) error
 	ChangeGroupAdminHandler(c fiber.Ctx) error
 	ChangeGroupIdHandler(c fiber.Ctx) error
 	CreateBoardHandler(c fiber.Ctx) error
@@ -38,7 +26,7 @@ type AdminHandler interface {
 	GroupListLoadHandler(c fiber.Ctx) error
 	LatestCommentSearchHandler(c fiber.Ctx) error
 	LatestPostSearchHandler(c fiber.Ctx) error
-	RemoveBoardCategoryHandler(c fiber.Ctx) error
+	ModifyBoardHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
 	RemovePostHandler(c fiber.Ctx) error
@@ -46,7 +34,6 @@ type AdminHandler interface {
 	ReportListSearchHandler(c fiber.Ctx) error
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
-	UseBoardCategoryHandler(c fiber.Ctx) error
 	UserInfoLoadHandler(c fiber.Ctx) error
 	UserInfoModifyHandler(c fiber.Ctx) error
 	UserListLoadHandler(c fiber.Ctx) error
@@ -61,25 +48,9 @@ func NewNuboAdminHandler(service *services.Service) *NuboAdminHandler {
 	return &NuboAdminHandler{service: service}
 }
 
-// 게시판에 카테고리 추가하는 핸들러
-func (h *NuboAdminHandler) AddBoardCategoryHandler(c fiber.Ctx) error {
-	uid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	categoryName := c.FormValue("newCategory")
-	if len(categoryName) < 2 {
-		return utils.Err(c, "invalid category name", models.CODE_INVALID_PARAMETER)
-	}
-
-	insertId := h.service.Admin.AddBoardCategory(uint(uid), categoryName)
-	return utils.Ok(c, insertId)
-}
-
-// 게시판 관리화면 > 일반 기존 내용 불러오는 핸들러
+// 게시판 설정값 및 그룹 목록 불러오는 핸들러
 func (h *NuboAdminHandler) BoardGeneralLoadHandler(c fiber.Ctx) error {
-	id := c.FormValue("id")
+	id := c.Query("id")
 	boardUid := h.service.Board.GetBoardUid(id)
 	if boardUid < 1 {
 		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
@@ -103,245 +74,6 @@ func (h *NuboAdminHandler) BoardGeneralLoadHandler(c fiber.Ctx) error {
 		Config: config,
 		Groups: pairs,
 	})
-}
-
-// 게시판 권한 설정 가져오기 핸들러
-func (h *NuboAdminHandler) BoardLevelLoadHandler(c fiber.Ctx) error {
-	id := c.FormValue("id")
-	boardUid := h.service.Board.GetBoardUid(id)
-	if boardUid < 1 {
-		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
-	}
-
-	perm, err := h.service.Admin.GetBoardLevelPolicy(boardUid)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, perm)
-}
-
-// 게시판 포인트 설정 가져오는 핸들러
-func (h *NuboAdminHandler) BoardPointLoadHandler(c fiber.Ctx) error {
-	id := c.FormValue("id")
-	boardUid := h.service.Board.GetBoardUid(id)
-	if boardUid < 1 {
-		return utils.Err(c, "Invalid board ID", models.CODE_INVALID_PARAMETER)
-	}
-
-	policy, err := h.service.Admin.GetBoardPointPolicy(boardUid)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, policy)
-}
-
-// 게시판 관리자 변경하는 핸들러
-func (h *NuboAdminHandler) ChangeBoardAdminHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	newAdminUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	err = h.service.Admin.ChangeBoardAdmin(uint(boardUid), uint(newAdminUid))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, nil)
-}
-
-// 게시판 소속 그룹 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardGroupHandler(c fiber.Ctx) error {
-	groupUid := c.FormValue("groupUid")
-	_, err := strconv.ParseUint(groupUid, 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "group_uid", groupUid)
-	return utils.Ok(c, nil)
-}
-
-// 게시판 설명 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardInfoHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	info := utils.Escape(c.FormValue("newInfo"))
-	if len(info) < 2 {
-		return utils.Err(c, "Invalid info, too short", models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "info", info)
-	return utils.Ok(c, nil)
-}
-
-// 게시판 레벨 제한 변경하는 핸들러
-func (h *NuboAdminHandler) ChangeBoardLevelHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	listLevel, err := strconv.ParseInt(c.FormValue("list"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	viewLevel, err := strconv.ParseInt(c.FormValue("view"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	writeLevel, err := strconv.ParseInt(c.FormValue("write"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	commentLevel, err := strconv.ParseInt(c.FormValue("comment"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	downloadLevel, err := strconv.ParseInt(c.FormValue("download"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	level := models.BoardActionLevel{
-		BoardActionPoint: models.BoardActionPoint{
-			View:     int(viewLevel),
-			Write:    int(writeLevel),
-			Comment:  int(commentLevel),
-			Download: int(downloadLevel),
-		},
-		List: int(listLevel),
-	}
-
-	err = h.service.Admin.ChangeBoardLevelPolicy(uint(boardUid), level)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, nil)
-}
-
-// 게시판 이름 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardNameHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	name := utils.Escape(c.FormValue("newName"))
-	if len(name) < 2 {
-		return utils.Err(c, "Invalid name, too short", models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "name", name)
-	return utils.Ok(c, nil)
-}
-
-// 게시판 포인트 설정 변경하는 핸들러
-func (h *NuboAdminHandler) ChangeBoardPointHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	viewPoint, err := strconv.ParseInt(c.FormValue("view"), 10, 32)
-	if err != nil || viewPoint < -10000 || viewPoint > 10000 {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	writePoint, err := strconv.ParseInt(c.FormValue("write"), 10, 32)
-	if err != nil || writePoint < -10000 || writePoint > 10000 {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	commentPoint, err := strconv.ParseInt(c.FormValue("comment"), 10, 32)
-	if err != nil || commentPoint < -10000 || commentPoint > 10000 {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	downloadPoint, err := strconv.ParseInt(c.FormValue("download"), 10, 32)
-	if err != nil || downloadPoint < -10000 || downloadPoint > 10000 {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	point := models.BoardActionPoint{
-		View:     int(viewPoint),
-		Write:    int(writePoint),
-		Comment:  int(commentPoint),
-		Download: int(downloadPoint),
-	}
-
-	err = h.service.Admin.ChangeBoardPointPolicy(uint(boardUid), point)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
-	return utils.Ok(c, nil)
-}
-
-// 게시판 출력 라인 수 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardRowHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	rowCount := c.FormValue("newRows")
-	_, err = strconv.ParseUint(rowCount, 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "row_count", rowCount)
-	return utils.Ok(c, nil)
-}
-
-// 게시판 타입(블로그, 갤러리 등) 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardTypeHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	boardType := c.FormValue("newType")
-	_, err = strconv.ParseUint(boardType, 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "type", boardType)
-	return utils.Ok(c, nil)
-}
-
-// 게시판 폭 변경하기 핸들러
-func (h *NuboAdminHandler) ChangeBoardWidthHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	width := c.FormValue("newWidth")
-	_, err = strconv.ParseUint(width, 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "width", width)
-	return utils.Ok(c, nil)
 }
 
 // 그룹 관리자 변경하기 핸들러
@@ -459,7 +191,10 @@ func (h *NuboAdminHandler) GetAdminCandidatesHandler(c fiber.Ctx) error {
 func (h *NuboAdminHandler) GroupGeneralLoadHandler(c fiber.Ctx) error {
 	groupId := c.Query("id")
 	config := h.service.Admin.GetGroupConfig(groupId)
-	boards := h.service.Admin.GetBoardList(config.Uid)
+	boards, err := h.service.Admin.GetBoardList(config.Uid)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
 
 	return utils.Ok(c, models.AdminGroupListResult{
 		Config: config,
@@ -533,25 +268,21 @@ func (h *NuboAdminHandler) LatestPostSearchHandler(c fiber.Ctx) error {
 	return utils.Ok(c, result)
 }
 
-// 게시판에 특정 카테고리 제거하기 핸들러
-func (h *NuboAdminHandler) RemoveBoardCategoryHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
+// 게시판 설정 수정하기 핸들러
+func (h *NuboAdminHandler) ModifyBoardHandler(c fiber.Ctx) error {
+	param := models.AdminBoardModifyParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-
-	catUid, err := strconv.ParseUint(c.FormValue("categoryUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	if err := h.service.Admin.ModifyExistBoard(param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-
-	h.service.Admin.RemoveBoardCategory(uint(boardUid), uint(catUid))
 	return utils.Ok(c, nil)
 }
 
 // 게시판 삭제하기 핸들러
 func (h *NuboAdminHandler) RemoveBoardHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
+	boardUid, err := strconv.ParseUint(c.Query("boardUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -605,38 +336,21 @@ func (h *NuboAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 
 // 신고 목록 검색하기 핸들러
 func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
-	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
-	if err != nil {
+	param := models.AdminReportSearchParam{}
+	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	isSolved, err := strconv.ParseBool(c.Query("isSolved"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	keyword, err := url.QueryUnescape(c.Query("keyword"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	keyword = utils.Escape(keyword)
 
-	param := models.AdminReportParam{
+	reportParam := models.AdminReportParam{
 		AdminLatestParam: models.AdminLatestParam{
-			Page:    uint(page),
-			Limit:   uint(limit),
-			Option:  models.Search(option),
-			Keyword: keyword,
+			Page:    uint(param.Page),
+			Limit:   uint(param.Limit),
+			Option:  models.Search(param.Option),
+			Keyword: utils.Escape(param.Keyword),
 		},
-		IsSolved: isSolved,
+		IsSolved: param.IsSolved,
 	}
-	reports := h.service.Admin.GetSearchedReports(param)
+	reports := h.service.Admin.GetSearchedReports(reportParam)
 	return utils.Ok(c, reports)
 }
 
@@ -662,23 +376,6 @@ func (h *NuboAdminHandler) ShowSimilarGroupIdHandler(c fiber.Ctx) error {
 
 	list := h.service.Admin.GetExistGroupIds(groupId, uint(bunch))
 	return utils.Ok(c, list)
-}
-
-// 게시판에서 카테고리 기능 사용 or 사용 해제하는 핸들러
-func (h *NuboAdminHandler) UseBoardCategoryHandler(c fiber.Ctx) error {
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	use := c.FormValue("useCategory")
-	_, err = strconv.ParseBool(use)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-
-	h.service.Admin.UpdateBoardSetting(uint(boardUid), "use_category", use)
-	return utils.Ok(c, nil)
 }
 
 // 사용자 정보 가져오는 핸들러
@@ -728,7 +425,6 @@ func (h *NuboAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
 		OldProfile: userInfo.Profile,
 	}
 	h.service.User.ChangeUserInfo(parameter)
-	h.service.Admin.UpdateUserLevelPoint(userUid, uint(level), uint(point))
 	return utils.Ok(c, nil)
 }
 

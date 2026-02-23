@@ -71,6 +71,12 @@ type AdminBoardCreateParam struct {
 	Width         uint   `json:"width"`
 }
 
+// 게시판 수정에 필요한 파라미터 정의
+type AdminBoardModifyParam struct {
+	AdminBoardCreateParam
+	BoardUid uint `json:"boardUid"`
+}
+
 // 대시보드에서 볼 업로드 사용량 캐시
 type UploadUsageCache struct {
 	mu          sync.RWMutex
@@ -216,6 +222,15 @@ type AdminLatestPost struct {
 	Title   string `json:"title"`
 	Comment uint   `json:"comment"`
 	Hit     uint   `json:"hit"`
+}
+
+// 신고 목록 검색하기에 필요한 파라미터 정의
+type AdminReportSearchParam struct {
+	Option   Search `query:"option"`
+	Page     uint   `query:"page"`
+	Limit    uint   `query:"limit"`
+	IsSolved bool   `query:"isSolved"`
+	Keyword  string `query:"keyword"`
 }
 
 // 신고 목록 반환값 정의

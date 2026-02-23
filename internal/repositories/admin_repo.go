@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -15,54 +16,53 @@ type AdminRepository interface {
 	CreateBoard(param models.AdminBoardCreateParam) uint
 	CreateCategories(boardUid uint, cats []string)
 	CreateGroup(newGroupId string) uint
-	FindPathByUid(table models.Table, targetUid uint) []string
-	FindBoardIdTypeByUid(boardUid uint) (string, models.Board)
-	FindBoardUidByPostUid(postUid uint) uint
 	FindBoardInfoById(inputId string, bunch uint) []models.Triple
+	FindBoardUidByPostUid(postUid uint) uint
+	FindCountByBoardUid(table models.Table, boardUid uint) uint
 	FindGroupUidAdminUidById(groupId string) (uint, uint)
 	FindGroupUidIdById(inputId string, bunch uint) []models.Pair
 	FindLikeByUid(table models.Table, targetUid uint) uint
+	FindPathByUid(table models.Table, targetUid uint) []string
 	FindThumbPathByPostUid(postUid uint) []string
-	FindCountByBoardUid(table models.Table, boardUid uint) uint
 	FindWriterByUid(userUid uint) models.BoardWriter
 	FindWriterUidByName(name string) uint
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
-	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
+	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetCommentCount(postUid uint) uint
 	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
 	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
 	GetGroupList() []models.AdminGroupConfig
-	GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
 	GetLowestCategoryUid(boardUid uint) uint
-	GetReportList(param models.AdminReportParam) []models.AdminReportItem
 	GetMemberList(bunch uint) []models.BoardWriter
-	GetPointPolicy(boardUid uint) (models.BoardActionPoint, error)
+	GetOldCategories(boardUid uint) []models.Pair
 	GetPostList(param models.AdminLatestParam) []models.AdminLatestPost
 	GetRemoveFilePaths(boardUid uint) []string
+	GetRemoveImagePaths(boardUid uint) []string
+	GetReportList(param models.AdminReportParam) []models.AdminReportItem
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
 	GetTotalCount(table models.Table) uint
-	GetUserList(param models.AdminUserParam) []models.AdminUserItem
 	GetUserInfo(userUid uint) models.AdminUserInfo
+	GetUserList(param models.AdminUserParam) []models.AdminUserItem
 	InsertCategory(boardUid uint, name string) uint
-	IsAddedCategory(boardUid uint, name string) bool
 	IsAdded(table models.Table, boardId string) bool
-	UpdateBoardSetting(boardUid uint, column string, value string) error
+	IsAddedCategory(boardUid uint, name string) bool
+	ModifyBoard(param models.AdminBoardModifyParam) error
+	RemoveBoard(boardUid uint) error
+	RemoveBoardCategories(boardUid uint) error
+	RemoveCategory(boardUid uint, catUid uint) error
+	RemoveContentPermanently(table models.Table, boardUid uint) error
+	RemoveFileRecords(boardUid uint) error
+	RemoveImageRecords(boardUid uint) error
+	RemoveGroup(groupUid uint) error
+	RemoveLikeStatus(table models.Table, boardUid uint) error
+	RemovePostHashtag(boardUid uint) error
+	RemoveRecordByFileUid(table models.Table, fileUid uint) error
 	UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error
 	UpdateGroupId(groupUid uint, newGroupId string) error
 	UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error
-	UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error
-	UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error
 	UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error
-	UpdateStatusRemoved(table models.Table, boardUid uint) error
-	UpdateUserLevelPoint(userUid uint, level uint, point uint) error
-	RemoveBoardCategories(boardUid uint) error
-	RemoveBoard(boardUid uint) error
-	RemoveCategory(boardUid uint, catUid uint) error
-	RemoveGroup(groupUid uint) error
-	RemoveFileRecords(boardUid uint) error
-	RemoveRecordByFileUid(table models.Table, fileUid uint) error
 }
 
 type NuboAdminRepository struct {
@@ -163,15 +163,6 @@ func (r *NuboAdminRepository) FindPathByUid(table models.Table, targetUid uint) 
 		paths = append(paths, path)
 	}
 	return paths
-}
-
-// 게시판 아이디와 타입 반환하기
-func (r *NuboAdminRepository) FindBoardIdTypeByUid(boardUid uint) (string, models.Board) {
-	var id string
-	var boardType models.Board
-	query := fmt.Sprintf("SELECT id, type FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
-	r.db.QueryRow(query, boardUid).Scan(&id, &boardType)
-	return id, boardType
 }
 
 // 게시글 번호로 게시판 고유 번호 가져오기
@@ -312,7 +303,7 @@ func (r *NuboAdminRepository) GetAdminCandidates(name string, bunch uint) ([]mod
 }
 
 // 그룹 소속 게시판의 기본 정보 및 간단 통계 가져오기
-func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+func (r *NuboAdminRepository) GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error) {
 	items := make([]models.AdminGroupBoardItem, 0)
 	prefix := configs.Env.Prefix
 	query := fmt.Sprintf(`SELECT b.uid, b.id, b.admin_uid, b.type, b.name, b.info,
@@ -345,7 +336,7 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoa
 
 	rows, err := r.db.Query(query, groupUid)
 	if err != nil {
-		return items
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -358,11 +349,11 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) []models.AdminGroupBoa
 			&item.Total.File,
 			&item.Total.Image)
 		if err != nil {
-			return items
+			return items, err
 		}
 		items = append(items, item)
 	}
-	return items
+	return items, nil
 }
 
 // 게시글에 달린 댓글 개수 가져오기
@@ -493,26 +484,6 @@ func (r *NuboAdminRepository) GetGroupList() []models.AdminGroupConfig {
 	return items
 }
 
-// 게시판 레벨 제한값 가져오기
-func (r *NuboAdminRepository) GetLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
-	result := models.AdminBoardLevelPolicy{}
-	result.Uid = boardUid
-	query := fmt.Sprintf(`SELECT admin_uid, level_list, level_view, level_write, level_comment, level_download 
-												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
-	err := r.db.QueryRow(query, boardUid).Scan(
-		&result.Admin.UserUid,
-		&result.Level.List,
-		&result.Level.View,
-		&result.Level.Write,
-		&result.Level.Comment,
-		&result.Level.Download,
-	)
-	if err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
 // 가장 낮은 카테고리 고유 번호값 가져오기
 func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 	var uid uint
@@ -611,16 +582,25 @@ func (r *NuboAdminRepository) GetMemberList(bunch uint) []models.BoardWriter {
 	return items
 }
 
-// 게시판 포인트 정책 가져오기
-func (r *NuboAdminRepository) GetPointPolicy(boardUid uint) (models.BoardActionPoint, error) {
-	result := models.BoardActionPoint{}
-	query := fmt.Sprintf(`SELECT point_view, point_write, point_comment, point_download 
-												FROM %s%s WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
-	err := r.db.QueryRow(query, boardUid).Scan(&result.View, &result.Write, &result.Comment, &result.Download)
+// 기존에 등록된 카테고리들 가져오기
+func (r *NuboAdminRepository) GetOldCategories(boardUid uint) []models.Pair {
+	items := make([]models.Pair, 0)
+	query := fmt.Sprintf("SELECT uid, name FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_BOARD_CAT)
+	rows, err := r.db.Query(query, boardUid)
 	if err != nil {
-		return result, err
+		return items
 	}
-	return result, nil
+	defer rows.Close()
+
+	for rows.Next() {
+		var item models.Pair
+		err = rows.Scan(&item.Uid, &item.Name)
+		if err != nil {
+			return items
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // (검색된) 게시글 가져오기
@@ -723,6 +703,27 @@ func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 
 	inserted := r.FindPathByUid(models.TABLE_IMAGE, boardUid)
 	paths = append(paths, inserted...)
+	return paths
+}
+
+// 게시판 삭제 시 제거 필요한 이미지 목록 반환하기
+func (r *NuboAdminRepository) GetRemoveImagePaths(boardUid uint) []string {
+	paths := make([]string, 0)
+	query := fmt.Sprintf("SELECT path FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_IMAGE)
+	rows, err := r.db.Query(query, boardUid)
+	if err != nil {
+		return paths
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var path string
+		err = rows.Scan(&path)
+		if err != nil {
+			return paths
+		}
+		paths = append(paths, path)
+	}
 	return paths
 }
 
@@ -864,70 +865,48 @@ func (r *NuboAdminRepository) IsAdded(table models.Table, boardId string) bool {
 	return count > 0
 }
 
-// 게시판 설정 업데이트하는 쿼리 실행
-func (r *NuboAdminRepository) UpdateBoardSetting(boardUid uint, column string, value string) error {
-	query := fmt.Sprintf("UPDATE %s%s SET %s = ? WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_BOARD, column)
-	_, err := r.db.Exec(query, value, boardUid)
-	return err
-}
-
-// 그룹 or 게시판 관리자 변경하기
-func (r *NuboAdminRepository) UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET admin_uid = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, table)
-	_, err := r.db.Exec(query, newAdminUid, targetUid)
-	return err
-}
-
-// 그룹 ID 변경하기
-func (r *NuboAdminRepository) UpdateGroupId(groupUid uint, newGroupId string) error {
-	query := fmt.Sprintf("UPDATE %s%s SET id = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
-	_, err := r.db.Exec(query, newGroupId, groupUid)
-	return err
-}
-
-// 소속 그룹 번호를 일괄 변경하기
-func (r *NuboAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET group_uid = ? WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
-	_, err := r.db.Exec(query, newGroupUid, oldGroupUid)
-	return err
-}
-
-// 게시판 레벨 제한 변경하기
-func (r *NuboAdminRepository) UpdateLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
-	query := fmt.Sprintf(`UPDATE %s%s SET level_list = ?, level_view = ?, level_write = ?, level_comment = ?, level_download = ? 
-												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
-	_, err := r.db.Exec(query, level.List, level.View, level.Write, level.Comment, level.Download, boardUid)
-	return err
-}
-
-// 게시판 포인트 정책 변경하기
-func (r *NuboAdminRepository) UpdatePointPolicy(boardUid uint, point models.BoardActionPoint) error {
-	query := fmt.Sprintf(`UPDATE %s%s SET point_view = ?, point_write = ?, point_comment = ?, point_download = ? 
-												WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_BOARD)
-	_, err := r.db.Exec(query, point.View, point.Write, point.Comment, point.Download, boardUid)
-	return err
-}
-
-// 카테고리 삭제 후 게시글들의 카테고리 번호를 기본값으로 변경하기
-func (r *NuboAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET category_uid = ? WHERE board_uid = ? AND category_uid = ?",
-		configs.Env.Prefix, models.TABLE_POST)
-	_, err := r.db.Exec(query, newCatUid, boardUid, oldCatUid)
-	return err
-}
-
-// 게시판 삭제 시 (댓)글의 상태를 삭제됨으로 변경
-func (r *NuboAdminRepository) UpdateStatusRemoved(table models.Table, boardUid uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET status = ? WHERE board_uid = ?", configs.Env.Prefix, table)
-	_, err := r.db.Exec(query, models.CONTENT_REMOVED, boardUid)
-	return err
-}
-
-// 사용자의 레벨, 포인트 정보 변경하기
-func (r *NuboAdminRepository) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET level = ?, point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	_, err := r.db.Exec(query, level, point, userUid)
+// 게시판 설정 수정하기
+func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) error {
+	query := fmt.Sprintf(`UPDATE %s%s SET 
+			group_uid = ?,
+			admin_uid = ?,
+			type = ?,
+			name = ?,
+			info = ?,
+			row_count = ?,
+			width = ?,
+			use_category = ?,
+			level_list = ?,
+			level_view = ?,
+			level_write = ?,
+			level_comment = ?,
+			level_download = ?,
+			point_view = ?,
+			point_write = ?,
+			point_comment = ?,
+			point_download = ?
+		WHERE uid = ? LIMIT 1
+		`, configs.Env.Prefix, models.TABLE_BOARD)
+	_, err := r.db.Exec(query,
+		param.GroupUid,
+		param.AdminUid,
+		param.Type,
+		param.Name,
+		param.Info,
+		param.RowCount,
+		param.Width,
+		param.UseCategory,
+		param.LevelList,
+		param.LevelView,
+		param.LevelWrite,
+		param.LevelComment,
+		param.LevelDownload,
+		param.PointView,
+		param.PointWrite,
+		param.PointComment,
+		param.PointDownload,
+		param.BoardUid,
+	)
 	return err
 }
 
@@ -950,6 +929,18 @@ func (r *NuboAdminRepository) RemoveCategory(boardUid uint, catUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD_CAT)
 	_, err := r.db.Exec(query, catUid)
 	return err
+}
+
+// 게시판 삭제 시 관련 게시글 영구적으로 삭제
+func (r *NuboAdminRepository) RemoveContentPermanently(table models.Table, boardUid uint) error {
+	ctx := context.Background()
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, table)
+
+	_, err := r.db.ExecContext(ctx, query, boardUid)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // 그룹 삭제하기
@@ -975,16 +966,13 @@ func (r *NuboAdminRepository) RemoveFileRecords(boardUid uint) error {
 			return err
 		}
 
-		err = r.RemoveRecordByFileUid(models.TABLE_FILE_THUMB, fileUid)
-		if err != nil {
+		if err := r.RemoveRecordByFileUid(models.TABLE_FILE_THUMB, fileUid); err != nil {
 			return err
 		}
-		err = r.RemoveRecordByFileUid(models.TABLE_EXIF, fileUid)
-		if err != nil {
+		if err := r.RemoveRecordByFileUid(models.TABLE_EXIF, fileUid); err != nil {
 			return err
 		}
-		err = r.RemoveRecordByFileUid(models.TABLE_IMAGE_DESC, fileUid)
-		if err != nil {
+		if err := r.RemoveRecordByFileUid(models.TABLE_IMAGE_DESC, fileUid); err != nil {
 			return err
 		}
 	}
@@ -994,9 +982,59 @@ func (r *NuboAdminRepository) RemoveFileRecords(boardUid uint) error {
 	return err
 }
 
+// 게시판 삭제 시 이미지 삽입 경로들도 삭제하기 (주의: 실제 파일들 삭제 처리 이후 실행 필요)
+func (r *NuboAdminRepository) RemoveImageRecords(boardUid uint) error {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_IMAGE)
+	_, err := r.db.Exec(query, boardUid)
+	return err
+}
+
+// 게시판 삭제 시 해당 게시판의 (댓)글에 대한 좋아요 삭제도 삭제하기
+func (r *NuboAdminRepository) RemoveLikeStatus(table models.Table, boardUid uint) error {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, table)
+	_, err := r.db.Exec(query, boardUid)
+	return err
+}
+
+// 게시판 삭제 시 해당 게시판용 태그들도 삭제하기
+func (r *NuboAdminRepository) RemovePostHashtag(boardUid uint) error {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_POST_HASHTAG)
+	_, err := r.db.Exec(query, boardUid)
+	return err
+}
+
 // 게시판 삭제 시 레코드 삭제 필요한 테이블 작업 처리
 func (r *NuboAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ?", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, fileUid)
+	return err
+}
+
+// 그룹 or 게시판 관리자 변경하기
+func (r *NuboAdminRepository) UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error {
+	query := fmt.Sprintf("UPDATE %s%s SET admin_uid = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, table)
+	_, err := r.db.Exec(query, newAdminUid, targetUid)
+	return err
+}
+
+// 그룹 ID 변경하기
+func (r *NuboAdminRepository) UpdateGroupId(groupUid uint, newGroupId string) error {
+	query := fmt.Sprintf("UPDATE %s%s SET id = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
+	_, err := r.db.Exec(query, newGroupId, groupUid)
+	return err
+}
+
+// 소속 그룹 번호를 일괄 변경하기
+func (r *NuboAdminRepository) UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error {
+	query := fmt.Sprintf("UPDATE %s%s SET group_uid = ? WHERE group_uid = ?", configs.Env.Prefix, models.TABLE_BOARD)
+	_, err := r.db.Exec(query, newGroupUid, oldGroupUid)
+	return err
+}
+
+// 카테고리 삭제 후 게시글들의 카테고리 번호를 기본값으로 변경하기
+func (r *NuboAdminRepository) UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error {
+	query := fmt.Sprintf("UPDATE %s%s SET category_uid = ? WHERE board_uid = ? AND category_uid = ?",
+		configs.Env.Prefix, models.TABLE_POST)
+	_, err := r.db.Exec(query, newCatUid, boardUid, oldCatUid)
 	return err
 }

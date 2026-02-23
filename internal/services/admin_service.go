@@ -13,17 +13,12 @@ import (
 
 type AdminService interface {
 	AddBoardCategory(boardUid uint, name string) uint
-	ChangeBoardAdmin(boardUid uint, newAdminUid uint) error
-	ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error
-	ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
 	ChangeGroupId(param models.AdminGroupChangeParam) error
 	CreateNewBoard(param models.AdminBoardCreateParam) (uint, error)
 	CreateNewGroup(newGroupId string) models.AdminGroupConfig
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
-	GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error)
-	GetBoardList(groupUid uint) []models.AdminGroupBoardItem
-	GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error)
+	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetDashboardUploadUsage(path string) uint64
 	GetDashboardItems(bunch uint) models.AdminDashboardItem
 	GetDashboardStatistics(bunch uint) models.AdminDashboardStatisticResult
@@ -36,13 +31,12 @@ type AdminService interface {
 	GetSearchedReports(param models.AdminReportParam) []models.AdminReportItem
 	GetUserList(param models.AdminUserParam) []models.AdminUserItem
 	GetUserInfo(userUid uint) models.AdminUserInfo
+	ModifyExistBoard(param models.AdminBoardModifyParam) error
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
 	RemoveComment(commentUid uint) error
 	RemoveGroup(groupUid uint) error
 	RemovePost(postUid uint) error
-	UpdateBoardSetting(boardUid uint, column string, value string) error
-	UpdateUserLevelPoint(userUid uint, level uint, point uint) error
 }
 
 type NuboAdminService struct {
@@ -54,33 +48,14 @@ func NewNuboAdminService(repos *repositories.Repository) *NuboAdminService {
 	return &NuboAdminService{repos: repos}
 }
 
-// 카테고리 추가하기 (추가하면 카테고리를 사용하는 것으로 업데이트)
+// 카테고리 추가하기
 func (s *NuboAdminService) AddBoardCategory(boardUid uint, name string) uint {
 	if isDup := s.repos.Admin.IsAddedCategory(boardUid, name); isDup {
 		return models.FAILED
 	}
 
 	insertId := s.repos.Admin.InsertCategory(boardUid, name)
-	s.repos.Admin.UpdateBoardSetting(boardUid, "use_category", "1")
 	return insertId
-}
-
-// 게시판 관리자 변경하기
-func (s *NuboAdminService) ChangeBoardAdmin(boardUid uint, newAdminUid uint) error {
-	if isBlocked := s.repos.User.IsBlocked(newAdminUid); isBlocked {
-		return fmt.Errorf("blocked user is not able to be an administrator")
-	}
-	return s.repos.Admin.UpdateGroupBoardAdmin(models.TABLE_BOARD, boardUid, newAdminUid)
-}
-
-// 게시판 레벨 제한값 변경하기
-func (s *NuboAdminService) ChangeBoardLevelPolicy(boardUid uint, level models.BoardActionLevel) error {
-	return s.repos.Admin.UpdateLevelPolicy(boardUid, level)
-}
-
-// 게시판 포인트 정책 변경하기
-func (s *NuboAdminService) ChangeBoardPointPolicy(boardUid uint, point models.BoardActionPoint) error {
-	return s.repos.Admin.UpdatePointPolicy(boardUid, point)
 }
 
 // 그룹 관리자 변경하기
@@ -139,38 +114,9 @@ func (s *NuboAdminService) GetBoardAdminCandidates(name string, bunch uint) ([]m
 	return s.repos.Admin.GetAdminCandidates(name, bunch)
 }
 
-// 게시판의 레벨 제한값 가져오기
-func (s *NuboAdminService) GetBoardLevelPolicy(boardUid uint) (models.AdminBoardLevelPolicy, error) {
-	perm, err := s.repos.Admin.GetLevelPolicy(boardUid)
-	if err != nil {
-		return models.AdminBoardLevelPolicy{}, err
-	}
-
-	if perm.Admin.UserUid < 1 {
-		return models.AdminBoardLevelPolicy{}, fmt.Errorf("unable to find an administrator's uid")
-	}
-
-	admin := s.repos.Board.GetWriterInfo(perm.Admin.UserUid)
-	perm.Admin = admin
-	return perm, nil
-}
-
 // 그룹 소속 게시판들의 목록(및 간단 통계) 가져오기
-func (s *NuboAdminService) GetBoardList(groupUid uint) []models.AdminGroupBoardItem {
+func (s *NuboAdminService) GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error) {
 	return s.repos.Admin.GetBoardList(groupUid)
-}
-
-// 게시판 포인트 정책값 가져오기
-func (s *NuboAdminService) GetBoardPointPolicy(boardUid uint) (models.AdminBoardPointPolicy, error) {
-	result := models.AdminBoardPointPolicy{}
-	point, err := s.repos.Admin.GetPointPolicy(boardUid)
-	if err != nil {
-		return result, err
-	}
-
-	result.Uid = boardUid
-	result.BoardActionPoint = point
-	return result, nil
 }
 
 // 첨부파일 총 용량 가져오기
@@ -289,6 +235,30 @@ func (s *NuboAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
 	return s.repos.Admin.GetUserInfo(userUid)
 }
 
+// 게시판 설정 수정하기
+func (s *NuboAdminService) ModifyExistBoard(param models.AdminBoardModifyParam) error {
+	boardUid := s.repos.Board.GetBoardUidById(param.Id)
+	oldCats := s.repos.Admin.GetOldCategories(boardUid)
+
+	// 이전에 쓴 분류명이 없어진 경우 삭제 처리
+	for _, oldCat := range oldCats {
+		if !strings.Contains(param.Categories, oldCat.Name) {
+			if err := s.RemoveBoardCategory(boardUid, oldCat.Uid); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 새로 추가된 분류명이 생겼을 경우 추가 (중복은 무시)
+	newCats := strings.Split(param.Categories, ",")
+	for _, newCat := range newCats {
+		s.AddBoardCategory(boardUid, newCat)
+	}
+
+	err := s.repos.Admin.ModifyBoard(param)
+	return err
+}
+
 // 카테고리 삭제하기
 func (s *NuboAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error {
 	if isValid := s.repos.Admin.CheckCategoryInBoard(boardUid, catUid); !isValid {
@@ -305,25 +275,40 @@ func (s *NuboAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error
 
 // 게시판 삭제하기
 func (s *NuboAdminService) RemoveBoard(boardUid uint) error {
-	paths := s.repos.Admin.GetRemoveFilePaths(boardUid)
-	for _, path := range paths {
+	// 첨부파일, 썸네일 등 삭제
+	attaches := s.repos.Admin.GetRemoveFilePaths(boardUid)
+	for _, path := range attaches {
 		os.Remove("." + path)
 	}
 
-	err := s.repos.Admin.RemoveBoardCategories(boardUid)
-	if err != nil {
+	// 본문/댓글에 삽입한 이미지 파일 삭제
+	images := s.repos.Admin.GetRemoveImagePaths(boardUid)
+	for _, path := range images {
+		os.Remove("." + path)
+	}
+
+	if err := s.repos.Admin.RemoveBoardCategories(boardUid); err != nil {
 		return err
 	}
-	err = s.repos.Admin.RemoveFileRecords(boardUid)
-	if err != nil {
+	if err := s.repos.Admin.RemoveFileRecords(boardUid); err != nil {
 		return err
 	}
-	err = s.repos.Admin.UpdateStatusRemoved(models.TABLE_POST, boardUid)
-	if err != nil {
+	if err := s.repos.Admin.RemoveImageRecords(boardUid); err != nil {
 		return err
 	}
-	err = s.repos.Admin.UpdateStatusRemoved(models.TABLE_COMMENT, boardUid)
-	if err != nil {
+	if err := s.repos.Admin.RemovePostHashtag(boardUid); err != nil {
+		return err
+	}
+	if err := s.repos.Admin.RemoveLikeStatus(models.TABLE_COMMENT_LIKE, boardUid); err != nil {
+		return err
+	}
+	if err := s.repos.Admin.RemoveLikeStatus(models.TABLE_POST_LIKE, boardUid); err != nil {
+		return err
+	}
+	if err := s.repos.Admin.RemoveContentPermanently(models.TABLE_COMMENT, boardUid); err != nil {
+		return err
+	}
+	if err := s.repos.Admin.RemoveContentPermanently(models.TABLE_POST, boardUid); err != nil {
 		return err
 	}
 	return s.repos.Admin.RemoveBoard(boardUid)
@@ -351,14 +336,4 @@ func (s *NuboAdminService) RemoveGroup(groupUid uint) error {
 // 게시글 삭제하기
 func (s *NuboAdminService) RemovePost(postUid uint) error {
 	return s.repos.BoardView.RemovePost(postUid)
-}
-
-// 게시판 설정 변경하기
-func (s *NuboAdminService) UpdateBoardSetting(boardUid uint, column string, value string) error {
-	return s.repos.Admin.UpdateBoardSetting(boardUid, column, value)
-}
-
-// 사용자의 레벨, 포인트 정보 변경하기
-func (s *NuboAdminService) UpdateUserLevelPoint(userUid uint, level uint, point uint) error {
-	return s.repos.Admin.UpdateUserLevelPoint(userUid, level, point)
 }
