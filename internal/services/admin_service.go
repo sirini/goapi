@@ -16,7 +16,7 @@ type AdminService interface {
 	ChangeGroupAdmin(groupUid uint, newAdminUid uint) error
 	ChangeGroupId(param models.AdminGroupChangeParam) error
 	CreateNewBoard(param models.AdminBoardCreateParam) (uint, error)
-	CreateNewGroup(newGroupId string) models.AdminGroupConfig
+	CreateNewGroup(newGroupId string) (models.AdminGroupConfig, error)
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetDashboardUploadUsage(path string) uint64
@@ -97,16 +97,21 @@ func (s *NuboAdminService) CreateNewBoard(param models.AdminBoardCreateParam) (u
 }
 
 // 새 그룹 만들기
-func (s *NuboAdminService) CreateNewGroup(newGroupId string) models.AdminGroupConfig {
+func (s *NuboAdminService) CreateNewGroup(newGroupId string) (models.AdminGroupConfig, error) {
+	result := models.AdminGroupConfig{}
+	if isAdded := s.repos.Admin.IsAdded(models.TABLE_GROUP, newGroupId); isAdded {
+		return result, fmt.Errorf("already added")
+	}
+
 	groupUid := s.repos.Admin.CreateGroup(newGroupId)
 	manager := s.repos.Admin.FindWriterByUid(models.CREATE_GROUP_ADMIN)
-	result := models.AdminGroupConfig{
+	result = models.AdminGroupConfig{
 		Uid:     groupUid,
 		Count:   0,
 		Manager: manager,
 		Id:      newGroupId,
 	}
-	return result
+	return result, nil
 }
 
 // 게시판 관리자 후보 목록 가져오기

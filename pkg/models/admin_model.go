@@ -177,6 +177,11 @@ type AdminGroupConfig struct {
 	Manager BoardWriter `json:"manager"`
 }
 
+// 새 그룹 생성하기에 필요한 파라미터 정의
+type AdminGroupCreateParam struct {
+	NewGroupId string `json:"newGroupId"`
+}
+
 // 그룹 ID 변경하는 파라미터 정의
 type AdminGroupChangeParam struct {
 	GroupUid   uint   `json:"groupUid"`

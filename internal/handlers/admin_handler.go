@@ -124,12 +124,14 @@ func (h *NuboAdminHandler) CreateBoardHandler(c fiber.Ctx) error {
 
 // 그룹 생성하기 핸들러
 func (h *NuboAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
-	newGroupId := c.FormValue("newId")
-	if len(newGroupId) < 2 {
-		return utils.Err(c, "Invalid id, too short", models.CODE_INVALID_PARAMETER)
+	param := models.AdminGroupCreateParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-
-	result := h.service.Admin.CreateNewGroup(newGroupId)
+	result, err := h.service.Admin.CreateNewGroup(param.NewGroupId)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
 	return utils.Ok(c, result)
 }
 
