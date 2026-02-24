@@ -324,7 +324,7 @@ func (h *NuboAdminHandler) RemovePostHandler(c fiber.Ctx) error {
 
 // 그룹 삭제하기 핸들러
 func (h *NuboAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
-	groupUid, err := strconv.ParseUint(c.FormValue("groupUid"), 10, 32)
+	groupUid, err := strconv.ParseUint(c.Query("groupUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}

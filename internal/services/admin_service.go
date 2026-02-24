@@ -324,15 +324,13 @@ func (s *NuboAdminService) RemoveComment(commentUid uint) error {
 	return s.repos.Comment.RemoveComment(commentUid)
 }
 
-// 그룹 삭제하기
+// 그룹 삭제하기 (기본 그룹은 삭제 불가)
 func (s *NuboAdminService) RemoveGroup(groupUid uint) error {
-	groupCount := s.repos.Admin.GetTotalCount(models.TABLE_GROUP)
-	if groupCount < 2 {
-		return fmt.Errorf("only one group is left, it cannot be removed")
+	DEFAULT_GROUP := uint(1)
+	if groupUid == DEFAULT_GROUP {
+		return fmt.Errorf("default group is not able to remove")
 	}
-	defaultUid := s.repos.Admin.GetDefaultGroupUid(groupUid)
-	err := s.repos.Admin.UpdateGroupUid(defaultUid, groupUid)
-	if err != nil {
+	if err := s.repos.Admin.UpdateGroupUid(DEFAULT_GROUP, groupUid); err != nil {
 		return err
 	}
 	return s.repos.Admin.RemoveGroup(groupUid)

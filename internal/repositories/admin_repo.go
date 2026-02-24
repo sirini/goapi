@@ -30,7 +30,6 @@ type AdminRepository interface {
 	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetCommentCount(postUid uint) uint
 	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
-	GetDefaultGroupUid(exceptUid uint) uint
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
 	GetGroupList() []models.AdminGroupConfig
 	GetLowestCategoryUid(boardUid uint) uint
@@ -430,14 +429,6 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 		items = append(items, item)
 	}
 	return items
-}
-
-// 기본 그룹 번호 가져오기
-func (r *NuboAdminRepository) GetDefaultGroupUid(exceptUid uint) uint {
-	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE uid != ? ORDER BY uid DESC LIMIT 1", configs.Env.Prefix, models.TABLE_GROUP)
-	r.db.QueryRow(query, exceptUid).Scan(&uid)
-	return uid
 }
 
 // 대시보드용 그룹 or 게시판 목록 가져오기
