@@ -209,10 +209,10 @@ type AdminLatestComment struct {
 
 // (댓)글 검색하기에 필요한 파라미터 정의
 type AdminLatestParam struct {
-	Page    uint   `json:"page"`
-	Limit   uint   `json:"limit"`
-	Option  Search `json:"option"`
-	Keyword string `json:"keyword"`
+	Page    uint   `query:"page" json:"page"`
+	Limit   uint   `query:"limit" json:"limit"`
+	Option  Search `query:"option" json:"option"`
+	Keyword string `query:"keyword" json:"keyword"`
 }
 
 // 신고 목록 검색하기에 필요한 파라미터 정의
@@ -231,11 +231,8 @@ type AdminLatestPost struct {
 
 // 신고 목록 검색하기에 필요한 파라미터 정의
 type AdminReportSearchParam struct {
-	Option   Search `query:"option"`
-	Page     uint   `query:"page"`
-	Limit    uint   `query:"limit"`
-	IsSolved bool   `query:"isSolved"`
-	Keyword  string `query:"keyword"`
+	AdminLatestParam
+	IsSolved bool `query:"isSolved"`
 }
 
 // 신고 목록 반환값 정의
@@ -251,16 +248,22 @@ type AdminReportItem struct {
 // 사용자 목록 검색하기에 필요한 파라미터 정의
 type AdminUserParam struct {
 	AdminLatestParam
-	IsBlocked bool
+	IsBlocked bool `query:"isBlocked" json:"isBlocked"`
 }
 
-// 사용자 목록 검색하기 반환값 정의
+// 사용자 목록 아이템
 type AdminUserItem struct {
 	UserBasicInfo
 	Id     string `json:"id"`
 	Level  uint   `json:"level"`
 	Point  uint   `json:"point"`
 	Signup uint64 `json:"signup"`
+}
+
+// 사용자 목록 결과
+type AdminUserListResult struct {
+	Item  []AdminUserItem `json:"item"`
+	Total uint            `json:"total"`
 }
 
 // 사용자 정보 반환값 정의

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"math"
 	"net/url"
 	"strconv"
 	"strings"
@@ -31,6 +30,7 @@ type AdminHandler interface {
 	RemoveCommentHandler(c fiber.Ctx) error
 	RemovePostHandler(c fiber.Ctx) error
 	RemoveGroupHandler(c fiber.Ctx) error
+	RemoveUserHandler(c fiber.Ctx) error
 	ReportListSearchHandler(c fiber.Ctx) error
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
@@ -329,8 +329,20 @@ func (h *NuboAdminHandler) RemoveGroupHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	err = h.service.Admin.RemoveGroup(uint(groupUid))
+	if err := h.service.Admin.RemoveGroup(uint(groupUid)); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
+}
+
+// 사용자 삭제하기 핸들러
+func (h *NuboAdminHandler) RemoveUserHandler(c fiber.Ctx) error {
+	userUid, err := strconv.ParseUint(c.Query("userUid"), 10, 32)
 	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	if err := h.service.Admin.RemoveUser(uint(userUid)); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
@@ -382,7 +394,7 @@ func (h *NuboAdminHandler) ShowSimilarGroupIdHandler(c fiber.Ctx) error {
 
 // 사용자 정보 가져오는 핸들러
 func (h *NuboAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
-	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
+	userUid, err := strconv.ParseUint(c.Query("userUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -393,76 +405,30 @@ func (h *NuboAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
 
 // 사용자 정보 수정하는 핸들러
 func (h *NuboAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
-	userUid64, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
-	if err != nil {
+	param := models.UpdateUserInfoParam{}
+	if err := c.Bind().Form(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	userUid := uint(userUid64)
-	userInfo, err := h.service.User.GetUserInfo(userUid)
+	userInfo, err := h.service.User.GetUserInfo(param.UserUid)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-	level, err := strconv.ParseUint(c.FormValue("level"), 10, 32)
-	if err != nil || level > 9 {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	point, err := strconv.ParseUint(c.FormValue("point"), 10, 32)
-	if err != nil || point > math.MaxUint {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	name := utils.Escape(c.FormValue("name"))
-	if isDup := h.service.Auth.CheckNameExists(name, userUid); isDup {
-		return utils.Err(c, "Duplicated name, please choose another one", models.CODE_DUPLICATED_VALUE)
-	}
-	signature := utils.Escape(c.FormValue("signature"))
-	password := c.FormValue("password")
-	header, _ := c.FormFile("profile")
 
-	parameter := models.UpdateUserInfoParam{
-		UserUid:    userUid,
-		Name:       name,
-		Signature:  signature,
-		Password:   password,
-		Profile:    header,
-		OldProfile: userInfo.Profile,
-	}
-	h.service.User.ChangeUserInfo(parameter)
+	param.Signature = utils.Escape(param.Signature)
+	param.OldProfile = userInfo.Profile
+
+	h.service.User.ChangeUserInfo(param)
 	return utils.Ok(c, nil)
 }
 
 // 사용자 목록 조회하는 핸들러
 func (h *NuboAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
-	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
-	if err != nil {
+	param := models.AdminUserParam{}
+	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	isBlocked, err := strconv.ParseBool(c.Query("isBlocked"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	keyword, err := url.QueryUnescape(c.Query("keyword"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	keyword = utils.Escape(keyword)
+	param.Keyword = utils.Escape(param.Keyword)
 
-	parameter := models.AdminUserParam{
-		AdminLatestParam: models.AdminLatestParam{
-			Page:    uint(page),
-			Limit:   uint(limit),
-			Option:  models.Search(option),
-			Keyword: keyword,
-		},
-		IsBlocked: isBlocked,
-	}
-	result := h.service.Admin.GetUserList(parameter)
+	result := h.service.Admin.GetUserList(param)
 	return utils.Ok(c, result)
 }

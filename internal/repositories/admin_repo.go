@@ -41,6 +41,7 @@ type AdminRepository interface {
 	GetReportList(param models.AdminReportParam) []models.AdminReportItem
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
+	GetTotalUserCount() uint
 	GetTotalCount(table models.Table) uint
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetUserList(param models.AdminUserParam) []models.AdminUserItem
@@ -58,6 +59,7 @@ type AdminRepository interface {
 	RemoveLikeStatus(table models.Table, boardUid uint) error
 	RemovePostHashtag(boardUid uint) error
 	RemoveRecordByFileUid(table models.Table, fileUid uint) error
+	RemoveUser(userUid uint) error
 	UpdateGroupBoardAdmin(table models.Table, targetUid uint, newAdminUid uint) error
 	UpdateGroupId(groupUid uint, newGroupId string) error
 	UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error
@@ -768,6 +770,14 @@ func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 	return count
 }
 
+// 유효한 총 사용자수 반환
+func (r *NuboAdminRepository) GetTotalUserCount() uint {
+	var count uint
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE blocked = 0", configs.Env.Prefix, models.TABLE_USER)
+	r.db.QueryRow(query).Scan(&count)
+	return count
+}
+
 // 지정 테이블의 총 레코드 개수 반환
 func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 	var count uint
@@ -779,27 +789,37 @@ func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 // (검색된) 사용자 목록 반환
 func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
 	items := make([]models.AdminUserItem, 0)
-	last := (param.Page - 1) * param.Limit
+	offset := (param.Page - 1) * param.Limit
 	isBlockedQuery := "<"
 	if param.IsBlocked {
 		isBlockedQuery = "="
 	}
 
 	whereQuery := ""
-	switch param.Option {
-	case models.SEARCH_USER_NAME:
-		whereQuery = "AND name LIKE '%" + param.Keyword + "%'"
-	case models.SEARCH_USER_ID:
-		whereQuery = "AND id LIKE '%" + param.Keyword + "%'"
-	case models.SEARCH_USER_LEVEL:
-		whereQuery = "AND level = " + param.Keyword
+	if len(param.Keyword) > 1 {
+		switch param.Option {
+		case models.SEARCH_USER_NAME:
+			whereQuery = "AND name LIKE '%" + param.Keyword + "%'"
+		case models.SEARCH_USER_ID:
+			whereQuery = "AND id LIKE '%" + param.Keyword + "%'"
+		case models.SEARCH_USER_LEVEL:
+			whereQuery = "AND level = " + param.Keyword
+		}
 	}
 
-	query := fmt.Sprintf(`SELECT uid, id, name, profile, level, point, signup 
-												FROM %s%s WHERE uid < ? AND blocked %s 1 %s
-												ORDER BY uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_USER, isBlockedQuery, whereQuery)
-	rows, err := r.db.Query(query, last, param.Limit)
+	prefix := configs.Env.Prefix
+	table := models.TABLE_USER
+	query := fmt.Sprintf(`SELECT u.uid, u.id, u.name, u.profile, u.level, u.point, u.signup 
+												FROM %s%s AS u 
+												JOIN (
+													SELECT uid FROM %s%s 
+													WHERE blocked %s 1 %s
+													ORDER BY uid DESC LIMIT ? OFFSET ?
+												) AS sub ON u.uid = sub.uid`,
+		prefix, table,
+		prefix, table,
+		isBlockedQuery, whereQuery)
+	rows, err := r.db.Query(query, param.Limit, offset)
 	if err != nil {
 		return items
 	}
@@ -998,6 +1018,16 @@ func (r *NuboAdminRepository) RemovePostHashtag(boardUid uint) error {
 func (r *NuboAdminRepository) RemoveRecordByFileUid(table models.Table, fileUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE file_uid = ?", configs.Env.Prefix, table)
 	_, err := r.db.Exec(query, fileUid)
+	return err
+}
+
+// 사용자 삭제 처리하기
+func (r *NuboAdminRepository) RemoveUser(userUid uint) error {
+	query := fmt.Sprintf(`UPDATE %s%s SET id = '', name = 'leaved', password = '', profile = '', 
+			level = 0, point = 0, signature = '', 
+			signup = 0, signin = 0, blocked = 1 
+		WHERE uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
+	_, err := r.db.Exec(query, userUid)
 	return err
 }
 

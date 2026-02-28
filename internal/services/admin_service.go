@@ -29,7 +29,7 @@ type AdminService interface {
 	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportParam) []models.AdminReportItem
-	GetUserList(param models.AdminUserParam) []models.AdminUserItem
+	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
 	RemoveBoardCategory(boardUid uint, catUid uint) error
@@ -37,6 +37,7 @@ type AdminService interface {
 	RemoveComment(commentUid uint) error
 	RemoveGroup(groupUid uint) error
 	RemovePost(postUid uint) error
+	RemoveUser(userUid uint) error
 }
 
 type NuboAdminService struct {
@@ -231,8 +232,14 @@ func (s *NuboAdminService) GetSearchedReports(param models.AdminReportParam) []m
 }
 
 // (검색된) 사용자 목록 가져오기
-func (s *NuboAdminService) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
-	return s.repos.Admin.GetUserList(param)
+func (s *NuboAdminService) GetUserList(param models.AdminUserParam) models.AdminUserListResult {
+	item := s.repos.Admin.GetUserList(param)
+	total := s.repos.Admin.GetTotalUserCount()
+
+	return models.AdminUserListResult{
+		Item:  item,
+		Total: total,
+	}
 }
 
 // 사용자 정보 가져오기
@@ -339,4 +346,9 @@ func (s *NuboAdminService) RemoveGroup(groupUid uint) error {
 // 게시글 삭제하기
 func (s *NuboAdminService) RemovePost(postUid uint) error {
 	return s.repos.BoardView.RemovePost(postUid)
+}
+
+// 사용자 삭제하기
+func (s *NuboAdminService) RemoveUser(userUid uint) error {
+	return s.repos.Admin.RemoveUser(userUid)
 }

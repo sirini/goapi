@@ -87,12 +87,12 @@ type UpdatePointParam struct {
 
 // 내 정보 수정하기 파라미터 정의
 type UpdateUserInfoParam struct {
-	UserUid    uint
-	Name       string
-	Signature  string
-	Password   string
-	Profile    *multipart.FileHeader
-	OldProfile string
+	UserUid    uint                  `form:"userUid"`
+	Name       string                `form:"name"`
+	Signature  string                `form:"signature"`
+	Password   string                `form:"password"`
+	Profile    *multipart.FileHeader `form:"profile"`
+	OldProfile string                `form:"oldProfile"`
 }
 
 // 사용자의 권한 정보들
