@@ -50,6 +50,7 @@ type AdminRepository interface {
 	IsAdded(table models.Table, boardId string) bool
 	IsAddedCategory(boardUid uint, name string) bool
 	ModifyBoard(param models.AdminBoardModifyParam) error
+	ModifyUser(param models.AdminUserModifyParam) error
 	RemoveBoard(boardUid uint) error
 	RemoveBoardCategories(boardUid uint) error
 	RemoveCategory(boardUid uint, catUid uint) error
@@ -946,6 +947,38 @@ func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) er
 		param.BoardUid,
 	)
 	return err
+}
+
+// 사용자 정보 수정하기
+func (r *NuboAdminRepository) ModifyUser(param models.AdminUserModifyParam) error {
+	prefix := configs.Env.Prefix
+	table := models.TABLE_USER
+	query := fmt.Sprintf(`UPDATE %s%s SET 
+		name = ?,
+		profile = ?,
+		level = ?,
+		point = ?,
+		signature = ?
+	WHERE uid = ? LIMIT 1`, prefix, table)
+	_, err := r.db.Exec(query,
+		param.Name,
+		param.OldProfile,
+		param.Level,
+		param.Point,
+		param.Signature,
+		param.UserUid,
+	)
+	if err != nil {
+		return err
+	}
+
+	if len(param.Password) > 0 {
+		query = fmt.Sprintf(`UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1`, prefix, table)
+		_, err := r.db.Exec(query, param.Password, param.UserUid)
+		return err
+	}
+
+	return nil
 }
 
 // 게시판 삭제 시 게시판에 속한 분류명들 삭제하기

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -143,9 +142,6 @@ func (h *NuboAdminHandler) CreateUserHandler(c fiber.Ctx) error {
 	if err := c.Bind().Form(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-
-	log.Printf("param : %v\n", param) /// DEBUG
-
 	param.Name = utils.Escape(param.Name)
 	param.Signature = utils.Escape(param.Signature)
 
@@ -426,19 +422,16 @@ func (h *NuboAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
 
 // 사용자 정보 수정하는 핸들러
 func (h *NuboAdminHandler) UserInfoModifyHandler(c fiber.Ctx) error {
-	param := models.UpdateUserInfoParam{}
+	param := models.AdminUserModifyParam{}
 	if err := c.Bind().Form(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	userInfo, err := h.service.User.GetUserInfo(param.UserUid)
-	if err != nil {
+	param.Name = utils.Escape(param.Name)
+	param.Signature = utils.Escape(param.Signature)
+
+	if err := h.service.Admin.ModifyUserAccount(param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-
-	param.Signature = utils.Escape(param.Signature)
-	param.OldProfile = userInfo.Profile
-
-	h.service.User.ChangeUserInfo(param)
 	return utils.Ok(c, nil)
 }
 

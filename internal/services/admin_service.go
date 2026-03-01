@@ -34,6 +34,7 @@ type AdminService interface {
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
+	ModifyUserAccount(param models.AdminUserModifyParam) error
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
 	RemoveComment(commentUid uint) error
@@ -297,6 +298,31 @@ func (s *NuboAdminService) ModifyExistBoard(param models.AdminBoardModifyParam) 
 
 	err := s.repos.Admin.ModifyBoard(param)
 	return err
+}
+
+// 사용자 정보 수정하기
+func (s *NuboAdminService) ModifyUserAccount(param models.AdminUserModifyParam) error {
+	if isDupName := s.repos.User.IsNameDuplicated(param.Name, param.UserUid); isDupName {
+		return fmt.Errorf("duplicated name")
+	}
+
+	param.Password = strings.TrimSpace(param.Password)
+	if len(param.Password) > 0 {
+		newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(param.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		param.Password = string(newBcryptHash)
+	}
+
+	if err := s.repos.Admin.ModifyUser(param); err != nil {
+		return err
+	}
+
+	if param.Profile != nil {
+		s.userService.ChangeUserProfile(param.UserUid, param.Profile, param.OldProfile)
+	}
+	return nil
 }
 
 // 카테고리 삭제하기
