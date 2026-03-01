@@ -1,6 +1,7 @@
 package models
 
 import (
+	"mime/multipart"
 	"sync"
 	"time"
 )
@@ -243,6 +244,24 @@ type AdminReportItem struct {
 	Request  string      `json:"request"`
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
+}
+
+// 새 사용자 계정 추가시 필요한 파라미터 정의
+type AdminUserCreateParam struct {
+	Id         string                `form:"id"`
+	Name       string                `form:"name"`
+	Password   string                `form:"password"`
+	Profile    *multipart.FileHeader `form:"profile"`
+	OldProfile string                `form:"oldProfile"`
+	Level      uint                  `form:"level"`
+	Point      uint                  `form:"point"`
+	Signature  string                `form:"signature"`
+}
+
+// 사용자 계정 수정시 필요한 파라미터 정의
+type AdminUserModifyParam struct {
+	AdminUserCreateParam
+	UserUid uint `form:"userUid"`
 }
 
 // 사용자 목록 검색하기에 필요한 파라미터 정의

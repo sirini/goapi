@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"mime/multipart"
 	"os"
 
 	"github.com/sirini/goapi/internal/repositories"
@@ -15,6 +16,7 @@ type UserService interface {
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info models.UpdateUserInfoParam) error
 	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
+	ChangeUserProfile(userUid uint, profile *multipart.FileHeader, oldProfile string) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
 	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult
@@ -63,36 +65,9 @@ func (s *NuboUserService) ChangePassword(verifyUid uint, userCode string, newPas
 // 사용자 정보 변경하기
 func (s *NuboUserService) ChangeUserInfo(param models.UpdateUserInfoParam) error {
 	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
-
 	if param.Profile != nil {
-		file, err := param.Profile.Open()
-		if err == nil {
-			defer file.Close()
-		}
-
-		if param.Profile.Size > 0 {
-			tempPath, err := utils.SaveUploadedFile(file, param.Profile.Filename)
-			if err != nil {
-				return err
-			}
-			profilePath, err := utils.SaveProfileImage(tempPath)
-			if err != nil {
-				os.Remove(tempPath)
-				return err
-			}
-
-			s.repos.User.UpdateUserProfile(param.UserUid, profilePath[1:])
-			err = os.Remove("." + param.OldProfile)
-			if err != nil {
-				return err
-			}
-			err = os.Remove(tempPath)
-			if err != nil {
-				return err
-			}
-		}
+		return s.ChangeUserProfile(param.UserUid, param.Profile, param.OldProfile)
 	}
-
 	return nil
 }
 
@@ -136,6 +111,42 @@ func (s *NuboUserService) ChangeUserPermission(actionUserUid uint, perm models.U
 		return err
 	}
 	s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, responseReport)
+	return nil
+}
+
+// 사용자 프로필 이미지 변경하기
+func (s *NuboUserService) ChangeUserProfile(userUid uint, profile *multipart.FileHeader, oldProfile string) error {
+	if profile == nil {
+		return fmt.Errorf("profile is empty")
+	}
+
+	file, err := profile.Open()
+	if err == nil {
+		defer file.Close()
+	}
+
+	if profile.Size > 0 {
+		tempPath, err := utils.SaveUploadedFile(file, profile.Filename)
+		if err != nil {
+			return err
+		}
+		profilePath, err := utils.SaveProfileImage(tempPath)
+		if err != nil {
+			os.Remove(tempPath)
+			return err
+		}
+
+		s.repos.User.UpdateUserProfile(userUid, profilePath[1:])
+		if len(oldProfile) > 1 {
+			if err := os.Remove("." + oldProfile); err != nil {
+				return err
+			}
+		}
+		if err := os.Remove(tempPath); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ type AdminHandler interface {
 	ChangeGroupIdHandler(c fiber.Ctx) error
 	CreateBoardHandler(c fiber.Ctx) error
 	CreateGroupHandler(c fiber.Ctx) error
+	CreateUserHandler(c fiber.Ctx) error
 	DashboardUploadUsageHandler(c fiber.Ctx) error
 	DashboardItemLoadHandler(c fiber.Ctx) error
 	DashboardStatisticLoadHandler(c fiber.Ctx) error
@@ -133,6 +135,25 @@ func (h *NuboAdminHandler) CreateGroupHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	return utils.Ok(c, result)
+}
+
+// 사용자 계정 생성하기 핸들러
+func (h *NuboAdminHandler) CreateUserHandler(c fiber.Ctx) error {
+	param := models.AdminUserCreateParam{}
+	if err := c.Bind().Form(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+
+	log.Printf("param : %v\n", param) /// DEBUG
+
+	param.Name = utils.Escape(param.Name)
+	param.Signature = utils.Escape(param.Signature)
+
+	newUserUid, err := h.service.Admin.CreateNewUser(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, newUserUid)
 }
 
 // 대시보드에서 업로드 폴더의 총 사용량 가져오는 핸들러

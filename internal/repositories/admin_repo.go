@@ -16,6 +16,7 @@ type AdminRepository interface {
 	CreateBoard(param models.AdminBoardCreateParam) uint
 	CreateCategories(boardUid uint, cats []string)
 	CreateGroup(newGroupId string) uint
+	CreateUser(param models.AdminUserCreateParam) uint
 	FindBoardInfoById(inputId string, bunch uint) []models.Triple
 	FindBoardUidByPostUid(postUid uint) uint
 	FindCountByBoardUid(table models.Table, boardUid uint) uint
@@ -138,6 +139,32 @@ func (r *NuboAdminRepository) CreateGroup(newGroupId string) uint {
 		return models.FAILED
 	}
 
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return models.FAILED
+	}
+	return uint(insertId)
+}
+
+// 새 사용자 계정 생성하기
+func (r *NuboAdminRepository) CreateUser(param models.AdminUserCreateParam) uint {
+	query := fmt.Sprintf(`INSERT INTO %s%s 
+		(id, name, password, profile, level, point, signature, signup, signin, blocked)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_USER)
+	result, err := r.db.Exec(query,
+		param.Id,
+		param.Name,
+		param.Password,
+		param.OldProfile,
+		param.Level,
+		param.Point,
+		param.Signature,
+		time.Now().UnixMilli(),
+		0,
+		0)
+	if err != nil {
+		return models.FAILED
+	}
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED

@@ -42,6 +42,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 
 	report.Get("/reports", h.Admin.ReportListSearchHandler)
 
+	user.Post("/create", h.Admin.CreateUserHandler)
 	user.Get("/list", h.Admin.UserListLoadHandler)
 	user.Get("/load", h.Admin.UserInfoLoadHandler)
 	user.Patch("/modify", h.Admin.UserInfoModifyHandler)

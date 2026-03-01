@@ -20,8 +20,9 @@ type Service struct {
 
 // 모든 서비스들을 생성
 func NewService(repos *repositories.Repository) *Service {
+	user := NewNuboUserService(repos)
 	return &Service{
-		Admin:   NewNuboAdminService(repos),
+		Admin:   NewNuboAdminService(repos, user),
 		Auth:    NewNuboAuthService(repos),
 		Board:   NewNuboBoardService(repos),
 		Blog:    NewNuboBlogService(repos),
@@ -32,6 +33,6 @@ func NewService(repos *repositories.Repository) *Service {
 		OAuth:   NewNuboOAuthService(repos),
 		Sync:    NewNuboSyncService(repos),
 		Trade:   NewNuboTradeService(repos),
-		User:    NewNuboUserService(repos),
+		User:    user,
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AdminService interface {
@@ -17,6 +18,7 @@ type AdminService interface {
 	ChangeGroupId(param models.AdminGroupChangeParam) error
 	CreateNewBoard(param models.AdminBoardCreateParam) (uint, error)
 	CreateNewGroup(newGroupId string) (models.AdminGroupConfig, error)
+	CreateNewUser(param models.AdminUserCreateParam) (uint, error)
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetDashboardUploadUsage(path string) uint64
@@ -41,12 +43,13 @@ type AdminService interface {
 }
 
 type NuboAdminService struct {
-	repos *repositories.Repository
+	repos       *repositories.Repository
+	userService *NuboUserService
 }
 
 // 리포지토리 묶음 주입받기
-func NewNuboAdminService(repos *repositories.Repository) *NuboAdminService {
-	return &NuboAdminService{repos: repos}
+func NewNuboAdminService(repos *repositories.Repository, userService *NuboUserService) *NuboAdminService {
+	return &NuboAdminService{repos: repos, userService: userService}
 }
 
 // 카테고리 추가하기
@@ -113,6 +116,31 @@ func (s *NuboAdminService) CreateNewGroup(newGroupId string) (models.AdminGroupC
 		Id:      newGroupId,
 	}
 	return result, nil
+}
+
+// 새 사용자 계정 만들기
+func (s *NuboAdminService) CreateNewUser(param models.AdminUserCreateParam) (uint, error) {
+	if isDupId := s.repos.User.IsEmailDuplicated(param.Id); isDupId {
+		return models.FAILED, fmt.Errorf("duplicated id")
+	}
+	if isDupName := s.repos.User.IsNameDuplicated(param.Name, 0); isDupName {
+		return models.FAILED, fmt.Errorf("duplicated name")
+	}
+	newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(param.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return models.FAILED, err
+	}
+	param.Password = string(newBcryptHash)
+
+	newUserUid := s.repos.Admin.CreateUser(param)
+	if newUserUid < 2 {
+		return models.FAILED, fmt.Errorf("failed to create an account for %s (%s)", param.Id, param.Name)
+	}
+
+	if param.Profile != nil {
+		s.userService.ChangeUserProfile(newUserUid, param.Profile, "")
+	}
+	return newUserUid, nil
 }
 
 // 게시판 관리자 후보 목록 가져오기
