@@ -216,12 +216,6 @@ type AdminLatestParam struct {
 	Keyword string `query:"keyword" json:"keyword"`
 }
 
-// 신고 목록 검색하기에 필요한 파라미터 정의
-type AdminReportParam struct {
-	AdminLatestParam
-	IsSolved bool
-}
-
 // 최근 글 반환값 정의
 type AdminLatestPost struct {
 	AdminLatestCommon
@@ -244,6 +238,7 @@ type AdminReportItem struct {
 	Request  string      `json:"request"`
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
+	Solved   bool        `json:"solved"`
 }
 
 // 새 사용자 계정 추가시 필요한 파라미터 정의

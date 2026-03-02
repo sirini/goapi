@@ -30,7 +30,7 @@ type AdminService interface {
 	GetGroupList() []models.AdminGroupConfig
 	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
-	GetSearchedReports(param models.AdminReportParam) []models.AdminReportItem
+	GetSearchedReports(param models.AdminReportSearchParam) []models.AdminReportItem
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
@@ -256,7 +256,7 @@ func (s *NuboAdminService) GetSearchedPosts(param models.AdminLatestParam) []mod
 }
 
 // 검색된 신고 목록 가져오기
-func (s *NuboAdminService) GetSearchedReports(param models.AdminReportParam) []models.AdminReportItem {
+func (s *NuboAdminService) GetSearchedReports(param models.AdminReportSearchParam) []models.AdminReportItem {
 	return s.repos.Admin.GetReportList(param)
 }
 

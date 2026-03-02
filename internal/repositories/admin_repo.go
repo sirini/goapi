@@ -39,7 +39,7 @@ type AdminRepository interface {
 	GetPostList(param models.AdminLatestParam) []models.AdminLatestPost
 	GetRemoveFilePaths(boardUid uint) []string
 	GetRemoveImagePaths(boardUid uint) []string
-	GetReportList(param models.AdminReportParam) []models.AdminReportItem
+	GetReportList(param models.AdminReportSearchParam) []models.AdminReportItem
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
 	GetTotalUserCount() uint
@@ -515,7 +515,7 @@ func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 }
 
 // 신고 목록 가져오기
-func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []models.AdminReportItem {
+func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam) []models.AdminReportItem {
 	items := make([]models.AdminReportItem, 0)
 	prefix := configs.Env.Prefix
 	isSolved := 0
@@ -543,9 +543,8 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []mod
 
 	whereQuery := strings.Join(whereClauses, " AND ")
 	offset := (param.Page - 1) * param.Limit
-	query := fmt.Sprintf(`SELECT r.uid,
-			r.to_uid, r.from_uid, r.request, r.response, r.timestamp,
-			t_user.name, f_user.name
+	query := fmt.Sprintf(`SELECT r.uid, r.to_uid, r.from_uid, r.request, r.response, r.timestamp, r.solved,
+			t_user.name, t_user.profile, f_user.name, f_user.profile
 		FROM %s%s r
 		JOIN (
 			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
@@ -569,10 +568,9 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportParam) []mod
 
 	for rows.Next() {
 		item := models.AdminReportItem{}
-		err := rows.Scan(
-			&item.Uid, &item.To.UserUid, &item.From.UserUid,
-			&item.Request, &item.Response, &item.Date,
-			&item.To.Name, &item.From.Name,
+		err := rows.Scan(&item.Uid, &item.To.UserUid, &item.From.UserUid,
+			&item.Request, &item.Response, &item.Date, &item.Solved,
+			&item.To.Name, &item.To.Profile, &item.From.Name, &item.From.Profile,
 		)
 		if err == nil {
 			items = append(items, item)

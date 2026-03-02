@@ -372,16 +372,7 @@ func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	reportParam := models.AdminReportParam{
-		AdminLatestParam: models.AdminLatestParam{
-			Page:    uint(param.Page),
-			Limit:   uint(param.Limit),
-			Option:  models.Search(param.Option),
-			Keyword: utils.Escape(param.Keyword),
-		},
-		IsSolved: param.IsSolved,
-	}
-	reports := h.service.Admin.GetSearchedReports(reportParam)
+	reports := h.service.Admin.GetSearchedReports(param)
 	return utils.Ok(c, reports)
 }
 
