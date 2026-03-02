@@ -801,7 +801,7 @@ func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 // 유효한 총 사용자수 반환
 func (r *NuboAdminRepository) GetTotalUserCount() uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE blocked = 0", configs.Env.Prefix, models.TABLE_USER)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE blocked = 0 AND id = ''", configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query).Scan(&count)
 	return count
 }
@@ -818,9 +818,9 @@ func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
 	items := make([]models.AdminUserItem, 0)
 	offset := (param.Page - 1) * param.Limit
-	isBlockedQuery := "<"
+	isBlockedQuery := "1=1"
 	if param.IsBlocked {
-		isBlockedQuery = "="
+		isBlockedQuery = "blocked = 1"
 	}
 
 	whereQuery := ""
@@ -841,7 +841,7 @@ func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.
 												FROM %s%s AS u 
 												JOIN (
 													SELECT uid FROM %s%s 
-													WHERE blocked %s 1 %s
+													WHERE %s AND id != '' %s
 													ORDER BY uid DESC LIMIT ? OFFSET ?
 												) AS sub ON u.uid = sub.uid`,
 		prefix, table,

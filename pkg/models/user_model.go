@@ -104,7 +104,7 @@ type UserPermissionResult struct {
 }
 
 // 사용자 권한 및 로그인, 신고 내역 정의
-type UserPermissionReportResult struct {
+type UserPermissionManageParam struct {
 	UserPermissionResult
 	Login    bool   `json:"login"`
 	UserUid  uint   `json:"userUid"`

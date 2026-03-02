@@ -60,7 +60,7 @@ func (h *NuboUserHandler) CheckReportedUserHandler(c fiber.Ctx) error {
 
 // 사용자 정보 열람
 func (h *NuboUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
-	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
+	targetUserUid, err := strconv.ParseUint(c.Query("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -75,7 +75,7 @@ func (h *NuboUserHandler) LoadUserInfoHandler(c fiber.Ctx) error {
 // 사용자 권한 및 리포트 응답 가져오기
 func (h *NuboUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
+	targetUserUid, err := strconv.ParseUint(c.Query("targetUserUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
@@ -87,46 +87,12 @@ func (h *NuboUserHandler) LoadUserPermissionHandler(c fiber.Ctx) error {
 // 사용자 권한 수정하기
 func (h *NuboUserHandler) ManageUserPermissionHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	targetUserUid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
-	if err != nil {
+	param := models.UserPermissionManageParam{}
+	if err := c.Bind().Body(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	writePost, err := strconv.ParseBool(c.FormValue("writePost"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	writeComment, err := strconv.ParseBool(c.FormValue("writeComment"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	sendChat, err := strconv.ParseBool(c.FormValue("sendChatMessage"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	sendReport, err := strconv.ParseBool(c.FormValue("sendReport"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	login, err := strconv.ParseBool(c.FormValue("login"))
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	response := c.FormValue("response")
-
-	param := models.UserPermissionReportResult{
-		UserPermissionResult: models.UserPermissionResult{
-			WritePost:       writePost,
-			WriteComment:    writeComment,
-			SendChatMessage: sendChat,
-			SendReport:      sendReport,
-		},
-		Login:    login,
-		UserUid:  uint(targetUserUid),
-		Response: response,
 	}
 
-	err = h.service.User.ChangeUserPermission(uint(actionUserUid), param)
-	if err != nil {
+	if err := h.service.User.ChangeUserPermission(uint(actionUserUid), param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)

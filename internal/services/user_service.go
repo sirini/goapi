@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"os"
+	"strings"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -15,12 +16,13 @@ type UserService interface {
 	CheckReportStatus(actionUserUid uint, targetUserUid uint) models.UserCheckReportResult
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info models.UpdateUserInfoParam) error
-	ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error
+	ChangeUserPermission(actionUserUid uint, param models.UserPermissionManageParam) error
 	ChangeUserProfile(userUid uint, profile *multipart.FileHeader, oldProfile string) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
-	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult
+	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionManageParam
 	ReportTargetUser(param models.UserReportParam) bool
+	UpdateResponseToReport(actionUserUid uint, param models.UserPermissionManageParam) error
 }
 
 type NuboUserService struct {
@@ -72,45 +74,30 @@ func (s *NuboUserService) ChangeUserInfo(param models.UpdateUserInfoParam) error
 }
 
 // 사용자 권한 변경하기
-func (s *NuboUserService) ChangeUserPermission(actionUserUid uint, perm models.UserPermissionReportResult) error {
+func (s *NuboUserService) ChangeUserPermission(actionUserUid uint, param models.UserPermissionManageParam) error {
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
 		return fmt.Errorf("unauthorized access")
 	}
-	targetUserUid := perm.UserUid
-	permission := perm.UserPermissionResult
 
-	isPermAdded := s.repos.User.IsPermissionAdded(targetUserUid)
+	isPermAdded := s.repos.User.IsPermissionAdded(param.UserUid)
 	if isPermAdded {
-		err := s.repos.User.UpdateUserPermission(targetUserUid, permission)
-		if err != nil {
+		if err := s.repos.User.UpdateUserPermission(param.UserUid, param.UserPermissionResult); err != nil {
 			return err
 		}
 	} else {
-		err := s.repos.User.InsertUserPermission(targetUserUid, permission)
-		if err != nil {
+		if err := s.repos.User.InsertUserPermission(param.UserUid, param.UserPermissionResult); err != nil {
 			return err
 		}
 	}
 
-	isReported := s.repos.User.IsUserReported(targetUserUid)
-	responseReport := utils.Escape(perm.Response)
-	if isReported {
-		err := s.repos.User.UpdateReportResponse(targetUserUid, responseReport)
-		if err != nil {
-			return err
-		}
-	} else {
-		err := s.repos.User.InsertReportResponse(actionUserUid, targetUserUid, responseReport)
-		if err != nil {
-			return err
-		}
-	}
-
-	err := s.repos.User.UpdateUserBlocked(targetUserUid, !perm.Login)
-	if err != nil {
+	if err := s.repos.User.UpdateUserBlocked(param.UserUid, !param.Login); err != nil {
 		return err
 	}
-	s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, responseReport)
+
+	param.Response = strings.TrimSpace(param.Response)
+	if len(param.Response) > 1 {
+		return s.UpdateResponseToReport(actionUserUid, param)
+	}
 	return nil
 }
 
@@ -161,8 +148,8 @@ func (s *NuboUserService) GetUserLevelPoint(userUid uint) (int, int) {
 }
 
 // 사용자의 권한 조회
-func (s *NuboUserService) GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionReportResult {
-	result := models.UserPermissionReportResult{}
+func (s *NuboUserService) GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionManageParam {
+	result := models.UserPermissionManageParam{}
 	if isAdmin := s.repos.Auth.CheckPermissionByUid(actionUserUid, 0); !isAdmin {
 		return result
 	}
@@ -193,4 +180,25 @@ func (s *NuboUserService) ReportTargetUser(param models.UserReportParam) bool {
 	}
 	s.repos.User.InsertReportUser(param)
 	return true
+}
+
+// 신고된 사용자에 대한 조치사항 업데이트
+func (s *NuboUserService) UpdateResponseToReport(actionUserUid uint, param models.UserPermissionManageParam) error {
+	isReported := s.repos.User.IsUserReported(param.UserUid)
+	responseReport := utils.Escape(param.Response)
+	if isReported {
+		if err := s.repos.User.UpdateReportResponse(param.UserUid, responseReport); err != nil {
+			return err
+		}
+	} else {
+		if err := s.repos.User.InsertReportResponse(actionUserUid, param.UserUid, responseReport); err != nil {
+			return err
+		}
+	}
+
+	chatUid := s.repos.Chat.InsertNewChat(actionUserUid, param.UserUid, responseReport)
+	if chatUid < 1 {
+		return fmt.Errorf("failed to add a new chat message to let user know")
+	}
+	return nil
 }

@@ -143,7 +143,7 @@ func (r *NuboUserRepository) InsertNewUser(id string, pw string, name string) ui
 // 사용자 권한 설정값 추가하기
 func (r *NuboUserRepository) InsertUserPermission(userUid uint, perm models.UserPermissionResult) error {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
-												(user_uid, ACTION_WRITE_POST, ACTION_WRITE_COMMENT, ACTION_SEND_CHAT, ACTION_SEND_REPORT)
+												(user_uid, write_post, write_comment, send_chat, send_report)
 												VALUES (?, ?, ?, ? ,?)`, configs.Env.Prefix, models.TABLE_USER_PERM)
 	_, err := r.db.Exec(query, userUid, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport)
 	return err
