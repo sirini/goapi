@@ -799,7 +799,7 @@ func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 // 유효한 총 사용자수 반환
 func (r *NuboAdminRepository) GetTotalUserCount() uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE blocked = 0 AND id = ''", configs.Env.Prefix, models.TABLE_USER)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE blocked = 0 AND id != ''", configs.Env.Prefix, models.TABLE_USER)
 	r.db.QueryRow(query).Scan(&count)
 	return count
 }
