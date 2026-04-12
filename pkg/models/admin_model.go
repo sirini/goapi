@@ -227,7 +227,7 @@ type AdminLatestPost struct {
 // 신고 목록 검색하기에 필요한 파라미터 정의
 type AdminReportSearchParam struct {
 	AdminLatestParam
-	IsSolved bool `query:"isSolved"`
+	IsSolved bool `query:"isSolved" json:"isSolved"`
 }
 
 // 신고 목록 반환값 정의
