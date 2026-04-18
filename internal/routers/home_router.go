@@ -12,7 +12,7 @@ func RegisterHomeRouters(api fiber.Router, h *handlers.Handler) {
 	home.Get("/nubo", h.Home.ShowVersionHandler)
 	home.Get("/visit", h.Home.CountingVisitorHandler)
 	home.Get("/latest", h.Home.LoadAllPostsHandler)
-	home.Get("/latest/post", h.Home.LoadPostsByIdHandler)
+	home.Get("/latest/:id", h.Home.LoadPostsByIdHandler)
 	home.Get("/sidebar/links", h.Home.LoadSidebarLinkHandler)
 
 	// 알림용 라우터들
