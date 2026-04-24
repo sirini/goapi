@@ -11,7 +11,7 @@ func JWTMiddleware() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 		if actionUserUid < 1 {
-			return utils.Err(c, "unauthorized: only logged-in users can operate functions", models.CODE_INVALID_TOKEN)
+			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 		return c.Next()
 	}
