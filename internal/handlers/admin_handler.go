@@ -154,10 +154,7 @@ func (h *NuboAdminHandler) CreateUserHandler(c fiber.Ctx) error {
 
 // 대시보드에서 업로드 폴더의 총 사용량 가져오는 핸들러
 func (h *NuboAdminHandler) DashboardUploadUsageHandler(c fiber.Ctx) error {
-	path := c.Query("path")
-	if len(path) < 1 {
-		return utils.Err(c, "invalid a path", models.CODE_INVALID_PARAMETER)
-	}
+	path := "./upload"
 	size := h.service.Admin.GetDashboardUploadUsage(path)
 	return utils.Ok(c, size)
 }
