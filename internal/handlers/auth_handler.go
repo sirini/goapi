@@ -83,8 +83,8 @@ func (h *NuboAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	h.service.Auth.Logout(uint(actionUserUid))
 
 	c.ClearCookie(
-		"nubo-auth-token",
-		"nubo-auth-refresh",
+		models.AUTH_TOKEN,
+		models.REFRESH_TOKEN,
 	)
 
 	return utils.Ok(c, nil)
@@ -111,7 +111,7 @@ func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	refreshToken := c.Cookies("nubo-auth-refresh")
+	refreshToken := c.Cookies(models.REFRESH_TOKEN)
 	if len(refreshToken) < 1 {
 		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
 	}

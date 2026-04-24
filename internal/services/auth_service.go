@@ -181,8 +181,8 @@ func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string,
 		return authToken, "", err
 	}
 
-	utils.SaveCookie(c, "nubo-auth-token", authToken, accessHours)
-	utils.SaveCookie(c, "nubo-auth-refresh", refreshToken, refreshDays*24)
+	utils.SaveCookie(c, models.AUTH_TOKEN, authToken, accessHours)
+	utils.SaveCookie(c, models.REFRESH_TOKEN, refreshToken, refreshDays*24)
 	return authToken, refreshToken, nil
 }
 

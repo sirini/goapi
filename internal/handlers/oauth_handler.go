@@ -77,7 +77,7 @@ func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 // 구글 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
 
 	h.googleConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/goapi/auth/google/callback", configs.Env.Domain),
@@ -125,7 +125,7 @@ func (h *NuboOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 // 네이버 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
 
 	h.naverRedirectURL = fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.Domain)
 	url := fmt.Sprintf(
@@ -146,7 +146,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	code := c.FormValue("code")
 	state := c.FormValue("state")
 
-	cookie := c.Cookies("nubo-oauth-state")
+	cookie := c.Cookies(models.OAUTH_STATE)
 	if cookie != state {
 		return c.Redirect().To(configs.Env.Domain)
 	}
@@ -224,7 +224,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 // 카카오 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
 	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, "nubo-oauth-state", state, 24)
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
 
 	h.kakaoConfig = oauth2.Config{
 		RedirectURL:  fmt.Sprintf("%s/goapi/auth/kakao/callback", configs.Env.Domain),
@@ -293,8 +293,8 @@ func (h *NuboOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)
 
-	utils.SaveCookie(c, "nubo-auth-token", auth, accessHours)
-	utils.SaveCookie(c, "nubo-auth-refresh", refresh, refreshDays*24)
+	utils.SaveCookie(c, models.AUTH_TOKEN, auth, accessHours)
+	utils.SaveCookie(c, models.REFRESH_TOKEN, refresh, refreshDays*24)
 
 	return c.Redirect().To(configs.Env.Domain)
 }

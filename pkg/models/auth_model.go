@@ -89,3 +89,7 @@ type CheckEmailParam struct {
 type CheckNameParam struct {
 	Name string `json:"name"`
 }
+
+const AUTH_TOKEN = "nubo-auth-token"
+const REFRESH_TOKEN = "nubo-refresh-token"
+const OAUTH_STATE = "nubo-oauth-state"
