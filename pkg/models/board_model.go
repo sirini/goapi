@@ -312,9 +312,12 @@ type BoardViewDownloadResult struct {
 
 // 게시글 보기에 필요한 파라미터 정의
 type BoardViewParam struct {
-	BoardViewCommonParam
-	UpdateHit bool
-	Limit     uint
+	Id            string `query:"id"`
+	BoardUid      uint
+	UserUid       uint
+	PostUid       uint `query:"postUid"`
+	NeedUpdateHit bool `query:"needUpdateHit"`
+	LatestLimit   uint `query:"latestLimit"`
 }
 
 // 게시글 보기에 반환 타입 정의

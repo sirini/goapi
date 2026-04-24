@@ -250,7 +250,7 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 	}
 	result.Images = images
 
-	if param.UpdateHit {
+	if param.NeedUpdateHit {
 		s.repos.BoardView.UpdatePostHit(param.PostUid)
 	}
 
@@ -269,8 +269,8 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 	result.Tags = s.repos.BoardView.GetTags(param.PostUid)
 	result.PrevPostUid = s.repos.BoardView.GetPrevPostUid(param.BoardUid, param.PostUid)
 	result.NextPostUid = s.repos.BoardView.GetNextPostUid(param.BoardUid, param.PostUid)
-	result.WriterPosts, _ = s.repos.BoardView.GetWriterLatestPost(post.Writer.UserUid, param.Limit)
-	result.WriterComments, _ = s.repos.BoardView.GetWriterLatestComment(post.Writer.UserUid, param.Limit)
+	result.WriterPosts, _ = s.repos.BoardView.GetWriterLatestPost(post.Writer.UserUid, param.LatestLimit)
+	result.WriterComments, _ = s.repos.BoardView.GetWriterLatestComment(post.Writer.UserUid, param.LatestLimit)
 	return result, nil
 }
 
