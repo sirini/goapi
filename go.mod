@@ -5,14 +5,14 @@ go 1.25.0
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/fatih/color v1.19.0
-	github.com/go-sql-driver/mysql v1.9.3
-	github.com/gofiber/fiber/v3 v3.1.0
+	github.com/go-sql-driver/mysql v1.10.0
+	github.com/gofiber/fiber/v3 v3.2.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/h2non/bimg v1.1.9
 	github.com/joho/godotenv v1.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
-	github.com/openai/openai-go/v3 v3.31.0
+	github.com/openai/openai-go/v3 v3.33.0
 	github.com/resend/resend-go/v2 v2.28.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	golang.org/x/crypto v0.50.0
@@ -25,20 +25,20 @@ require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/gofiber/schema v1.7.0 // indirect
-	github.com/gofiber/utils/v2 v2.0.2 // indirect
+	github.com/gofiber/schema v1.7.1 // indirect
+	github.com/gofiber/utils/v2 v2.0.4 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tinylib/msgp v1.6.3 // indirect
+	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.70.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
