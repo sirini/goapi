@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
@@ -52,8 +53,17 @@ func (s *NuboOAuthService) RegisterOAuthUser(id string, name string, profile str
 
 // OAuth 로그인 후 액세스, 리프레시 토큰 생성해주기
 func (s *NuboOAuthService) GenerateTokens(userUid uint) (string, string) {
-	auth, _ := utils.GenerateAccessToken(userUid, 2)
-	refresh, _ := utils.GenerateRefreshToken(1)
+	accessHours, err := strconv.ParseInt(configs.Env.JWTAccessHours, 10, 32)
+	if err != nil {
+		accessHours = 24
+	}
+	refreshDays, err := strconv.ParseInt(configs.Env.JWTRefreshDays, 10, 32)
+	if err != nil {
+		refreshDays = 30
+	}
+
+	auth, _ := utils.GenerateAccessToken(userUid, int(accessHours))
+	refresh, _ := utils.GenerateRefreshToken(userUid, int(refreshDays))
 	return auth, refresh
 }
 

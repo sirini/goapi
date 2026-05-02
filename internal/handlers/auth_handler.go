@@ -3,7 +3,6 @@ package handlers
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -107,13 +106,14 @@ func (h *NuboAuthHandler) RequestResetPasswordHandler(c fiber.Ctx) error {
 
 // 사용자의 기존 (액세스) 토큰이 만료되었을 때, 리프레시 토큰 유효한지 보고 새로 발급
 func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
-	actionUserUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid user uid, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
 	refreshToken := c.Cookies(models.REFRESH_TOKEN)
 	if len(refreshToken) < 1 {
 		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
+	}
+
+	actionUserUid := utils.ExtractUserUid(refreshToken)
+	if actionUserUid < 1 {
+		return utils.Err(c, "Expired token", models.CODE_FAILED_OPERATION)
 	}
 
 	if ok := h.service.Auth.CheckRefreshToken(uint(actionUserUid), refreshToken); !ok {

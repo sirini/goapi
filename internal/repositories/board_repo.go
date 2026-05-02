@@ -19,7 +19,6 @@ type BoardRepository interface {
 	GetCoverImage(postUid uint) string
 	GetCommentCount(postUid uint) uint
 	GetCommentLikeCount(postUid uint) uint
-	GetGroupAdminUid(boardUid uint) uint
 	GetLikeCount(postUid uint) uint
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetMaxUid(table models.Table) uint

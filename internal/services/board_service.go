@@ -33,7 +33,7 @@ type BoardService interface {
 	RemoveAttachedFile(param models.EditorRemoveAttachedParam)
 	RemoveInsertedImage(imageUid uint, userUid uint)
 	RemovePost(boardUid uint, postUid uint, userUid uint)
-	SaveAttachments(param models.EditorSaveAttachedParam)
+	SaveAttachments(param models.EditorSaveAttachedParam) error
 	SaveTags(boardUid uint, postUid uint, tags []string) error
 	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
@@ -94,7 +94,8 @@ func (s *NuboBoardService) GetBoardConfig(boardUid uint) models.BoardConfig {
 
 // 게시글 이동할 대상 게시판 목록 가져오기
 func (s *NuboBoardService) GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error) {
-	if isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid); !isAdmin {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+	if !isAdmin {
 		return nil, fmt.Errorf("unauthorized access")
 	}
 	boards := s.repos.BoardView.GetAllBoards()
@@ -315,7 +316,8 @@ func (s *NuboBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (
 
 // 게시글 이동하기
 func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) {
-	if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
+	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
+	if !isAdmin {
 		return
 	}
 	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
@@ -348,13 +350,13 @@ func (s *NuboBoardService) ModifyPost(param models.EditorModifyParam) error {
 	if err != nil {
 		return err
 	}
-	s.SaveAttachments(models.EditorSaveAttachedParam{
+
+	return s.SaveAttachments(models.EditorSaveAttachedParam{
 		Context:  param.Context,
 		BoardUid: param.BoardUid,
 		PostUid:  param.PostUid,
 		Files:    param.Files,
 	})
-	return err
 }
 
 // 게시글 수정 시 첨부했던 파일 삭제하기
@@ -406,8 +408,11 @@ func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint)
 }
 
 // 첨부파일들을 저장하기
-func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam) {
+func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam) error {
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errors []error
+
 	for _, file := range param.Files {
 		wg.Add(1)
 
@@ -416,6 +421,10 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 
 			savedPath, err := utils.SaveAttachmentFile(f)
 			if err != nil {
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+
 				return
 			}
 			fileUid, err := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParam{
@@ -425,14 +434,23 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				Path:     savedPath[1:],
 			})
 			if err != nil {
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+
 				return
 			}
 
 			if utils.IsImage(f.Filename) {
 				thumb, err := utils.SaveThumbnailImage(savedPath)
 				if err != nil {
+					mu.Lock()
+					errors = append(errors, err)
+					mu.Unlock()
+
 					return
 				}
+
 				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 					BoardThumbnail: models.BoardThumbnail{
 						Large: thumb.Large[1:],
@@ -443,13 +461,25 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				})
 				exif := utils.ExtractExif(savedPath)
 				s.repos.BoardEdit.InsertExif(fileUid, param.PostUid, exif)
-				if imgDesc, err := utils.AskImageDescription(param.Context, thumb.Small); err == nil {
+
+				// 이미지 설명 추출은 따로 OpenAI API Key 필요함
+				imgDesc, err := utils.AskImageDescription(param.Context, thumb.Small)
+				if err == nil {
 					s.repos.BoardEdit.InsertImageDescription(fileUid, param.PostUid, imgDesc)
 				}
 			}
 		}(file)
 	}
 	wg.Wait()
+
+	// 에러가 하나라도 있었다면 맨 처음 에러 반환
+	if len(errors) > 0 {
+		for _, e := range errors {
+			return e
+		}
+	}
+
+	return nil
 }
 
 // 해시태그들 저장하기
@@ -551,11 +581,14 @@ func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images
 				mu.Unlock()
 				return
 			}
+
 			imagePath, err := utils.SaveInsertImage(tempPath)
 			if err != nil {
 				mu.Lock()
 				errors = append(errors, err)
 				mu.Unlock()
+
+				os.Remove(tempPath)
 				return
 			}
 

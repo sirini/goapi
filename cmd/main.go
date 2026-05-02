@@ -51,5 +51,7 @@ func main() {
 	port := fmt.Sprintf(":%s", configs.Env.GoPort)
 	log.Printf("🚀 GOAPI for NUBO %v is running on %v\n", configs.Env.Version, configs.Env.GoPort)
 
-	app.Listen(port)
+	if err := app.Listen(port); err != nil {
+		log.Printf("❌ Failed to start the goapi for NUBO: %v\n", err)
+	}
 }

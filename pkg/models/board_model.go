@@ -162,15 +162,18 @@ type BoardActionLevel struct {
 	List int `json:"list"`
 }
 
+// 그룹/게시판 관리자 고유번호 정의
+type BoardAdminUid struct {
+	Group uint `json:"group"`
+	Board uint `json:"board"`
+}
+
 // 게시판 설정 타입 정의
 type BoardConfig struct {
-	Uid      uint   `json:"uid"`
-	Id       string `json:"id"`
-	GroupUid uint   `json:"groupUid"`
-	Admin    struct {
-		Group uint `json:"group"`
-		Board uint `json:"board"`
-	} `json:"admin"`
+	Uid         uint             `json:"uid"`
+	Id          string           `json:"id"`
+	GroupUid    uint             `json:"groupUid"`
+	Admin       BoardAdminUid    `json:"admin"`
 	Type        Board            `json:"type"`
 	Name        string           `json:"name"`
 	Info        string           `json:"info"`

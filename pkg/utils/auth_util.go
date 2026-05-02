@@ -46,19 +46,20 @@ func GenerateAccessToken(userUid uint, hours int) (string, error) {
 }
 
 // 리프레시 토큰 생성하기 (유효일자 기입 필요)
-func GenerateRefreshToken(days int) (string, error) {
+func GenerateRefreshToken(userUid uint, days int) (string, error) {
 	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"uid": userUid,
 		"exp": time.Now().AddDate(0, 0, days).Unix(),
 	})
 	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
 }
 
 // 헤더로 넘어온 Authorization 문자열 추출해서 사용자 고유 번호 반환
-func ExtractUserUid(authorization string) int {
-	if authorization == "" {
+func ExtractUserUid(tokenString string) int {
+	if tokenString == "" {
 		return models.JWT_EMPTY_TOKEN
 	}
-	parts := strings.Split(authorization, " ")
+	parts := strings.Split(tokenString, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
 		return models.JWT_NOT_BEARER
 	}

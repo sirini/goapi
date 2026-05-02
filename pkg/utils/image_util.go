@@ -218,8 +218,7 @@ func ResizeImage(inputPath string, outputPath string, width uint) error {
 	if err != nil {
 		return err
 	}
-	SaveImage(buffer, outputPath, width)
-	return nil
+	return SaveImage(buffer, outputPath, width)
 }
 
 // 바이트 버퍼 이미지를 지정된 크기로 줄여서 .webp 형식으로 저장

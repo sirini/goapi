@@ -73,7 +73,7 @@ func SaveAttachmentFile(file *multipart.FileHeader) (string, error) {
 	return result, nil
 }
 
-// 업로드 된 파일을 임시 폴더에 저장하고 경로 반환
+// 업로드 된 파일을 임시 폴더에 랜덤한 파일명으로 저장하고 경로 반환
 func SaveUploadedFile(file multipart.File, fileName string) (string, error) {
 	result := ""
 	tempDir := fmt.Sprintf("./upload/%s", models.UPLOAD_TEMP)
@@ -81,7 +81,10 @@ func SaveUploadedFile(file multipart.File, fileName string) (string, error) {
 	if err != nil {
 		return result, err
 	}
-	result = fmt.Sprintf("%s/%s", tempDir, fileName)
+
+	ext := filepath.Ext(fileName)
+	safeFileName := uuid.New().String() + ext
+	result = fmt.Sprintf("%s/%s", tempDir, safeFileName)
 
 	if err = CopyFile(result, file); err != nil {
 		return result, err

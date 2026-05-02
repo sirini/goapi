@@ -159,62 +159,84 @@ func (r *NuboUserRepository) InsertReportResponse(actionUserUid uint, targetUser
 
 // (회원가입 시) 이메일 주소가 중복되는지 확인
 func (r *NuboUserRepository) IsEmailDuplicated(id string) bool {
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE id = ? LIMIT 1",
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE id = ?)",
 		configs.Env.Prefix, models.TABLE_USER)
-	var uid uint
-	r.db.QueryRow(query, id).Scan(&uid)
-	return uid > 0
+	err := r.db.QueryRow(query, id).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // (회원가입 시) 이름이 중복되는지 확인
 func (r *NuboUserRepository) IsNameDuplicated(name string, userUid uint) bool {
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? AND uid != ? LIMIT 1",
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE name = ? AND uid != ?)",
 		configs.Env.Prefix, models.TABLE_USER)
-	var uid uint
-	r.db.QueryRow(query, name, userUid).Scan(&uid)
-	return uid > 0
+
+	err := r.db.QueryRow(query, name, userUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 로그인이 차단되었는지 확인
 func (r *NuboUserRepository) IsBlocked(userUid uint) bool {
-	var blocked uint8
-	query := fmt.Sprintf("SELECT blocked FROM %s%s WHERE uid = ? LIMIT 1",
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ?)",
 		configs.Env.Prefix, models.TABLE_USER)
-	r.db.QueryRow(query, userUid).Scan(&blocked)
-	return blocked > 0
+	err := r.db.QueryRow(query, userUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 상대방에게 차단되었는지 확인
 func (r *NuboUserRepository) IsBannedByTarget(actionUserUid uint, targetUserUid uint) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1",
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE user_uid = ? AND black_uid = ?)",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
-	return uid > 0
+	err := r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 사용자의 권한 정보가 등록된 게 있는지 확인
 func (r *NuboUserRepository) IsPermissionAdded(userUid uint) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE user_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_PERM)
-	r.db.QueryRow(query, userUid).Scan(&uid)
-	return uid > 0
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE user_uid = ?)", configs.Env.Prefix, models.TABLE_USER_PERM)
+	err := r.db.QueryRow(query, userUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 현재 사용자가 대상 사용자를 이미 신고했는지 확인
 func (r *NuboUserRepository) IsReported(actionUserUid uint, targetUserUid uint) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_REPORT)
-	r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&uid)
-	return uid > 0
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE to_uid = ? AND from_uid = ?)", configs.Env.Prefix, models.TABLE_REPORT)
+	err := r.db.QueryRow(query, targetUserUid, actionUserUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 사용자가 받은 신고가 있는지 확인
 func (r *NuboUserRepository) IsUserReported(userUid uint) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE to_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_REPORT)
-	r.db.QueryRow(query, userUid).Scan(&uid)
-	return uid > 0
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE to_uid = ?)", configs.Env.Prefix, models.TABLE_REPORT)
+	err := r.db.QueryRow(query, userUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 사용자 권한 및 신고 받은 후 조치사항 조회

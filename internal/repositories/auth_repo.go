@@ -11,26 +11,26 @@ import (
 )
 
 type AuthRepository interface {
-	CheckAdminPermission(table models.Table, userUid uint) bool
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.UserAction) bool
 	CheckRefreshToken(userUid uint, refreshToken string) bool
 	CheckVerificationCode(param models.VerifyParam) bool
 	ClearRefreshToken(userUid uint)
-	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
+	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
 	FindMyInfoByIDPW(id string, pw string) models.MyInfoResult
 	FindMyInfoByUid(userUid uint) models.MyInfoResult
-	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
-	FindUserUidById(id string) uint
+	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
 	FindUserPasswordByUid(userUid uint) string
+	FindUserUidById(id string) uint
+	GetAdminUid(boardUid uint) models.BoardAdminUid
 	InsertRefreshToken(userUid uint, token string)
 	InsertVerificationCode(id string, code string) uint
-	SaveVerificationCode(id string, code string) uint
 	SaveRefreshToken(userUid uint, refreshToken string)
+	SaveVerificationCode(id string, code string) uint
 	UpdateRefreshToken(userUid uint, token string)
-	UpdateVerificationCode(id string, code string, uid uint)
-	UpdateUserSignin(userUid uint)
 	UpdateUserPasswordHash(userUid uint, newBcryptHash string)
+	UpdateUserSignin(userUid uint)
+	UpdateVerificationCode(id string, code string, uid uint)
 }
 
 type NuboAuthRepository struct {
@@ -42,32 +42,14 @@ func NewNuboAuthRepository(db *sql.DB) *NuboAuthRepository {
 	return &NuboAuthRepository{db: db}
 }
 
-// 관리자 권한 확인하기
-func (r *NuboAuthRepository) CheckAdminPermission(table models.Table, userUid uint) bool {
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE admin_uid = ? LIMIT 1", configs.Env.Prefix, table)
-
-	var uid uint
-	err := r.db.QueryRow(query, userUid).Scan(&uid)
-	if err == sql.ErrNoRows {
-		return false
-	} else if err != nil {
-		return false
-	}
-	return true
-}
-
 // 게시판, 그룹 혹은 최고 관리자인지 확인
 func (r *NuboAuthRepository) CheckPermissionByUid(userUid uint, boardUid uint) bool {
 	if userUid == 1 {
 		return true
 	}
-	if isGroupAdmin := r.CheckAdminPermission(models.TABLE_GROUP, userUid); isGroupAdmin {
+	adminUid := r.GetAdminUid(boardUid)
+	if userUid == adminUid.Group || userUid == adminUid.Board {
 		return true
-	}
-	if boardUid > 0 {
-		if isBoardAdmin := r.CheckAdminPermission(models.TABLE_BOARD, userUid); isBoardAdmin {
-			return true
-		}
 	}
 	return false
 }
@@ -221,6 +203,17 @@ func (r *NuboAuthRepository) FindUserPasswordByUid(userUid uint) string {
 		return ""
 	}
 	return hash
+}
+
+// 지정된 게시판 UID로 그룹/게시판 관리자 반환하기
+func (r *NuboAuthRepository) GetAdminUid(boardUid uint) models.BoardAdminUid {
+	var groupAdminUid, boardAdminUid uint
+	query := fmt.Sprintf(`SELECT g.admin_uid, b.admin_uid FROM %s%s AS g JOIN %s%s AS b 
+												ON g.uid = b.group_uid WHERE b.uid = ? LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_GROUP, configs.Env.Prefix, models.TABLE_BOARD)
+
+	r.db.QueryRow(query, boardUid).Scan(&groupAdminUid, &boardAdminUid)
+	return models.BoardAdminUid{Group: groupAdminUid, Board: boardAdminUid}
 }
 
 // 사용자의 리프레시 토큰 추가하기

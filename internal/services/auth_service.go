@@ -121,7 +121,7 @@ func (s *NuboAuthService) Signin(id string, pw string) models.MyInfoResult {
 		return user
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(refreshDays)
+	refreshToken, err := utils.GenerateRefreshToken(user.Uid, refreshDays)
 	if err != nil {
 		return user
 	}
@@ -176,7 +176,7 @@ func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string,
 	if err != nil {
 		return "", "", err
 	}
-	refreshToken, err := utils.GenerateRefreshToken(refreshDays)
+	refreshToken, err := utils.GenerateRefreshToken(userUid, refreshDays)
 	if err != nil {
 		return authToken, "", err
 	}

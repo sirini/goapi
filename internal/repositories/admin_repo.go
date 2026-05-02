@@ -881,19 +881,25 @@ func (r *NuboAdminRepository) InsertCategory(boardUid uint, name string) uint {
 
 // 이미 동일한 이름의 카테고리가 있는지 검사하기
 func (r *NuboAdminRepository) IsAddedCategory(boardUid uint, name string) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ? AND name = ? LIMIT 1",
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE board_uid = ? AND name = ?)",
 		configs.Env.Prefix, models.TABLE_BOARD_CAT)
-	r.db.QueryRow(query, boardUid, name).Scan(&uid)
-	return uid > 0
+	err := r.db.QueryRow(query, boardUid, name).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 이미 추가된 그룹 or 게시판 ID인지 검사하기
 func (r *NuboAdminRepository) IsAdded(table models.Table, boardId string) bool {
-	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE id = ? LIMIT 1", configs.Env.Prefix, table)
-	r.db.QueryRow(query, boardId).Scan(&count)
-	return count > 0
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE id = ?)", configs.Env.Prefix, table)
+	err := r.db.QueryRow(query, boardId).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 게시판 설정 수정하기

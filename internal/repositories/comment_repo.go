@@ -75,12 +75,15 @@ func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
 		return false
 	}
 
-	var uid uint
-	query = fmt.Sprintf("SELECT uid FROM %s%s WHERE reply_uid = ? AND uid != ? AND status != ? LIMIT 1",
+	var exists bool
+	query = fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE reply_uid = ? AND uid != ? AND status != ?)",
 		configs.Env.Prefix, models.TABLE_COMMENT)
 
-	r.db.QueryRow(query, commentUid, commentUid, models.CONTENT_REMOVED).Scan(&uid)
-	return uid > 0
+	err := r.db.QueryRow(query, commentUid, commentUid, models.CONTENT_REMOVED).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기

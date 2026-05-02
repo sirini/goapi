@@ -98,12 +98,15 @@ func (r *NuboNotiRepository) InsertNotification(param models.InsertNotificationP
 
 // 중복 알림인지 확인
 func (r *NuboNotiRepository) IsNotiAdded(param models.InsertNotificationParam) bool {
-	query := fmt.Sprintf(`SELECT uid FROM %s%s WHERE to_uid = ? AND from_uid = ?
-												AND type = ? AND post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_NOTI)
+	var exists bool
+	query := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM %s%s WHERE to_uid = ? AND from_uid = ?
+												AND type = ? AND post_uid = ?)`, configs.Env.Prefix, models.TABLE_NOTI)
 
-	var uid uint
-	r.db.QueryRow(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&uid)
-	return uid > 0
+	err := r.db.QueryRow(query, param.TargetUserUid, param.ActionUserUid, param.NotiType, param.PostUid).Scan(&exists)
+	if err != nil {
+		return false
+	}
+	return exists
 }
 
 // 모든 알람 확인하기
