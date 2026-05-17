@@ -44,7 +44,7 @@ func (h *NuboNotiHandler) CheckedSingleNotiHandler(c fiber.Ctx) error {
 // 알림 목록 가져오기
 func (h *NuboNotiHandler) LoadNotiListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	limit, err := strconv.ParseUint(c.FormValue("limit"), 10, 32)
+	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid limit, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
