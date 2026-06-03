@@ -223,16 +223,12 @@ func (h *NuboBoardHandler) MovePostHandler(c fiber.Ctx) error {
 // 게시글 삭제하기 핸들러
 func (h *NuboBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
-	}
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.RemovePostParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, "invalid parameters", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemovePost(uint(boardUid), uint(postUid), uint(actionUserUid))
+	h.service.Board.RemovePost(uint(param.BoardUid), uint(param.PostUid), uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
 

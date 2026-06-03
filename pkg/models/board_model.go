@@ -497,3 +497,9 @@ type GalleryListResult struct {
 	Images         []GalleryGridItem `json:"images"`
 	TotalPostCount uint              `json:"totalPostCount"`
 }
+
+// 게시글 삭제하기 파리머티 정의
+type RemovePostParam struct {
+	BoardUid uint `json:"boardUid"`
+	PostUid  uint `json:"postUid"`
+}
