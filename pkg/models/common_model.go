@@ -2,10 +2,10 @@ package models
 
 // 가장 기본적인 서버 응답
 type ResponseCommon struct {
-	Success bool        `json:"success"`
-	Error   string      `json:"error"`
-	Code    Code        `json:"code"`
-	Result  interface{} `json:"result"`
+	Success bool   `json:"success"`
+	Error   string `json:"error"`
+	Code    Code   `json:"code"`
+	Result  any    `json:"result"`
 }
 
 // 게시판 테이블 정의

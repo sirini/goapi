@@ -15,7 +15,7 @@ func Err(c fiber.Ctx, msg string, code models.Code) error {
 }
 
 // 성공 메시지 및 데이터 반환
-func Ok(c fiber.Ctx, result interface{}) error {
+func Ok(c fiber.Ctx, result any) error {
 	return c.JSON(models.ResponseCommon{
 		Success: true,
 		Result:  result,

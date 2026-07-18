@@ -209,7 +209,7 @@ func (r *NuboBoardEditRepository) InsertImagePaths(boardUid uint, userUid uint, 
 	query := fmt.Sprintf("INSERT INTO %s%s (board_uid, user_uid, path, timestamp) VALUES ",
 		configs.Env.Prefix, models.TABLE_IMAGE)
 
-	values := make([]interface{}, 0)
+	values := make([]any, 0)
 	now := time.Now().UnixMilli()
 
 	for _, path := range paths {

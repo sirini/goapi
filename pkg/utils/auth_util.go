@@ -19,7 +19,7 @@ import (
 )
 
 // 구조체를 JSON 형식의 문자열로 변환
-func ConvJsonString(value interface{}) (string, error) {
+func ConvJsonString(value any) (string, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func SaveCookie(c fiber.Ctx, name string, value string, hours int) {
 
 // JWT 토큰 검증
 func ValidateJWT(tokenStr string) (*jwt.Token, error) {
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

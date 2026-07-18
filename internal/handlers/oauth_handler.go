@@ -173,7 +173,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 	}
 	defer resp.Body.Close()
 
-	var tokenResp map[string]interface{}
+	var tokenResp map[string]any
 	if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
 		return c.Redirect().To(configs.Env.Domain)
 	}
