@@ -79,7 +79,7 @@ func (r *NuboBoardEditRepository) FindTagUidByName(name string) uint {
 
 // 게시글에 삽입했던 이미지들 가져오기
 func (r *NuboBoardEditRepository) GetInsertedImages(param models.EditorInsertImageParam) ([]models.Pair, error) {
-	images := make([]models.Pair, 0)
+	items := make([]models.Pair, 0)
 	if param.LastUid < 1 {
 		maxUid, err := r.GetMaxImageUid(param.BoardUid, param.UserUid)
 		if err != nil {
@@ -99,9 +99,12 @@ func (r *NuboBoardEditRepository) GetInsertedImages(param models.EditorInsertIma
 	for rows.Next() {
 		image := models.Pair{}
 		rows.Scan(&image.Uid, &image.Name)
-		images = append(images, image)
+		items = append(items, image)
 	}
-	return images, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // 내가 올린 이미지들의 가장 최근 고유 번호 반환
@@ -129,6 +132,9 @@ func (r *NuboBoardEditRepository) GetSuggestionTitles(input string, bunch uint) 
 		rows.Scan(&item)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 
@@ -148,6 +154,9 @@ func (r *NuboBoardEditRepository) GetSuggestionTags(input string, bunch uint) ([
 		item := models.EditorTagItem{}
 		rows.Scan(&item.Uid, &item.Name, &item.Count)
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

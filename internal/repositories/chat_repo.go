@@ -56,17 +56,20 @@ func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.Ch
 	}
 	defer rows.Close()
 
-	chatItems := make([]models.ChatItem, 0)
+	items := make([]models.ChatItem, 0)
 	for rows.Next() {
 		item := models.ChatItem{}
 		err = rows.Scan(&item.Uid, &item.Sender.UserUid, &item.Message, &item.Timestamp, &item.Sender.Name, &item.Sender.Profile)
 		if err != nil {
 			return nil, err
 		}
-		chatItems = append(chatItems, item)
+		items = append(items, item)
 	}
-	slices.Reverse(chatItems)
-	return chatItems, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	slices.Reverse(items)
+	return items, nil
 }
 
 // 상대방과의 대화 내용 가져오기
@@ -81,14 +84,17 @@ func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid u
 	}
 	defer rows.Close()
 
-	chatHistories := make([]models.ChatHistory, 0)
+	items := make([]models.ChatHistory, 0)
 	for rows.Next() {
 		history := models.ChatHistory{}
 		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp); err != nil {
 			return nil, err
 		}
-		chatHistories = append(chatHistories, history)
+		items = append(items, history)
 	}
-	slices.Reverse(chatHistories)
-	return chatHistories, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	slices.Reverse(items)
+	return items, nil
 }

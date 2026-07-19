@@ -76,6 +76,9 @@ func (r *NuboNotiRepository) FindNotificationByUserUid(userUid uint, limit uint)
 		item.FromUser.Name, item.FromUser.Profile = r.FindUserNameProfileByUid(item.FromUser.UserUid)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 

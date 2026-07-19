@@ -48,7 +48,6 @@ func (r *NuboHomeRepository) AppendItem(rows *sql.Rows) ([]models.HomePostItem, 
 		}
 		items = append(items, item)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -163,7 +162,7 @@ func (r *NuboHomeRepository) GetBoardBasicSettings(boardUid uint) models.BoardBa
 
 // 전체 게시판들의 ID만 가져오기
 func (r *NuboHomeRepository) GetBoardIDs() []string {
-	var result []string
+	var items []string
 	query := fmt.Sprintf("SELECT id FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
 
 	rows, err := r.db.Query(query)
@@ -175,14 +174,17 @@ func (r *NuboHomeRepository) GetBoardIDs() []string {
 	for rows.Next() {
 		var id string
 		rows.Scan(&id)
-		result = append(result, id)
+		items = append(items, id)
 	}
-	return result
+	if err := rows.Err(); err != nil {
+		return items
+	}
+	return items
 }
 
 // 홈화면에서 게시판 목록들 가져오기
 func (r *NuboHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]models.HomeSidebarBoardResult, error) {
-	boards := make([]models.HomeSidebarBoardResult, 0)
+	items := make([]models.HomeSidebarBoardResult, 0)
 	rows, err := stmt.Query(groupUid)
 	if err != nil {
 		return nil, err
@@ -194,17 +196,17 @@ func (r *NuboHomeRepository) GetBoardLinks(stmt *sql.Stmt, groupUid uint) ([]mod
 		if err := rows.Scan(&board.Id, &board.Type, &board.Name, &board.Info); err != nil {
 			return nil, err
 		}
-		boards = append(boards, board)
+		items = append(items, board)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	return boards, nil
+	return items, nil
 }
 
 // 홈화면 사이드바에 사용할 그룹 및 하위 게시판 목록들 가져오기
 func (r *NuboHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResult, error) {
-	groups := make([]models.HomeSidebarGroupResult, 0)
+	items := make([]models.HomeSidebarGroupResult, 0)
 	query := fmt.Sprintf("SELECT uid, id FROM %s%s", configs.Env.Prefix, models.TABLE_GROUP)
 
 	rows, err := r.db.Query(query)
@@ -236,9 +238,12 @@ func (r *NuboHomeRepository) GetGroupBoardLinks() ([]models.HomeSidebarGroupResu
 		group := models.HomeSidebarGroupResult{}
 		group.Group = groupId
 		group.Boards = boards
-		groups = append(groups, group)
+		items = append(items, group)
 	}
-	return groups, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // 홈화면 최근 게시글들 가져오기

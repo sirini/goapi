@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -79,8 +80,9 @@ func (h *NuboAuthHandler) LoadMyInfoHandler(c fiber.Ctx) error {
 // 로그아웃 처리하기
 func (h *NuboAuthHandler) LogoutHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	h.service.Auth.Logout(uint(actionUserUid))
-
+	if actionUserUid > 0 {
+		h.service.Auth.Logout(uint(actionUserUid))
+	}
 	c.ClearCookie(
 		models.AUTH_TOKEN,
 		models.REFRESH_TOKEN,
@@ -111,7 +113,7 @@ func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
 	}
 
-	actionUserUid := utils.ExtractUserUid(refreshToken)
+	actionUserUid := utils.ExtractUserUidFrom(refreshToken)
 	if actionUserUid < 1 {
 		return utils.Err(c, "Expired token", models.CODE_FAILED_OPERATION)
 	}
@@ -169,13 +171,12 @@ func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
 	}
 
-	authToken, refreshToken, err := h.service.Auth.SaveTokensInCookie(c, user.Uid)
-	if err != nil {
-		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
-	}
+	user = h.service.Auth.Signin(id, storedHash)
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 
-	user.Token = authToken
-	user.Refresh = refreshToken
+	utils.SaveCookie(c, models.AUTH_TOKEN, user.Token, accessHours)
+	utils.SaveCookie(c, models.REFRESH_TOKEN, user.Refresh, refreshDays*24)
+
 	return utils.Ok(c, user)
 }
 

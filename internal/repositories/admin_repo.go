@@ -175,11 +175,11 @@ func (r *NuboAdminRepository) CreateUser(param models.AdminUserCreateParam) uint
 
 // 게시판 삭제 시 게시글에 딸린 첨부파일들 or 본문에 삽입한 이미지들 삭제를 위한 경로 반환
 func (r *NuboAdminRepository) FindPathByUid(table models.Table, targetUid uint) []string {
-	var paths []string
+	items := make([]string, 0)
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE %s_uid = ?", configs.Env.Prefix, table, table)
 	rows, err := r.db.Query(query, targetUid)
 	if err != nil {
-		return paths
+		return items
 	}
 	defer rows.Close()
 
@@ -187,11 +187,15 @@ func (r *NuboAdminRepository) FindPathByUid(table models.Table, targetUid uint) 
 		var path string
 		err = rows.Scan(&path)
 		if err != nil {
-			return paths
+			return items
 		}
-		paths = append(paths, path)
+		items = append(items, path)
 	}
-	return paths
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
+	return items
 }
 
 // 게시글 번호로 게시판 고유 번호 가져오기
@@ -220,6 +224,10 @@ func (r *NuboAdminRepository) FindBoardInfoById(inputId string, bunch uint) []mo
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -249,6 +257,10 @@ func (r *NuboAdminRepository) FindGroupUidIdById(inputId string, bunch uint) []m
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -262,11 +274,11 @@ func (r *NuboAdminRepository) FindLikeByUid(table models.Table, targetUid uint) 
 
 // 게시판 삭제 시 게시글에 딸린 썸네일들 삭제를 위한 경로 반환
 func (r *NuboAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
-	var paths []string
+	items := make([]string, 0)
 	query := fmt.Sprintf("SELECT path, full_path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE_THUMB)
 	rows, err := r.db.Query(query, postUid)
 	if err != nil {
-		return paths
+		return items
 	}
 	defer rows.Close()
 
@@ -274,11 +286,15 @@ func (r *NuboAdminRepository) FindThumbPathByPostUid(postUid uint) []string {
 		var thumb, full string
 		err = rows.Scan(&thumb, &full)
 		if err != nil {
-			return paths
+			return items
 		}
-		paths = append(paths, thumb, full)
+		items = append(items, thumb, full)
 	}
-	return paths
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
+	return items
 }
 
 // 게시판 번호에 해당하는 총 레코드 수 반환
@@ -328,6 +344,10 @@ func (r *NuboAdminRepository) GetAdminCandidates(name string, bunch uint) ([]mod
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return items, nil
 }
 
@@ -382,6 +402,10 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) ([]models.AdminGroupBo
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return items, nil
 }
 
@@ -458,6 +482,10 @@ func (r *NuboAdminRepository) GetCommentList(param models.AdminLatestParam) []mo
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -479,6 +507,10 @@ func (r *NuboAdminRepository) GetGroupBoardList(table models.Table, bunch uint) 
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -502,6 +534,10 @@ func (r *NuboAdminRepository) GetGroupList() []models.AdminGroupConfig {
 		item.Count = r.GetTotalBoardCount(item.Uid)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -576,6 +612,10 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam)
 			items = append(items, item)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -598,6 +638,10 @@ func (r *NuboAdminRepository) GetMemberList(bunch uint) []models.BoardWriter {
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -619,6 +663,10 @@ func (r *NuboAdminRepository) GetOldCategories(boardUid uint) []models.Pair {
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
@@ -694,16 +742,20 @@ func (r *NuboAdminRepository) GetPostList(param models.AdminLatestParam) []model
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
 	return items
 }
 
 // 게시판 삭제 시 제거 필요한 파일 목록 반환하기
 func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
-	paths := make([]string, 0)
+	items := make([]string, 0)
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_POST)
 	rows, err := r.db.Query(query, boardUid)
 	if err != nil {
-		return paths
+		return items
 	}
 	defer rows.Close()
 
@@ -711,27 +763,30 @@ func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 		var postUid uint
 		err = rows.Scan(&postUid)
 		if err != nil {
-			return paths
+			return items
 		}
 
 		attaches := r.FindPathByUid(models.TABLE_FILE, postUid)
 		thumbs := r.FindThumbPathByPostUid(postUid)
-		paths = append(paths, attaches...)
-		paths = append(paths, thumbs...)
+		items = append(items, attaches...)
+		items = append(items, thumbs...)
+	}
+	if err := rows.Err(); err != nil {
+		return items
 	}
 
 	inserted := r.FindPathByUid(models.TABLE_IMAGE, boardUid)
-	paths = append(paths, inserted...)
-	return paths
+	items = append(items, inserted...)
+	return items
 }
 
 // 게시판 삭제 시 제거 필요한 이미지 목록 반환하기
 func (r *NuboAdminRepository) GetRemoveImagePaths(boardUid uint) []string {
-	paths := make([]string, 0)
+	items := make([]string, 0)
 	query := fmt.Sprintf("SELECT path FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_IMAGE)
 	rows, err := r.db.Query(query, boardUid)
 	if err != nil {
-		return paths
+		return items
 	}
 	defer rows.Close()
 
@@ -739,11 +794,14 @@ func (r *NuboAdminRepository) GetRemoveImagePaths(boardUid uint) []string {
 		var path string
 		err = rows.Scan(&path)
 		if err != nil {
-			return paths
+			return items
 		}
-		paths = append(paths, path)
+		items = append(items, path)
 	}
-	return paths
+	if err := rows.Err(); err != nil {
+		return items
+	}
+	return items
 }
 
 // 대시보드용 각종 통계 데이터 반환
@@ -773,6 +831,9 @@ func (r *NuboAdminRepository) GetStatistic(table models.Table, column models.Sta
 		if err := rows.Scan(&dateStr, &count); err == nil {
 			statsMap[dateStr] = count
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return result
 	}
 
 	now := time.Now()
@@ -852,6 +913,9 @@ func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.
 			return items
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return items
 	}
 	return items
 }
@@ -1044,6 +1108,9 @@ func (r *NuboAdminRepository) RemoveFileRecords(boardUid uint) error {
 		if err := r.RemoveRecordByFileUid(models.TABLE_IMAGE_DESC, fileUid); err != nil {
 			return err
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 
 	query = fmt.Sprintf("DELETE FROM %s%s WHERE board_uid = ?", configs.Env.Prefix, models.TABLE_FILE)

@@ -213,6 +213,9 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 			items = append(items, item)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return items, nil
 }

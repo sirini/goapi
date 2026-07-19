@@ -63,7 +63,12 @@ func ExtractUserUid(tokenString string) int {
 	if len(parts) != 2 || parts[0] != "Bearer" {
 		return models.JWT_NOT_BEARER
 	}
-	token, err := ValidateJWT(parts[1])
+	return ExtractUserUidFrom(parts[1])
+}
+
+// 쿠키로 넘겨받은 (리프레시) 토큰에서 User Uid 추출하기
+func ExtractUserUidFrom(tokenString string) int {
+	token, err := ValidateJWT(tokenString)
 	if err != nil {
 		return models.JWT_INVALID_TOKEN
 	}

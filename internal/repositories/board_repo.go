@@ -123,6 +123,9 @@ func (r *NuboBoardRepository) GetBoardCategories(boardUid uint) []models.Pair {
 		}
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
 	return items
 }
 
@@ -208,6 +211,9 @@ func (r *NuboBoardRepository) GetRecentTags(boardUid uint, limit uint) ([]models
 			return items, err
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -317,6 +323,9 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 		if err == nil {
 			items = append(items, item)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -491,6 +500,9 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 			continue
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return items, nil

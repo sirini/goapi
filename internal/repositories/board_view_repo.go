@@ -85,6 +85,9 @@ func (r *NuboBoardViewRepository) GetAllBoards() []models.BoardItem {
 		rows.Scan(&item.Uid, &item.Name, &item.Info)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
 	return items
 }
 
@@ -107,6 +110,9 @@ func (r *NuboBoardViewRepository) GetAttachments(postUid uint) ([]models.BoardAt
 		}
 		item.Size = utils.GetFileSize(path)
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -165,6 +171,9 @@ func (r *NuboBoardViewRepository) GetAttachedImages(postUid uint) ([]models.Boar
 			Description: desc,
 		}
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -310,6 +319,9 @@ func (r *NuboBoardViewRepository) GetTags(postUid uint) []models.Pair {
 		item.Name = r.GetTagName(item.Uid)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return items
+	}
 	return items
 }
 
@@ -354,6 +366,9 @@ func (r *NuboBoardViewRepository) GetWriterLatestComment(writerUid uint, limit u
 		item.Like = r.board.GetCommentLikeCount(item.PostUid)
 		items = append(items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 
@@ -381,6 +396,9 @@ func (r *NuboBoardViewRepository) GetWriterLatestPost(writerUid uint, limit uint
 		item.Comment = r.board.GetCommentCount(item.PostUid)
 		item.Like = r.board.GetLikeCount(item.PostUid)
 		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -413,11 +431,11 @@ func (r *NuboBoardViewRepository) InsertLikePost(param models.BoardViewLikeParam
 
 // 첨부파일 및 썸네일들 삭제하기
 func (r *NuboBoardViewRepository) RemoveAttachments(postUid uint) []string {
-	var removes []string
+	var items []string
 	query := fmt.Sprintf("SELECT uid, path FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_FILE)
 	rows, err := r.db.Query(query, postUid)
 	if err != nil {
-		return removes
+		return items
 	}
 	defer rows.Close()
 
@@ -426,9 +444,12 @@ func (r *NuboBoardViewRepository) RemoveAttachments(postUid uint) []string {
 		var filePath string
 		rows.Scan(&fileUid, &filePath)
 		attachs := r.RemoveAttachedFile(fileUid, filePath)
-		removes = append(removes, attachs...)
+		items = append(items, attachs...)
 	}
-	return removes
+	if err := rows.Err(); err != nil {
+		return items
+	}
+	return items
 }
 
 // 첨부파일 삭제
@@ -497,6 +518,9 @@ func (r *NuboBoardViewRepository) RemovePostTags(postUid uint) {
 		hashtagUid := 0
 		rows.Scan(&hashtagUid)
 		stmtUpdate.Exec(hashtagUid)
+	}
+	if err := rows.Err(); err != nil {
+		return
 	}
 
 	query = fmt.Sprintf("DELETE FROM %s%s WHERE post_uid = ?", configs.Env.Prefix, models.TABLE_POST_HASHTAG)

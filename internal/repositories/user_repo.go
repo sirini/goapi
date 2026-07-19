@@ -56,12 +56,12 @@ func (r *NuboUserRepository) GetReportResponse(userUid uint) string {
 
 // 사용자가 지정한 블랙 리스트 목록 가져오기
 func (r *NuboUserRepository) GetUserBlackList(userUid uint) []uint {
-	blocks := make([]uint, 0)
+	items := make([]uint, 0)
 	query := fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ?",
 		configs.Env.Prefix, models.TABLE_USER_BLOCK)
 	rows, err := r.db.Query(query, userUid)
 	if err != nil {
-		return blocks
+		return items
 	}
 	defer rows.Close()
 
@@ -69,11 +69,15 @@ func (r *NuboUserRepository) GetUserBlackList(userUid uint) []uint {
 		var block uint
 		err := rows.Scan(&block)
 		if err != nil {
-			return blocks
+			return items
 		}
-		blocks = append(blocks, block)
+		items = append(items, block)
 	}
-	return blocks
+	if err := rows.Err(); err != nil {
+		return items
+	}
+
+	return items
 }
 
 // 사용자의 레벨과 보유 포인트 가져오기

@@ -16,9 +16,9 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Post("/checkemail", h.Auth.CheckEmailHandler)
 	auth.Post("/checkname", h.Auth.CheckNameHandler)
 	auth.Post("/verify", h.Auth.VerifyCodeHandler)
+	auth.Post("/logout", h.Auth.LogoutHandler)
 
 	auth.Get("/load", middlewares.JWTMiddleware(), h.Auth.LoadMyInfoHandler)
-	auth.Post("/logout", middlewares.JWTMiddleware(), h.Auth.LogoutHandler)
 	auth.Patch("/update", middlewares.JWTMiddleware(), h.Auth.UpdateMyInfoHandler)
 
 	// OAuth용 라우터들
