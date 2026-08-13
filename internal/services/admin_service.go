@@ -30,7 +30,7 @@ type AdminService interface {
 	GetGroupList() []models.AdminGroupConfig
 	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
-	GetSearchedReports(param models.AdminReportSearchParam) []models.AdminReportItem
+	GetSearchedReports(param models.AdminReportSearchParam) models.AdminReportListResult
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetSkinSettings() models.SkinSettings
@@ -283,14 +283,14 @@ func (s *NuboAdminService) GetSearchedPosts(param models.AdminLatestParam) []mod
 }
 
 // 검색된 신고 목록 가져오기
-func (s *NuboAdminService) GetSearchedReports(param models.AdminReportSearchParam) []models.AdminReportItem {
+func (s *NuboAdminService) GetSearchedReports(param models.AdminReportSearchParam) models.AdminReportListResult {
 	return s.repos.Admin.GetReportList(param)
 }
 
 // (검색된) 사용자 목록 가져오기
 func (s *NuboAdminService) GetUserList(param models.AdminUserParam) models.AdminUserListResult {
 	item := s.repos.Admin.GetUserList(param)
-	total := s.repos.Admin.GetTotalUserCount()
+	total := s.repos.Admin.GetTotalUserCount(param)
 
 	return models.AdminUserListResult{
 		Item:  item,

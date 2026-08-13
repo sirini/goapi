@@ -397,6 +397,12 @@ func (h *NuboAdminHandler) ReportListSearchHandler(c fiber.Ctx) error {
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
+	if param.Page < 1 {
+		param.Page = 1
+	}
+	if param.Limit < 1 || param.Limit > 100 {
+		param.Limit = 15
+	}
 
 	reports := h.service.Admin.GetSearchedReports(param)
 	return utils.Ok(c, reports)
@@ -457,6 +463,12 @@ func (h *NuboAdminHandler) UserListLoadHandler(c fiber.Ctx) error {
 	param := models.AdminUserParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if param.Page < 1 {
+		param.Page = 1
+	}
+	if param.Limit < 1 || param.Limit > 100 {
+		param.Limit = 15
 	}
 	param.Keyword = utils.Escape(param.Keyword)
 

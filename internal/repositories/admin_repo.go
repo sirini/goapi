@@ -39,10 +39,10 @@ type AdminRepository interface {
 	GetPostList(param models.AdminLatestParam) []models.AdminLatestPost
 	GetRemoveFilePaths(boardUid uint) []string
 	GetRemoveImagePaths(boardUid uint) []string
-	GetReportList(param models.AdminReportSearchParam) []models.AdminReportItem
+	GetReportList(param models.AdminReportSearchParam) models.AdminReportListResult
 	GetStatistic(table models.Table, column models.StatisticColumn, days int) models.AdminDashboardStatistic
 	GetTotalBoardCount(groupUid uint) uint
-	GetTotalUserCount() uint
+	GetTotalUserCount(param models.AdminUserParam) uint
 	GetTotalCount(table models.Table) uint
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetUserList(param models.AdminUserParam) []models.AdminUserItem
@@ -359,7 +359,7 @@ func (r *NuboAdminRepository) GetAdminCandidates(name string, bunch uint) ([]mod
 func (r *NuboAdminRepository) GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error) {
 	items := make([]models.AdminGroupBoardItem, 0)
 	prefix := configs.Env.Prefix
-	query := fmt.Sprintf(`SELECT b.uid, b.id, b.admin_uid, b.type, b.name, b.info,
+	query := fmt.Sprintf(`SELECT b.uid, b.id, b.admin_uid, b.type, b.name, b.info, b.skin_key,
 										u.name, u.profile, u.signature,
 										COALESCE(p.cnt, 0),
 										COALESCE(c.cnt, 0),
@@ -395,7 +395,7 @@ func (r *NuboAdminRepository) GetBoardList(groupUid uint) ([]models.AdminGroupBo
 
 	for rows.Next() {
 		item := models.AdminGroupBoardItem{}
-		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid, &item.Type, &item.Name, &item.Info,
+		err = rows.Scan(&item.Uid, &item.Id, &item.Manager.UserUid, &item.Type, &item.Name, &item.Info, &item.SkinKey,
 			&item.Manager.Name, &item.Manager.Profile, &item.Manager.Signature,
 			&item.Total.Post,
 			&item.Total.Comment,
@@ -555,7 +555,7 @@ func (r *NuboAdminRepository) GetLowestCategoryUid(boardUid uint) uint {
 }
 
 // 신고 목록 가져오기
-func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam) []models.AdminReportItem {
+func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam) models.AdminReportListResult {
 	items := make([]models.AdminReportItem, 0)
 	prefix := configs.Env.Prefix
 	isSolved := 0
@@ -583,26 +583,18 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam)
 
 	whereQuery := strings.Join(whereClauses, " AND ")
 	offset := (param.Page - 1) * param.Limit
+	joins := fmt.Sprintf(` FROM %s%s AS r
+		LEFT JOIN %s%s AS t_user ON r.to_uid = t_user.uid
+		LEFT JOIN %s%s AS f_user ON r.from_uid = f_user.uid`,
+		prefix, models.TABLE_REPORT, prefix, models.TABLE_USER, prefix, models.TABLE_USER)
 	query := fmt.Sprintf(`SELECT r.uid, r.to_uid, r.from_uid, r.request, r.response, r.timestamp, r.solved,
 			t_user.name, t_user.profile, f_user.name, f_user.profile
-		FROM %s%s r
-		JOIN (
-			SELECT uid FROM %s%s WHERE %s ORDER BY uid DESC LIMIT ? OFFSET ?
-		) AS sub ON r.uid = sub.uid
-		LEFT JOIN %s%s AS t_user ON r.to_uid = t_user.uid
-		LEFT JOIN %s%s AS f_user ON r.from_uid = f_user.uid
-		ORDER BY r.uid DESC`,
-		prefix, models.TABLE_REPORT,
-		prefix, models.TABLE_REPORT,
-		whereQuery,
-		prefix, models.TABLE_USER,
-		prefix, models.TABLE_USER,
-	)
+		%s WHERE %s ORDER BY r.uid DESC LIMIT ? OFFSET ?`, joins, whereQuery)
 
 	whereArgs = append(whereArgs, param.Limit, offset)
 	rows, err := r.db.Query(query, whereArgs...)
 	if err != nil {
-		return items
+		return models.AdminReportListResult{Item: items}
 	}
 	defer rows.Close()
 
@@ -617,10 +609,13 @@ func (r *NuboAdminRepository) GetReportList(param models.AdminReportSearchParam)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return items
+		return models.AdminReportListResult{Item: items}
 	}
-
-	return items
+	var total uint
+	countQuery := fmt.Sprintf("SELECT COUNT(*) %s WHERE %s", joins, whereQuery)
+	countArgs := whereArgs[:len(whereArgs)-2]
+	_ = r.db.QueryRow(countQuery, countArgs...).Scan(&total)
+	return models.AdminReportListResult{Item: items, Total: total}
 }
 
 // 대시보드용 회원 목록 가져오기
@@ -862,10 +857,11 @@ func (r *NuboAdminRepository) GetTotalBoardCount(groupUid uint) uint {
 }
 
 // 유효한 총 사용자수 반환
-func (r *NuboAdminRepository) GetTotalUserCount() uint {
+func (r *NuboAdminRepository) GetTotalUserCount(param models.AdminUserParam) uint {
 	var count uint
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE id != ''", configs.Env.Prefix, models.TABLE_USER)
-	r.db.QueryRow(query).Scan(&count)
+	whereQuery, args := userListFilter(param)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s", configs.Env.Prefix, models.TABLE_USER, whereQuery)
+	_ = r.db.QueryRow(query, args...).Scan(&count)
 	return count
 }
 
@@ -881,17 +877,7 @@ func (r *NuboAdminRepository) GetTotalCount(table models.Table) uint {
 func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.AdminUserItem {
 	items := make([]models.AdminUserItem, 0)
 	offset := (param.Page - 1) * param.Limit
-	whereQuery := ""
-	if len(param.Keyword) > 1 {
-		switch param.Option {
-		case models.SEARCH_USER_NAME:
-			whereQuery = "AND name LIKE '%" + param.Keyword + "%'"
-		case models.SEARCH_USER_ID:
-			whereQuery = "AND id LIKE '%" + param.Keyword + "%'"
-		case models.SEARCH_USER_LEVEL:
-			whereQuery = "AND level = " + param.Keyword
-		}
-	}
+	whereQuery, args := userListFilter(param)
 
 	prefix := configs.Env.Prefix
 	table := models.TABLE_USER
@@ -899,12 +885,13 @@ func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.
 												FROM %s%s AS u 
 												JOIN (
 													SELECT uid FROM %s%s 
-													WHERE id != '' %s
+											WHERE %s
 													ORDER BY uid DESC LIMIT ? OFFSET ?
 												) AS sub ON u.uid = sub.uid`,
 		prefix, table, prefix, table, whereQuery,
 	)
-	rows, err := r.db.Query(query, param.Limit, offset)
+	args = append(args, param.Limit, offset)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return items
 	}
@@ -922,6 +909,25 @@ func (r *NuboAdminRepository) GetUserList(param models.AdminUserParam) []models.
 		return items
 	}
 	return items
+}
+
+func userListFilter(param models.AdminUserParam) (string, []any) {
+	clauses := []string{"id != ''", "blocked = ?"}
+	args := []any{param.IsBlocked}
+	if len(param.Keyword) > 0 {
+		switch param.Option {
+		case models.SEARCH_USER_NAME:
+			clauses = append(clauses, "name LIKE ?")
+			args = append(args, "%"+param.Keyword+"%")
+		case models.SEARCH_USER_ID:
+			clauses = append(clauses, "id LIKE ?")
+			args = append(args, "%"+param.Keyword+"%")
+		case models.SEARCH_USER_LEVEL:
+			clauses = append(clauses, "level = ?")
+			args = append(args, param.Keyword)
+		}
+	}
+	return strings.Join(clauses, " AND "), args
 }
 
 // 사용자 정보 반환

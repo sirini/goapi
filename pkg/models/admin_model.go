@@ -157,11 +157,12 @@ type AdminDashboardStatus struct {
 // 그룹 관리화면 게시판 (및 통계) 목록 반환값 정의
 type AdminGroupBoardItem struct {
 	AdminGroupConfig
-	Id    string                `json:"id"`
-	Type  Board                 `json:"type"`
-	Name  string                `json:"name"`
-	Info  string                `json:"info"`
-	Total AdminGroupBoardStatus `json:"total"`
+	Id      string                `json:"id"`
+	Type    Board                 `json:"type"`
+	Name    string                `json:"name"`
+	Info    string                `json:"info"`
+	SkinKey string                `json:"skinKey"`
+	Total   AdminGroupBoardStatus `json:"total"`
 }
 
 // 게시판 별 간단 통계 반환값 정의
@@ -247,6 +248,11 @@ type AdminReportItem struct {
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
 	Solved   bool        `json:"solved"`
+}
+
+type AdminReportListResult struct {
+	Item  []AdminReportItem `json:"item"`
+	Total uint              `json:"total"`
 }
 
 type AdminReportResolveParam struct {
