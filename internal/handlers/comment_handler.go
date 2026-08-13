@@ -53,7 +53,9 @@ func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	param.UserUid = uint(actionUserUid)
 
-	h.service.Comment.Like(param)
+	if err := h.service.Comment.Like(param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }
 

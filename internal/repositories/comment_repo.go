@@ -16,12 +16,34 @@ type CommentRepository interface {
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
+	IsCommentInBoard(commentUid uint, boardUid uint) bool
+	IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool
 	InsertComment(param models.CommentWriteParam) (uint, error)
 	InsertLikeComment(param models.CommentLikeParam)
 	RemoveComment(commentUid uint) error
 	UpdateComment(commentUid uint, content string)
 	UpdateLikeComment(param models.CommentLikeParam)
 	UpdateReplyUid(commentUid uint, replyUid uint)
+}
+
+func (r *NuboCommentRepository) IsCommentInBoard(commentUid uint, boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ? AND board_uid = ?)",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	if err := r.db.QueryRow(query, commentUid, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
+}
+
+func (r *NuboCommentRepository) IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ? AND post_uid = ? AND board_uid = ?)",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	if err := r.db.QueryRow(query, commentUid, postUid, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
 }
 
 type NuboCommentRepository struct {

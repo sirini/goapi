@@ -93,11 +93,12 @@ func (h *NuboEditorHandler) LoadPostHandler(c fiber.Ctx) error {
 
 // 첨부한 이미지 파일의 미리보기를 위한 썸네일 이미지 반환
 func (h *NuboEditorHandler) LoadThumbnailImageHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 	fileUid, err := strconv.ParseUint(c.FormValue("fileUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	thumb, err := h.service.Board.GetThumbnailImage(uint(fileUid))
+	thumb, err := h.service.Board.GetThumbnailImage(uint(fileUid), uint(actionUserUid))
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -153,12 +154,14 @@ func (h *NuboEditorHandler) RemoveAttachedFileHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemoveAttachedFile(models.EditorRemoveAttachedParam{
+	if err := h.service.Board.RemoveAttachedFile(models.EditorRemoveAttachedParam{
 		BoardUid: uint(boardUid),
 		PostUid:  uint(postUid),
 		FileUid:  uint(fileUid),
 		UserUid:  uint(actionUserUid),
-	})
+	}); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }
 

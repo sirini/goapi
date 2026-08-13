@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -35,6 +36,7 @@ type DownloadToken struct {
 
 type NuboBoardHandler struct {
 	service              *services.Service
+	downloadTokenMu      sync.Mutex
 	downloadTokenStorage map[string]DownloadToken
 }
 
@@ -142,11 +144,11 @@ func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	// 일회용 토큰 발급 (5분 동안 접근 가능)
 	token := uuid.New().String()
 	expiry := time.Now().Add(1 * time.Minute)
-	h.downloadTokenStorage[token] = DownloadToken{
+	h.storeDownloadToken(token, DownloadToken{
 		Name:   result.Name,
 		Path:   result.Path,
 		Expiry: expiry,
-	}
+	})
 	result.Path = fmt.Sprintf("/board/transfer?token=%s", token)
 	return utils.Ok(c, result)
 }
@@ -174,7 +176,9 @@ func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
 	param.UserUid = uint(actionUserUid)
-	h.service.Board.LikeThisPost(param)
+	if err := h.service.Board.LikeThisPost(param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }
 
@@ -209,14 +213,16 @@ func (h *NuboBoardHandler) MovePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid post uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.MovePost(models.BoardMovePostParam{
+	if err := h.service.Board.MovePost(models.BoardMovePostParam{
 		BoardViewCommonParam: models.BoardViewCommonParam{
 			BoardUid: uint(boardUid),
 			PostUid:  uint(postUid),
 			UserUid:  uint(actionUserUid),
 		},
 		TargetBoardUid: uint(targetBoardUid),
-	})
+	}); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }
 
@@ -228,32 +234,53 @@ func (h *NuboBoardHandler) RemovePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, "invalid parameters", models.CODE_INVALID_PARAMETER)
 	}
 
-	h.service.Board.RemovePost(uint(param.BoardUid), uint(param.PostUid), uint(actionUserUid))
+	if err := h.service.Board.RemovePost(uint(param.BoardUid), uint(param.PostUid), uint(actionUserUid)); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }
 
 // (내부용) 다운로드용 토큰 정리하기
 func (h *NuboBoardHandler) cleanupOldTokens() {
-	now := time.Now()
+	h.downloadTokenMu.Lock()
+	defer h.downloadTokenMu.Unlock()
+	h.cleanupOldTokensLocked(time.Now())
+}
+
+func (h *NuboBoardHandler) cleanupOldTokensLocked(now time.Time) {
 	for oldToken, tokenData := range h.downloadTokenStorage {
-		if now.After(tokenData.Expiry) {
+		if !now.Before(tokenData.Expiry) {
 			delete(h.downloadTokenStorage, oldToken)
 		}
 	}
 }
 
+func (h *NuboBoardHandler) storeDownloadToken(token string, data DownloadToken) {
+	h.downloadTokenMu.Lock()
+	defer h.downloadTokenMu.Unlock()
+	h.cleanupOldTokensLocked(time.Now())
+	h.downloadTokenStorage[token] = data
+}
+
+func (h *NuboBoardHandler) consumeDownloadToken(token string, now time.Time) (DownloadToken, bool) {
+	h.downloadTokenMu.Lock()
+	defer h.downloadTokenMu.Unlock()
+	h.cleanupOldTokensLocked(now)
+	data, exists := h.downloadTokenStorage[token]
+	if !exists {
+		return DownloadToken{}, false
+	}
+	delete(h.downloadTokenStorage, token)
+	return data, true
+}
+
 // 일회용 토큰 값으로 파일 다운로드 하기
 func (h *NuboBoardHandler) TransferHandler(c fiber.Ctx) error {
-	h.cleanupOldTokens()
-
 	token := c.Query("token")
-	data, exists := h.downloadTokenStorage[token]
+	data, exists := h.consumeDownloadToken(token, time.Now())
 
 	if !exists {
 		return c.Status(fiber.StatusForbidden).SendString("invalid token for downloading a file")
-	}
-	if time.Now().After(data.Expiry) {
-		return c.Status(fiber.StatusForbidden).SendString("already expired token")
 	}
 
 	c.Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")

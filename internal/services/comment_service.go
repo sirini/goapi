@@ -12,7 +12,7 @@ import (
 )
 
 type CommentService interface {
-	Like(param models.CommentLikeParam)
+	Like(param models.CommentLikeParam) error
 	List(param models.CommentListParam) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParam) error
 	Remove(param models.CommentRemoveParam) error
@@ -30,7 +30,10 @@ func NewNuboCommentService(repos *repositories.Repository) *NuboCommentService {
 }
 
 // 댓글에 좋아요 클릭하기
-func (s *NuboCommentService) Like(param models.CommentLikeParam) {
+func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
+	if !s.repos.Comment.IsCommentInBoard(param.CommentUid, param.BoardUid) {
+		return fmt.Errorf("comment does not belong to this board")
+	}
 	if isLiked := s.repos.Comment.IsLikedComment(param.CommentUid, param.UserUid); !isLiked {
 		s.repos.Comment.InsertLikeComment(param)
 
@@ -47,11 +50,15 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) {
 	} else {
 		s.repos.Comment.UpdateLikeComment(param)
 	}
+	return nil
 }
 
 // 댓글 목록 가져오기
 func (s *NuboCommentService) List(param models.CommentListParam) (models.CommentListResult, error) {
 	result := models.CommentListResult{}
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return result, fmt.Errorf("post does not belong to this board")
+	}
 	userLv, _ := s.repos.User.GetUserLevelPoint(param.UserUid)
 	needLv, _ := s.repos.BoardView.GetNeededLevelPoint(param.BoardUid, models.BOARD_ACTION_VIEW)
 	if userLv < needLv {
@@ -82,6 +89,9 @@ func (s *NuboCommentService) List(param models.CommentListParam) (models.Comment
 
 // 기존 댓글 수정하기
 func (s *NuboCommentService) Modify(param models.CommentModifyParam) error {
+	if !s.repos.Comment.IsCommentInPost(param.ModifyTargetUid, param.PostUid, param.BoardUid) {
+		return fmt.Errorf("comment does not belong to this post")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.ModifyTargetUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -93,6 +103,9 @@ func (s *NuboCommentService) Modify(param models.CommentModifyParam) error {
 
 // 댓글 삭제하기
 func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
+	if !s.repos.Comment.IsCommentInBoard(param.RemoveTargetUid, param.BoardUid) {
+		return fmt.Errorf("comment does not belong to this board")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_COMMENT, param.RemoveTargetUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -109,6 +122,9 @@ func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
 
 // 새로운 답글 작성하기
 func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error) {
+	if !s.repos.Comment.IsCommentInPost(param.ReplyTargetUid, param.PostUid, param.BoardUid) {
+		return models.FAILED, fmt.Errorf("reply target does not belong to this post")
+	}
 	insertId, err := s.Write(param.CommentWriteParam)
 	if err != nil {
 		return models.FAILED, err
@@ -119,6 +135,9 @@ func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error)
 
 // 새로운 댓글 작성하기
 func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error) {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return models.FAILED, fmt.Errorf("post does not belong to this board")
+	}
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_COMMENT); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a comment")
 	}

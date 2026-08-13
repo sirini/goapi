@@ -24,15 +24,15 @@ type BoardService interface {
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetSuggestionTitles(input string, bunch uint) []string
-	GetThumbnailImage(fileUid uint) (string, error)
+	GetThumbnailImage(fileUid uint, userUid uint) (string, error)
 	GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error)
-	LikeThisPost(param models.BoardViewLikeParam)
+	LikeThisPost(param models.BoardViewLikeParam) error
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	ModifyPost(param models.EditorModifyParam) error
-	MovePost(param models.BoardMovePostParam)
-	RemoveAttachedFile(param models.EditorRemoveAttachedParam)
+	MovePost(param models.BoardMovePostParam) error
+	RemoveAttachedFile(param models.EditorRemoveAttachedParam) error
 	RemoveInsertedImage(imageUid uint, userUid uint)
-	RemovePost(boardUid uint, postUid uint, userUid uint)
+	RemovePost(boardUid uint, postUid uint, userUid uint) error
 	SaveAttachments(param models.EditorSaveAttachedParam) error
 	SaveTags(boardUid uint, postUid uint, tags []string) error
 	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
@@ -52,6 +52,21 @@ func NewNuboBoardService(repos *repositories.Repository) *NuboBoardService {
 // 다운로드에 필요한 정보 반환
 func (s *NuboBoardService) Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error) {
 	var result models.BoardViewDownloadResult
+	if !s.repos.BoardView.IsFileInBoard(fileUid, boardUid) {
+		return result, fmt.Errorf("file does not belong to this board")
+	}
+	postUid := s.repos.BoardView.GetFilePostUid(fileUid, boardUid)
+	status := s.repos.Comment.GetPostStatus(postUid)
+	if postUid < 1 || status == models.CONTENT_REMOVED {
+		return result, fmt.Errorf("file is not available")
+	}
+	if status == models.CONTENT_SECRET {
+		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+		isWriter := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+		if !isAdmin && !isWriter {
+			return result, fmt.Errorf("you have no permission to download this file")
+		}
+	}
 	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
 	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_DOWNLOAD)
 	if userLv < needLv {
@@ -71,7 +86,7 @@ func (s *NuboBoardService) Download(boardUid uint, fileUid uint, userUid uint) (
 	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
 		UserUid:  userUid,
 		BoardUid: boardUid,
-		Action:   models.POINT_ACTION_VIEW,
+		Action:   models.POINT_ACTION_DOWNLOAD,
 		Point:    needPt,
 	})
 	return result, nil
@@ -198,13 +213,26 @@ func (s *NuboBoardService) GetSuggestionTags(input string, bunch uint) []models.
 }
 
 // 글 수정 화면에서 기존에 첨부한 이미지의 썸네일 가져오기
-func (s *NuboBoardService) GetThumbnailImage(fileUid uint) (string, error) {
+
+func (s *NuboBoardService) GetThumbnailImage(fileUid uint, userUid uint) (string, error) {
+	boardUid, postUid := s.repos.BoardView.GetFileOwnership(fileUid)
+	if boardUid < 1 || postUid < 1 {
+		return "", fmt.Errorf("file not found")
+	}
+	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+	isWriter := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+	if !isAdmin && !isWriter {
+		return "", fmt.Errorf("you have no permission to preview this file")
+	}
 	return s.repos.BoardEdit.FindAttachedThumbnailImageByUid(fileUid)
 }
 
 // 게시글 가져오기
 func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error) {
 	result := models.BoardViewResult{}
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return result, fmt.Errorf("post does not belong to this board")
+	}
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(param.PostUid, param.UserUid); isBanned {
 		return result, fmt.Errorf("you have been blocked by writer")
 	}
@@ -281,17 +309,24 @@ func (s *NuboBoardService) IsBannedByWriter(postUid uint, viewerUid uint) bool {
 }
 
 // 게시글에 좋아요 클릭
-func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) {
+func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return fmt.Errorf("post does not belong to this board")
+	}
 	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
 		s.repos.BoardView.UpdateLikePost(param)
 	} else {
 		s.repos.BoardView.InsertLikePost(param)
 	}
+	return nil
 }
 
 // 게시글 수정 시 기존 정보들 가져오기
 func (s *NuboBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error) {
 	result := models.EditorLoadPostResult{}
+	if !s.repos.BoardView.IsPostInBoard(postUid, boardUid) {
+		return result, fmt.Errorf("post does not belong to this board")
+	}
 	post, err := s.repos.BoardView.GetPostItem(postUid, userUid)
 	if err != nil {
 		return result, err
@@ -315,16 +350,31 @@ func (s *NuboBoardService) LoadPost(boardUid uint, postUid uint, userUid uint) (
 }
 
 // 게시글 이동하기
-func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) {
+func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) error {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return fmt.Errorf("post does not belong to this board")
+	}
+	if param.TargetBoardUid == param.BoardUid {
+		return nil
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	if !isAdmin {
-		return
+		return fmt.Errorf("unauthorized access")
 	}
-	s.repos.BoardView.UpdatePostBoardUid(param.TargetBoardUid, param.PostUid)
+	if !s.repos.BoardView.BoardExists(param.TargetBoardUid) {
+		return fmt.Errorf("target board does not exist")
+	}
+	if !s.repos.Auth.CheckPermissionByUid(param.UserUid, param.TargetBoardUid) {
+		return fmt.Errorf("you have no permission to move posts into the target board")
+	}
+	return s.repos.BoardView.MovePost(param.TargetBoardUid, param.PostUid)
 }
 
 // 게시글 수정하기
 func (s *NuboBoardService) ModifyPost(param models.EditorModifyParam) error {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return fmt.Errorf("post does not belong to this board")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
 	if !isAdmin && !isAuthor {
@@ -360,22 +410,26 @@ func (s *NuboBoardService) ModifyPost(param models.EditorModifyParam) error {
 }
 
 // 게시글 수정 시 첨부했던 파일 삭제하기
-func (s *NuboBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParam) {
+func (s *NuboBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedParam) error {
+	if !s.repos.BoardView.IsFileInPost(param.FileUid, param.PostUid, param.BoardUid) {
+		return fmt.Errorf("file does not belong to this post")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
 	if !isAdmin && !isAuthor {
-		return
+		return fmt.Errorf("you have no permission to remove this file")
 	}
 
 	filePath, err := s.repos.BoardEdit.FindAttachedPathByUid(param.FileUid)
 	if err != nil {
-		return
+		return err
 	}
 	removes := s.repos.BoardView.RemoveAttachedFile(param.FileUid, filePath)
 
 	for _, target := range removes {
 		os.Remove("." + target)
 	}
+	return nil
 }
 
 // 게시글에 삽입한 이미지 삭제하기
@@ -390,14 +444,19 @@ func (s *NuboBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
 }
 
 // 게시글 삭제하기
-func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint) {
+func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint) error {
+	if !s.repos.BoardView.IsPostInBoard(postUid, boardUid) {
+		return fmt.Errorf("post does not belong to this board")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
 	if !isAdmin && !isAuthor {
-		return
+		return fmt.Errorf("you have no permission to remove this post")
 	}
 
-	s.repos.BoardView.RemovePost(postUid)
+	if err := s.repos.BoardView.RemovePost(postUid); err != nil {
+		return err
+	}
 	s.repos.BoardView.RemoveComments(postUid)
 	s.repos.BoardView.RemovePostTags(postUid)
 	removes := s.repos.BoardView.RemoveAttachments(postUid)
@@ -405,6 +464,7 @@ func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint)
 	for _, path := range removes {
 		_ = os.Remove("." + path)
 	}
+	return nil
 }
 
 // 첨부파일들을 저장하기

@@ -31,6 +31,12 @@ type BoardViewRepository interface {
 	GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error)
 	InsertLikePost(param models.BoardViewLikeParam)
 	IsLikedPost(postUid uint, actionUserUid uint) bool
+	IsFileInBoard(fileUid uint, boardUid uint) bool
+	IsFileInPost(fileUid uint, postUid uint, boardUid uint) bool
+	IsPostInBoard(postUid uint, boardUid uint) bool
+	GetFilePostUid(fileUid uint, boardUid uint) uint
+	GetFileOwnership(fileUid uint) (uint, uint)
+	BoardExists(boardUid uint) bool
 	IsWriter(table models.Table, targetUid uint, userUid uint) bool
 	RemoveAttachments(postUid uint) []string
 	RemoveAttachedFile(fileUid uint, filePath string) []string
@@ -42,7 +48,62 @@ type BoardViewRepository interface {
 	RemoveThumbnails(fileUid uint) []string
 	UpdateLikePost(param models.BoardViewLikeParam)
 	UpdatePostHit(postUid uint)
-	UpdatePostBoardUid(targetBoardUid uint, postUid uint)
+	MovePost(targetBoardUid uint, postUid uint) error
+}
+
+func (r *NuboBoardViewRepository) BoardExists(boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ?)", configs.Env.Prefix, models.TABLE_BOARD)
+	if err := r.db.QueryRow(query, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
+}
+
+func (r *NuboBoardViewRepository) GetFilePostUid(fileUid uint, boardUid uint) uint {
+	var postUid uint
+	query := fmt.Sprintf("SELECT post_uid FROM %s%s WHERE uid = ? AND board_uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_FILE)
+	r.db.QueryRow(query, fileUid, boardUid).Scan(&postUid)
+	return postUid
+}
+
+func (r *NuboBoardViewRepository) GetFileOwnership(fileUid uint) (uint, uint) {
+	var boardUid, postUid uint
+	query := fmt.Sprintf("SELECT board_uid, post_uid FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_FILE)
+	r.db.QueryRow(query, fileUid).Scan(&boardUid, &postUid)
+	return boardUid, postUid
+}
+
+func (r *NuboBoardViewRepository) IsPostInBoard(postUid uint, boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ? AND board_uid = ?)",
+		configs.Env.Prefix, models.TABLE_POST)
+	if err := r.db.QueryRow(query, postUid, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
+}
+
+func (r *NuboBoardViewRepository) IsFileInBoard(fileUid uint, boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ? AND board_uid = ?)",
+		configs.Env.Prefix, models.TABLE_FILE)
+	if err := r.db.QueryRow(query, fileUid, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
+}
+
+func (r *NuboBoardViewRepository) IsFileInPost(fileUid uint, postUid uint, boardUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ? AND post_uid = ? AND board_uid = ?)",
+		configs.Env.Prefix, models.TABLE_FILE)
+	if err := r.db.QueryRow(query, fileUid, postUid, boardUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
 }
 
 type NuboBoardViewRepository struct {
@@ -557,10 +618,39 @@ func (r *NuboBoardViewRepository) UpdatePostHit(postUid uint) {
 	r.db.Exec(query, postUid)
 }
 
-// 게시글의 소속 게시판 변경하기
-func (r *NuboBoardViewRepository) UpdatePostBoardUid(targetBoardUid uint, postUid uint) {
-	query := fmt.Sprintf("UPDATE %s%s SET board_uid = ?, modified = ? WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_POST)
+// 게시글과 종속 레코드의 소속 게시판을 하나의 트랜잭션에서 변경한다.
+func (r *NuboBoardViewRepository) MovePost(targetBoardUid uint, postUid uint) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-	r.db.Exec(query, targetBoardUid, time.Now().UnixMilli(), postUid)
+	var targetCategoryUid uint
+	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE board_uid = ? ORDER BY uid LIMIT 1 FOR UPDATE",
+		configs.Env.Prefix, models.TABLE_BOARD_CAT)
+	if err := tx.QueryRow(query, targetBoardUid).Scan(&targetCategoryUid); err != nil {
+		return fmt.Errorf("target board has no category: %w", err)
+	}
+
+	tables := []models.Table{models.TABLE_FILE, models.TABLE_COMMENT, models.TABLE_POST_HASHTAG, models.TABLE_POST_LIKE}
+	for _, table := range tables {
+		query := fmt.Sprintf("UPDATE %s%s SET board_uid = ? WHERE post_uid = ?", configs.Env.Prefix, table)
+		if _, err := tx.Exec(query, targetBoardUid, postUid); err != nil {
+			return err
+		}
+	}
+	query = fmt.Sprintf(`UPDATE %s%s AS cl
+		JOIN %s%s AS c ON c.uid = cl.comment_uid
+		SET cl.board_uid = ? WHERE c.post_uid = ?`,
+		configs.Env.Prefix, models.TABLE_COMMENT_LIKE, configs.Env.Prefix, models.TABLE_COMMENT)
+	if _, err := tx.Exec(query, targetBoardUid, postUid); err != nil {
+		return err
+	}
+	query = fmt.Sprintf("UPDATE %s%s SET board_uid = ?, category_uid = ?, modified = ? WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_POST)
+	if _, err := tx.Exec(query, targetBoardUid, targetCategoryUid, time.Now().UnixMilli(), postUid); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
