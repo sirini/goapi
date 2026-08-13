@@ -38,6 +38,35 @@ type AdminHandler interface {
 	UserInfoLoadHandler(c fiber.Ctx) error
 	UserInfoModifyHandler(c fiber.Ctx) error
 	UserListLoadHandler(c fiber.Ctx) error
+	SkinSettingsLoadHandler(c fiber.Ctx) error
+	SkinSettingModifyHandler(c fiber.Ctx) error
+	ReportResolveHandler(c fiber.Ctx) error
+}
+
+func (h *NuboAdminHandler) SkinSettingsLoadHandler(c fiber.Ctx) error {
+	return utils.Ok(c, h.service.Admin.GetSkinSettings())
+}
+
+func (h *NuboAdminHandler) SkinSettingModifyHandler(c fiber.Ctx) error {
+	param := models.AdminSkinSettingParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.Admin.SetSkinSetting(param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, nil)
+}
+
+func (h *NuboAdminHandler) ReportResolveHandler(c fiber.Ctx) error {
+	param := models.AdminReportResolveParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.Admin.ResolveReport(param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
 }
 
 type NuboAdminHandler struct {

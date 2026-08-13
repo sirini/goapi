@@ -70,6 +70,14 @@ type AdminBoardCreateParam struct {
 	Type          Board  `json:"type"`
 	UseCategory   bool   `json:"useCategory"`
 	Width         uint   `json:"width"`
+	SkinKey       string `json:"skinKey"`
+}
+
+type SkinSettings map[string]string
+
+type AdminSkinSettingParam struct {
+	Type    string `json:"type"`
+	SkinKey string `json:"skinKey"`
 }
 
 // 게시판 수정에 필요한 파라미터 정의
@@ -239,6 +247,11 @@ type AdminReportItem struct {
 	Response string      `json:"response"`
 	Date     uint64      `json:"date"`
 	Solved   bool        `json:"solved"`
+}
+
+type AdminReportResolveParam struct {
+	ReportUid uint   `json:"reportUid"`
+	Response  string `json:"response"`
 }
 
 // 새 사용자 계정 추가시 필요한 파라미터 정의

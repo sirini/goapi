@@ -33,6 +33,9 @@ type AdminService interface {
 	GetSearchedReports(param models.AdminReportSearchParam) []models.AdminReportItem
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
+	GetSkinSettings() models.SkinSettings
+	SetSkinSetting(param models.AdminSkinSettingParam) error
+	ResolveReport(param models.AdminReportResolveParam) error
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
 	ModifyUserAccount(param models.AdminUserModifyParam) error
 	RemoveBoardCategory(boardUid uint, catUid uint) error
@@ -51,6 +54,30 @@ type NuboAdminService struct {
 // 리포지토리 묶음 주입받기
 func NewNuboAdminService(repos *repositories.Repository, userService *NuboUserService) *NuboAdminService {
 	return &NuboAdminService{repos: repos, userService: userService}
+}
+
+func (s *NuboAdminService) GetSkinSettings() models.SkinSettings {
+	return s.repos.Admin.GetSkinSettings()
+}
+
+func (s *NuboAdminService) SetSkinSetting(param models.AdminSkinSettingParam) error {
+	validType := map[string]bool{"layout": true, "home": true, "admin": true, "login": true, "profile": true, "privacy": true, "error": true}
+	if !validType[param.Type] || len(param.SkinKey) < 3 || len(param.SkinKey) > 80 {
+		return fmt.Errorf("invalid skin setting")
+	}
+	for _, char := range param.SkinKey {
+		if !(char == '-' || char == '_' || char >= 'a' && char <= 'z' || char >= '0' && char <= '9') {
+			return fmt.Errorf("invalid skin key")
+		}
+	}
+	return s.repos.Admin.SetSkinSetting(param)
+}
+
+func (s *NuboAdminService) ResolveReport(param models.AdminReportResolveParam) error {
+	if param.ReportUid < 1 || len(strings.TrimSpace(param.Response)) < 2 {
+		return fmt.Errorf("invalid report resolution")
+	}
+	return s.repos.Admin.ResolveReport(param)
 }
 
 // 카테고리 추가하기

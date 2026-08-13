@@ -25,6 +25,13 @@ func main() {
 	configs.LoadConfig()
 	db := models.Connect(&configs.Env)
 	defer db.Close()
+	if len(os.Args) > 1 && os.Args[1] == "install" {
+		if err := configs.InstallSchema(db, configs.Env.Prefix); err != nil {
+			log.Fatalf("Failed to install database updates: %v", err)
+		}
+		log.Println("✅ Database updates installed")
+		return
+	}
 
 	if len(os.Args) > 1 && os.Args[1] == "update" {
 		configs.Update(db, configs.Env.Prefix)

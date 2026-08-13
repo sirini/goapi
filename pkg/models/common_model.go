@@ -31,6 +31,7 @@ const (
 	TABLE_POST_HASHTAG  Table = "post_hashtag"
 	TABLE_POST_LIKE     Table = "post_like"
 	TABLE_REPORT        Table = "report"
+	TABLE_SKIN_SETTING  Table = "skin_setting"
 	TABLE_TRADE         Table = "trade"
 	TABLE_USER          Table = "user"
 	TABLE_USER_ACCESS   Table = "user_access_log"

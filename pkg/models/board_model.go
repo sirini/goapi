@@ -183,6 +183,7 @@ type BoardConfig struct {
 	Category    []Pair           `json:"category"`
 	Level       BoardActionLevel `json:"level"`
 	Point       BoardActionPoint `json:"point"`
+	SkinKey     string           `json:"skinKey"`
 }
 
 // 게시글 가져오기 시 필요한 파라미터 정의

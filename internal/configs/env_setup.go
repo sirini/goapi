@@ -116,6 +116,22 @@ func Update(db *sql.DB, prefix string) {
 	fmt.Println("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯")
 }
 
+// InstallSchema adds tables and columns introduced after the initial installation.
+// It is safe to run repeatedly with `goapi install`.
+func InstallSchema(db *sql.DB, prefix string) error {
+	createSkinSettingTable(db, prefix)
+	var count uint
+	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'skin_key'`, prefix+"board").Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %sboard ADD COLUMN skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board' AFTER type", prefix))
+	}
+	return err
+}
+
 // .env 파일이 존재하는지 확인하기
 func isAlreadyInstalled() bool {
 	info, err := os.Stat(".env")
@@ -410,6 +426,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createChatTable(db, dbInfo.Prefix)
 	createGroupTable(db, dbInfo.Prefix)
 	createBoardTable(db, dbInfo.Prefix)
+	createSkinSettingTable(db, dbInfo.Prefix)
 	createBoardCategoryTable(db, dbInfo.Prefix)
 	createPointHistoryTable(db, dbInfo.Prefix)
 	createPostTable(db, dbInfo.Prefix)
@@ -571,6 +588,7 @@ func createBoardTable(db *sql.DB, prefix string) {
   group_uid INT UNSIGNED NOT NULL DEFAULT 0,
   admin_uid INT UNSIGNED NOT NULL DEFAULT 0,
   type TINYINT NOT NULL DEFAULT 0,
+  skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board',
   name VARCHAR(20) NOT NULL DEFAULT '',
   info VARCHAR(100) NOT NULL DEFAULT '',
   row_count TINYINT UNSIGNED NOT NULL DEFAULT '20',
@@ -593,6 +611,20 @@ func createBoardTable(db *sql.DB, prefix string) {
 }
 
 // board_category 테이블 생성
+func createSkinSettingTable(db *sql.DB, prefix string) {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sskin_setting (
+  type VARCHAR(20) NOT NULL,
+  skin_key VARCHAR(80) NOT NULL,
+  updated_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	db.Exec(query)
+	defaults := map[string]string{"layout": "nubo-basic-layout", "home": "nubo-basic-home", "admin": "nubo-basic-admin", "login": "nubo-basic-login", "profile": "nubo-basic-profile", "privacy": "nubo-basic-privacy", "error": "nubo-basic-error"}
+	for skinType, key := range defaults {
+		db.Exec(fmt.Sprintf("INSERT IGNORE INTO %sskin_setting (type, skin_key, updated_at) VALUES (?, ?, ?)", prefix), skinType, key, time.Now().Unix())
+	}
+}
+
 func createBoardCategoryTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sboard_category (
   uid INT UNSIGNED NOT NULL auto_increment,

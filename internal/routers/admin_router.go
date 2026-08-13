@@ -8,6 +8,7 @@ import (
 
 // 관리화면과 상호작용에 필요한 라우터들 등록
 func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
+	api.Get("/skin/settings", h.Admin.SkinSettingsLoadHandler)
 	admin := api.Group("/admin", middlewares.AdminMiddleware())
 	board := admin.Group("/board", middlewares.AdminMiddleware())
 	dashboard := admin.Group("/dashboard", middlewares.AdminMiddleware())
@@ -15,6 +16,8 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	latest := admin.Group("/latest", middlewares.AdminMiddleware())
 	report := admin.Group("/report", middlewares.AdminMiddleware())
 	user := admin.Group("/user", middlewares.AdminMiddleware())
+	skin := admin.Group("/skin", middlewares.AdminMiddleware())
+	skin.Put("/setting", h.Admin.SkinSettingModifyHandler)
 
 	board.Get("/load", h.Admin.BoardGeneralLoadHandler)
 	board.Post("/create", h.Admin.CreateBoardHandler)
@@ -34,6 +37,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	group.Post("/create", h.Admin.CreateGroupHandler)
 	group.Delete("/remove", h.Admin.RemoveGroupHandler)
 	group.Post("/update", h.Admin.ChangeGroupIdHandler)
+	group.Post("/admin", h.Admin.ChangeGroupAdminHandler)
 
 	latest.Delete("/comment", h.Admin.RemoveCommentHandler)
 	latest.Delete("/post", h.Admin.RemovePostHandler)
@@ -41,6 +45,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	latest.Get("/posts", h.Admin.LatestPostSearchHandler)
 
 	report.Get("/reports", h.Admin.ReportListSearchHandler)
+	report.Put("/resolve", h.Admin.ReportResolveHandler)
 
 	user.Post("/create", h.Admin.CreateUserHandler)
 	user.Get("/list", h.Admin.UserListLoadHandler)

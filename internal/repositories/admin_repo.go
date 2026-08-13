@@ -46,6 +46,9 @@ type AdminRepository interface {
 	GetTotalCount(table models.Table) uint
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetUserList(param models.AdminUserParam) []models.AdminUserItem
+	GetSkinSettings() models.SkinSettings
+	SetSkinSetting(param models.AdminSkinSettingParam) error
+	ResolveReport(param models.AdminReportResolveParam) error
 	InsertCategory(boardUid uint, name string) uint
 	IsAdded(table models.Table, boardId string) bool
 	IsAddedCategory(boardUid uint, name string) bool
@@ -88,17 +91,18 @@ func (r *NuboAdminRepository) CheckCategoryInBoard(boardUid uint, catUid uint) b
 // 새 게시판 만들기
 func (r *NuboAdminRepository) CreateBoard(param models.AdminBoardCreateParam) uint {
 	query := fmt.Sprintf(`INSERT INTO %s%s 
-												(id, group_uid, admin_uid, type, name, info,
+												(id, group_uid, admin_uid, type, skin_key, name, info,
 													row_count, width, use_category, level_list, level_view, level_write,
 													level_comment, level_download, point_view, point_write, point_comment, point_download) 
-													VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+													VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		configs.Env.Prefix, models.TABLE_BOARD)
 	result, err := r.db.Exec(
 		query,
 		param.Id,
 		param.GroupUid,
-		models.CREATE_GROUP_ADMIN,
+		param.AdminUid,
 		param.Type,
+		param.SkinKey,
 		param.Name,
 		param.Info,
 		param.RowCount,
@@ -972,6 +976,7 @@ func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) er
 			group_uid = ?,
 			admin_uid = ?,
 			type = ?,
+			skin_key = ?,
 			name = ?,
 			info = ?,
 			row_count = ?,
@@ -992,6 +997,7 @@ func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) er
 		param.GroupUid,
 		param.AdminUid,
 		param.Type,
+		param.SkinKey,
 		param.Name,
 		param.Info,
 		param.RowCount,
@@ -1009,6 +1015,40 @@ func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) er
 		param.BoardUid,
 	)
 	return err
+}
+
+func (r *NuboAdminRepository) GetSkinSettings() models.SkinSettings {
+	result := models.SkinSettings{}
+	rows, err := r.db.Query(fmt.Sprintf("SELECT type, skin_key FROM %s%s", configs.Env.Prefix, models.TABLE_SKIN_SETTING))
+	if err != nil {
+		return result
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var skinType, key string
+		if rows.Scan(&skinType, &key) == nil {
+			result[skinType] = key
+		}
+	}
+	return result
+}
+
+func (r *NuboAdminRepository) SetSkinSetting(param models.AdminSkinSettingParam) error {
+	_, err := r.db.Exec(fmt.Sprintf(`INSERT INTO %s%s (type, skin_key, updated_at) VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE skin_key = VALUES(skin_key), updated_at = VALUES(updated_at)`, configs.Env.Prefix, models.TABLE_SKIN_SETTING), param.Type, param.SkinKey, time.Now().Unix())
+	return err
+}
+
+func (r *NuboAdminRepository) ResolveReport(param models.AdminReportResolveParam) error {
+	result, err := r.db.Exec(fmt.Sprintf("UPDATE %s%s SET response = ?, solved = 1 WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_REPORT), param.Response, param.ReportUid)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 {
+		return fmt.Errorf("report not found")
+	}
+	return nil
 }
 
 // 사용자 정보 수정하기
