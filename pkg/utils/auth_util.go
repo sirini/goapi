@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
 	"golang.org/x/oauth2"
@@ -50,6 +51,7 @@ func GenerateRefreshToken(userUid uint, days int) (string, error) {
 	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"uid": userUid,
 		"exp": time.Now().AddDate(0, 0, days).Unix(),
+		"jti": uuid.NewString(),
 	})
 	return refresh.SignedString([]byte(configs.Env.JWTSecretKey))
 }

@@ -188,14 +188,14 @@ func (r *NuboUserRepository) IsNameDuplicated(name string, userUid uint) bool {
 
 // 로그인이 차단되었는지 확인
 func (r *NuboUserRepository) IsBlocked(userUid uint) bool {
-	var exists bool
-	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ?)",
+	var blocked bool
+	query := fmt.Sprintf("SELECT blocked FROM %s%s WHERE uid = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER)
-	err := r.db.QueryRow(query, userUid).Scan(&exists)
+	err := r.db.QueryRow(query, userUid).Scan(&blocked)
 	if err != nil {
 		return false
 	}
-	return exists
+	return blocked
 }
 
 // 상대방에게 차단되었는지 확인

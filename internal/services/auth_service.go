@@ -26,7 +26,26 @@ type AuthService interface {
 	Signin(id string, pw string) models.MyInfoResult
 	Signup(param models.SignupParam) (models.SignupResult, error)
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
+	RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error)
 	VerifyEmail(param models.VerifyParam) bool
+}
+
+func (s *NuboAuthService) RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error) {
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
+	authToken, err := utils.GenerateAccessToken(userUid, accessHours)
+	if err != nil {
+		return "", err
+	}
+	refreshToken, err := utils.GenerateRefreshToken(userUid, refreshDays)
+	if err != nil {
+		return "", err
+	}
+	if !s.repos.Auth.RotateRefreshToken(userUid, oldRefreshToken, refreshToken) {
+		return "", fmt.Errorf("refresh token is no longer valid")
+	}
+	utils.SaveCookie(c, models.AUTH_TOKEN, authToken, accessHours)
+	utils.SaveCookie(c, models.REFRESH_TOKEN, refreshToken, refreshDays*24)
+	return authToken, nil
 }
 
 type NuboAuthService struct {
@@ -90,6 +109,9 @@ func (s *NuboAuthService) ResetPassword(param models.ResetPasswordParam) bool {
 
 	code := uuid.New().String()[:6]
 	verifyUid := s.repos.Auth.SaveVerificationCode(param.Email, code)
+	if verifyUid < 1 {
+		return false
+	}
 	body := strings.ReplaceAll(param.Template, "{{Code}}", code)
 	body = strings.ReplaceAll(body, "{{UserUid}}", strconv.Itoa(int(verifyUid)))
 	subject := fmt.Sprintf("[%s] Reset your password", param.Hostname)
@@ -97,6 +119,7 @@ func (s *NuboAuthService) ResetPassword(param models.ResetPasswordParam) bool {
 	isSent := utils.SendMail(param.Email, from, subject, body)
 
 	if !isSent {
+		s.repos.Auth.DeleteVerificationCode(verifyUid)
 		chatTemplate := "Request to reset password from {{Id}} ({{Uid}})"
 		message := strings.ReplaceAll(chatTemplate, "{{Id}}", param.Email)
 		message = strings.ReplaceAll(message, "{{Uid}}", strconv.Itoa(int(userUid)))
@@ -149,17 +172,18 @@ func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult,
 	}
 
 	code := uuid.New().String()[:6]
+	target = s.repos.Auth.SaveVerificationCode(param.ID, code)
+	if target < 1 {
+		return signupResult, fmt.Errorf("failed to save verification code")
+	}
 	body := strings.ReplaceAll(param.Template, "{{Code}}", code)
 	from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
 	subject := fmt.Sprintf("[%s] Verification code: %s", param.Hostname, code)
 	isSent := utils.SendMail(param.ID, from, subject, body)
 
-	// 메일 발송이 안되면 그냥 사용자 바로 추가 처리
 	if !isSent {
-		target = s.repos.User.InsertNewUser(param.ID, param.Password, name)
-		if target < 1 {
-			return signupResult, fmt.Errorf("failed to add a new user")
-		}
+		s.repos.Auth.DeleteVerificationCode(target)
+		return signupResult, fmt.Errorf("failed to send verification email")
 	}
 
 	signupResult = models.SignupResult{
@@ -183,15 +207,15 @@ func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string,
 
 	utils.SaveCookie(c, models.AUTH_TOKEN, authToken, accessHours)
 	utils.SaveCookie(c, models.REFRESH_TOKEN, refreshToken, refreshDays*24)
+	s.repos.Auth.SaveRefreshToken(userUid, refreshToken)
 	return authToken, refreshToken, nil
 }
 
 // 이메일 인증 완료하기
 func (s *NuboAuthService) VerifyEmail(param models.VerifyParam) bool {
-	result := s.repos.Auth.CheckVerificationCode(param)
-	if result {
-		s.repos.User.InsertNewUser(param.ID, param.Password, utils.Escape(param.Name))
-		return true
+	_, ok := s.repos.Auth.ConsumeVerificationCode(param.Target, param.Code, param.ID)
+	if !ok {
+		return false
 	}
-	return false
+	return s.repos.User.InsertNewUser(param.ID, param.Password, utils.Escape(param.Name)) > 0
 }

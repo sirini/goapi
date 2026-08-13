@@ -14,9 +14,8 @@ type AuthRepository interface {
 	CheckPermissionByUid(userUid uint, boardUid uint) bool
 	CheckPermissionForAction(userUid uint, action models.UserAction) bool
 	CheckRefreshToken(userUid uint, refreshToken string) bool
-	CheckVerificationCode(param models.VerifyParam) bool
+	ConsumeVerificationCode(verifyUid uint, code string, expectedEmail string) (string, bool)
 	ClearRefreshToken(userUid uint)
-	FindIDCodeByVerifyUid(verifyUid uint) (string, string)
 	FindMyInfoByIDPW(id string, pw string) models.MyInfoResult
 	FindMyInfoByUid(userUid uint) models.MyInfoResult
 	FindUserInfoByUid(userUid uint) (models.UserInfoResult, error)
@@ -26,12 +25,16 @@ type AuthRepository interface {
 	InsertRefreshToken(userUid uint, token string)
 	InsertVerificationCode(id string, code string) uint
 	SaveRefreshToken(userUid uint, refreshToken string)
+	RotateRefreshToken(userUid uint, oldRefreshToken string, newRefreshToken string) bool
 	SaveVerificationCode(id string, code string) uint
+	DeleteVerificationCode(verifyUid uint)
 	UpdateRefreshToken(userUid uint, token string)
 	UpdateUserPasswordHash(userUid uint, newBcryptHash string)
 	UpdateUserSignin(userUid uint)
 	UpdateVerificationCode(id string, code string, uid uint)
 }
+
+const verificationCodeLifetime = 10 * time.Minute
 
 type NuboAuthRepository struct {
 	db *sql.DB
@@ -86,29 +89,40 @@ func (r *NuboAuthRepository) CheckRefreshToken(userUid uint, refreshToken string
 	return validTerm > now
 }
 
-// 인증 코드가 유효한지 확인
-func (r *NuboAuthRepository) CheckVerificationCode(param models.VerifyParam) bool {
-	var code string
-	var timestamp uint64
+// 인증 코드를 만료 시간 안에 한 번만 소비한다.
+func (r *NuboAuthRepository) ConsumeVerificationCode(verifyUid uint, code string, expectedEmail string) (string, bool) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return "", false
+	}
+	defer tx.Rollback()
 
-	query := fmt.Sprintf("SELECT code, timestamp FROM %s%s WHERE uid = ? LIMIT 1",
+	var email, storedCode string
+	var timestamp int64
+	query := fmt.Sprintf("SELECT email, code, timestamp FROM %s%s WHERE uid = ? LIMIT 1 FOR UPDATE",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-
-	err := r.db.QueryRow(query, param.Target).Scan(&code, &timestamp)
-	if err == sql.ErrNoRows {
-		return false
+	if err := tx.QueryRow(query, verifyUid).Scan(&email, &storedCode, &timestamp); err != nil {
+		return "", false
+	}
+	if storedCode != code || (expectedEmail != "" && email != expectedEmail) || !verificationCodeValid(timestamp, time.Now()) {
+		return "", false
 	}
 
-	now := uint64(time.Now().UnixMilli())
-	gap := uint64(1000 * 60 * 10)
-	if now > timestamp+gap {
-		return false
+	query = fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	result, err := tx.Exec(query, verifyUid)
+	if err != nil {
+		return "", false
 	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 || tx.Commit() != nil {
+		return "", false
+	}
+	return email, true
+}
 
-	if code == param.Code {
-		return true
-	}
-	return false
+func verificationCodeValid(timestamp int64, now time.Time) bool {
+	createdAt := time.UnixMilli(timestamp)
+	return !createdAt.After(now) && now.Sub(createdAt) <= verificationCodeLifetime
 }
 
 // 로그아웃 시 리프레시 토큰 비우기
@@ -171,16 +185,6 @@ func (r *NuboAuthRepository) FindMyInfoByUid(userUid uint) models.MyInfoResult {
 	return info
 }
 
-// 인증용 고유번호로 아이디와 코드 가져오기
-func (r *NuboAuthRepository) FindIDCodeByVerifyUid(verifyUid uint) (string, string) {
-	var id, code string
-	query := fmt.Sprintf("SELECT email, code FROM %s%s WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_USER_VERIFY)
-
-	r.db.QueryRow(query, verifyUid).Scan(&id, &code)
-	return id, code
-}
-
 // 아이디에 해당하는 고유번호 반환
 func (r *NuboAuthRepository) FindUserUidById(id string) uint {
 	var userUid uint
@@ -229,7 +233,10 @@ func (r *NuboAuthRepository) InsertVerificationCode(id string, code string) uint
 	query := fmt.Sprintf("INSERT INTO %s%s (email, code, timestamp) VALUES (?, ?, ?)",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
 
-	result, _ := r.db.Exec(query, id, code, time.Now().UnixMilli())
+	result, err := r.db.Exec(query, id, code, time.Now().UnixMilli())
+	if err != nil {
+		return models.FAILED
+	}
 	insertId, err := result.LastInsertId()
 	if err != nil {
 		return models.FAILED
@@ -256,6 +263,23 @@ func (r *NuboAuthRepository) SaveRefreshToken(userUid uint, refreshToken string)
 	}
 }
 
+// 저장된 기존 토큰이 아직 유효할 때만 새 토큰으로 원자적으로 교체한다.
+func (r *NuboAuthRepository) RotateRefreshToken(userUid uint, oldRefreshToken string, newRefreshToken string) bool {
+	_, refreshDays := configs.GetJWTAccessRefresh()
+	oldHash := utils.GetHashedString(oldRefreshToken)
+	newHash := utils.GetHashedString(newRefreshToken)
+	now := time.Now().UnixMilli()
+	validSince := now - int64(refreshDays)*24*60*60*1000
+	query := fmt.Sprintf(`UPDATE %s%s SET refresh = ?, timestamp = ?
+		WHERE user_uid = ? AND refresh = ? AND timestamp > ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER_TOKEN)
+	result, err := r.db.Exec(query, newHash, now, userUid, oldHash, validSince)
+	if err != nil {
+		return false
+	}
+	rows, err := result.RowsAffected()
+	return err == nil && rows == 1
+}
+
 // (회원가입 시) 인증 코드 보관해놓기
 func (r *NuboAuthRepository) SaveVerificationCode(id string, code string) uint {
 	var uid uint
@@ -266,8 +290,16 @@ func (r *NuboAuthRepository) SaveVerificationCode(id string, code string) uint {
 	if err == sql.ErrNoRows {
 		return r.InsertVerificationCode(id, code)
 	}
+	if err != nil {
+		return models.FAILED
+	}
 	r.UpdateVerificationCode(id, code, uid)
 	return uid
+}
+
+func (r *NuboAuthRepository) DeleteVerificationCode(verifyUid uint) {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	r.db.Exec(query, verifyUid)
 }
 
 // 사용자의 리프레시 토큰 업데이트하기

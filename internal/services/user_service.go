@@ -44,20 +44,16 @@ func (s *NuboUserService) CheckReportStatus(actionUserUid uint, targetUserUid ui
 
 // 비밀번호 변경하기
 func (s *NuboUserService) ChangePassword(verifyUid uint, userCode string, newPassword string) bool {
-	id, code := s.repos.Auth.FindIDCodeByVerifyUid(verifyUid)
-	if id == "" || code == "" {
+	newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
 		return false
 	}
-	if code != userCode {
+	id, ok := s.repos.Auth.ConsumeVerificationCode(verifyUid, userCode, "")
+	if !ok {
 		return false
 	}
 	userUid := s.repos.Auth.FindUserUidById(id)
 	if userUid < 1 {
-		return false
-	}
-
-	newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil {
 		return false
 	}
 	s.repos.Auth.UpdateUserPasswordHash(userUid, string(newBcryptHash))

@@ -118,11 +118,7 @@ func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Expired token", models.CODE_FAILED_OPERATION)
 	}
 
-	if ok := h.service.Auth.CheckRefreshToken(uint(actionUserUid), refreshToken); !ok {
-		return utils.Err(c, "Refresh token has expired, please sign in again", models.CODE_FAILED_OPERATION)
-	}
-
-	newAuthToken, _, err := h.service.Auth.SaveTokensInCookie(c, uint(actionUserUid))
+	newAuthToken, err := h.service.Auth.RotateTokensInCookie(c, uint(actionUserUid), refreshToken)
 	if err != nil {
 		return utils.Err(c, "Failed to save tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -149,6 +145,7 @@ func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Unable to get an information, invalid ID or password", models.CODE_FAILED_OPERATION)
 	}
 
+	var migratedHash string
 	if len(storedHash) == 60 && strings.HasPrefix(storedHash, "$2") { // NUBO 이후 암호화
 		err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(pw))
 		if err != nil {
@@ -165,13 +162,19 @@ func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
 
 		newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
 		if err == nil {
-			h.service.Auth.ChangeHashForPassword(user.Uid, string(newBcryptHash))
+			migratedHash = string(newBcryptHash)
 		}
 	} else {
 		return utils.Err(c, "Failed to sign in, invalid ID or password", models.CODE_INVALID_PARAMETER)
 	}
 
 	user = h.service.Auth.Signin(id, storedHash)
+	if user.Uid < 1 {
+		return utils.Err(c, "Failed to sign in", models.CODE_FAILED_OPERATION)
+	}
+	if migratedHash != "" {
+		h.service.Auth.ChangeHashForPassword(user.Uid, migratedHash)
+	}
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 
 	utils.SaveCookie(c, models.AUTH_TOKEN, user.Token, accessHours)
