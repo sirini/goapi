@@ -93,8 +93,8 @@ type TradeListResult struct {
 }
 
 type TradeViewResult struct {
-	Board BoardViewResult `json:"board"`
-	Trade TradeResult     `json:"trade"`
+	BoardViewResult
+	Trade TradeResult `json:"trade"`
 }
 
 type TradeLoadPostResult struct {

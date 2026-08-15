@@ -100,7 +100,7 @@ func (s *NuboTradeService) GetView(param models.BoardViewParam) (models.TradeVie
 	if err != nil {
 		return result, err
 	}
-	result.Board = boardResult
+	result.BoardViewResult = boardResult
 	result.Trade = trade
 	return result, nil
 }
