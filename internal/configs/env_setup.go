@@ -179,6 +179,11 @@ func ensureTradeSchema(db *sql.DB, prefix string) error {
 		}
 		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD UNIQUE KEY uq_trade_post_uid (post_uid)", table))
 	}
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(fmt.Sprintf(`UPDATE %sboard SET skin_key = 'nubo-basic-trade'
+		WHERE type = ? AND skin_key = 'nubo-basic-board'`, prefix), BOARD_TRADE)
 	return err
 }
 
