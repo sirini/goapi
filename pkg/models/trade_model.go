@@ -54,10 +54,21 @@ type TradeCommonItem struct {
 }
 
 // 물품 거래 작성용 파라미터 정의
-type TradeWriterParam struct {
+type TradeWriteParam struct {
+	EditorWriteParam
 	TradeCommonItem
-	PostUid uint
-	UserUid uint
+}
+
+type TradeModifyParam struct {
+	EditorModifyParam
+	TradeCommonItem
+}
+
+type TradeStatusParam struct {
+	BoardUid uint
+	PostUid  uint
+	UserUid  uint
+	Status   TradeStatus
 }
 
 // 물품 거래 내용 정의
@@ -65,4 +76,32 @@ type TradeResult struct {
 	TradeCommonItem
 	Uid       uint   `json:"uid"`
 	Completed uint64 `json:"completed"`
+}
+
+type TradeListItem struct {
+	Post  BoardListItem `json:"post"`
+	Trade TradeResult   `json:"trade"`
+}
+
+type TradeListResult struct {
+	TotalPostCount uint            `json:"totalPostCount"`
+	Config         BoardConfig     `json:"config"`
+	Notices        []TradeListItem `json:"notices"`
+	Posts          []TradeListItem `json:"posts"`
+	BlackList      []uint          `json:"blackList"`
+	IsAdmin        bool            `json:"isAdmin"`
+}
+
+type TradeViewResult struct {
+	Board BoardViewResult `json:"board"`
+	Trade TradeResult     `json:"trade"`
+}
+
+type TradeLoadPostResult struct {
+	Board EditorLoadPostResult `json:"board"`
+	Trade TradeResult          `json:"trade"`
+}
+
+type TradeWriteResult struct {
+	PostUid uint `json:"postUid"`
 }

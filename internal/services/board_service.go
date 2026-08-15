@@ -358,6 +358,11 @@ func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) error {
 	if param.TargetBoardUid == param.BoardUid {
 		return nil
 	}
+	sourceConfig := s.repos.Board.GetBoardConfig(param.BoardUid)
+	targetConfig := s.repos.Board.GetBoardConfig(param.TargetBoardUid)
+	if sourceConfig.Type == models.BOARD_TRADE || targetConfig.Type == models.BOARD_TRADE {
+		return fmt.Errorf("trade posts cannot be moved through the generic board endpoint")
+	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	if !isAdmin {
 		return fmt.Errorf("unauthorized access")
@@ -375,6 +380,9 @@ func (s *NuboBoardService) MovePost(param models.BoardMovePostParam) error {
 func (s *NuboBoardService) ModifyPost(param models.EditorModifyParam) error {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return fmt.Errorf("post does not belong to this board")
+	}
+	if s.repos.Board.GetBoardConfig(param.BoardUid).Type == models.BOARD_TRADE {
+		return fmt.Errorf("trade posts must be modified through the trade endpoint")
 	}
 	isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	isAuthor := s.repos.BoardView.IsWriter(models.TABLE_POST, param.PostUid, param.UserUid)
@@ -734,6 +742,9 @@ func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images
 
 // 새 게시글 작성하기
 func (s *NuboBoardService) WritePost(param models.EditorWriteParam) (uint, error) {
+	if s.repos.Board.GetBoardConfig(param.BoardUid).Type == models.BOARD_TRADE {
+		return models.FAILED, fmt.Errorf("trade posts must be written through the trade endpoint")
+	}
 	if hasPerm := s.repos.Auth.CheckPermissionForAction(param.UserUid, models.USER_ACTION_WRITE_POST); !hasPerm {
 		return models.FAILED, fmt.Errorf("you have no permission to write a new post")
 	}

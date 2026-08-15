@@ -10,18 +10,8 @@ import (
 	"github.com/sirini/goapi/pkg/models"
 )
 
-// 물품 거래 글 작성/수정 시 파라미터 검사 및 타입 변환
-func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
-	result := models.TradeWriterParam{}
-	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
-	var postUid uint64
-	var err error
-	if value := c.FormValue("postUid"); value != "" {
-		postUid, err = strconv.ParseUint(value, 10, 32)
-		if err != nil {
-			return result, fmt.Errorf("invalid post uid")
-		}
-	}
+func CheckTradeParams(c fiber.Ctx) (models.TradeCommonItem, error) {
+	result := models.TradeCommonItem{}
 	brand := Escape(c.FormValue("brand"))
 	if utf8.RuneCountInString(brand) > 100 {
 		return result, fmt.Errorf("invalid brand name, too long")
@@ -47,7 +37,8 @@ func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
 	if currency == "" {
 		currency = "KRW"
 	}
-	if len(currency) != 3 {
+	if len(currency) != 3 || currency[0] < 'A' || currency[0] > 'Z' ||
+		currency[1] < 'A' || currency[1] > 'Z' || currency[2] < 'A' || currency[2] > 'Z' {
 		return result, fmt.Errorf("invalid currency")
 	}
 	productConditionValue, err := strconv.ParseUint(c.FormValue("productCondition"), 10, 8)
@@ -74,19 +65,15 @@ func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
 		return result, fmt.Errorf("location is required for meetup")
 	}
 
-	result = models.TradeWriterParam{
-		PostUid: uint(postUid),
-		UserUid: uint(actionUserUid),
-		TradeCommonItem: models.TradeCommonItem{
-			Brand:            brand,
-			Price:            price,
-			PriceType:        priceType,
-			Currency:         currency,
-			ProductCondition: productCondition,
-			Location:         location,
-			ShippingType:     shippingType,
-			Status:           models.TRADE_AVAILABLE,
-		},
+	result = models.TradeCommonItem{
+		Brand:            brand,
+		Price:            price,
+		PriceType:        priceType,
+		Currency:         currency,
+		ProductCondition: productCondition,
+		Location:         location,
+		ShippingType:     shippingType,
+		Status:           models.TRADE_AVAILABLE,
 	}
 	return result, nil
 }
