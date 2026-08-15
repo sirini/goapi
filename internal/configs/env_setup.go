@@ -120,6 +120,9 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
+		return err
+	}
 	var count uint
 	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'skin_key'`, prefix+"board").Scan(&count)
@@ -130,6 +133,32 @@ func InstallSchema(db *sql.DB, prefix string) error {
 		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %sboard ADD COLUMN skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board' AFTER type", prefix))
 	}
 	return err
+}
+
+func ensureNotificationSenderForeignKey(db *sql.DB, prefix string) error {
+	table := prefix + "notification"
+	expectedReference := prefix + "user"
+	var referencedTable sql.NullString
+	err := db.QueryRow(`SELECT REFERENCED_TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'fk_nf'
+		AND COLUMN_NAME = 'from_uid' LIMIT 1`, table).Scan(&referencedTable)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if err == nil && referencedTable.Valid && referencedTable.String == expectedReference {
+		return nil
+	}
+	if err == nil {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY fk_nf", table)); err != nil {
+			return err
+		}
+	}
+	_, err = db.Exec(notificationSenderForeignKeyDDL(prefix))
+	return err
+}
+
+func notificationSenderForeignKeyDDL(prefix string) string {
+	return fmt.Sprintf("ALTER TABLE %snotification ADD CONSTRAINT fk_nf FOREIGN KEY (from_uid) REFERENCES %suser(uid)", prefix, prefix)
 }
 
 // .env 파일이 존재하는지 확인하기
@@ -836,7 +865,7 @@ func createNotificationTable(db *sql.DB, prefix string) {
   KEY (post_uid),
   KEY (checked),
   CONSTRAINT fk_nt FOREIGN KEY (to_uid) REFERENCES %suser(uid),
-  CONSTRAINT fk_nf FOREIGN KEY (from_uid) REFERENCES %sboard(uid)
+  CONSTRAINT fk_nf FOREIGN KEY (from_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
 	db.Exec(query)
 }

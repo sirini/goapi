@@ -37,7 +37,8 @@ func (h *NuboNotiHandler) CheckedSingleNotiHandler(c fiber.Ctx) error {
 	if err != nil {
 		return utils.Err(c, "Invalid noti uid, not a valid number", models.CODE_INVALID_PARAMETER)
 	}
-	h.service.Noti.CheckedSingleNoti(uint(notiUid))
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	h.service.Noti.CheckedSingleNoti(uint(notiUid), uint(actionUserUid))
 	return utils.Ok(c, nil)
 }
 

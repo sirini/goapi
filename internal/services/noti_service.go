@@ -7,7 +7,7 @@ import (
 
 type NotiService interface {
 	CheckedAllNoti(userUid uint)
-	CheckedSingleNoti(notiUid uint)
+	CheckedSingleNoti(notiUid uint, userUid uint)
 	GetUserNoti(userUid uint, limit uint) ([]models.NotificationItem, error)
 	SaveNewNoti(param models.InsertNotificationParam)
 }
@@ -27,8 +27,8 @@ func (s *NuboNotiService) CheckedAllNoti(userUid uint) {
 }
 
 // 지정된 알림 번호에 대한 확인 처리하기
-func (s *NuboNotiService) CheckedSingleNoti(notiUid uint) {
-	s.repos.Noti.UpdateChecked(notiUid)
+func (s *NuboNotiService) CheckedSingleNoti(notiUid uint, userUid uint) {
+	s.repos.Noti.UpdateChecked(notiUid, userUid)
 }
 
 // 사용자의 알림 내역 가져오기

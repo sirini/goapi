@@ -17,7 +17,7 @@ type NotiRepository interface {
 	InsertNotification(param models.InsertNotificationParam)
 	IsNotiAdded(param models.InsertNotificationParam) bool
 	UpdateAllChecked(userUid uint)
-	UpdateChecked(notiUid uint)
+	UpdateChecked(notiUid uint, userUid uint)
 }
 
 type NuboNotiRepository struct {
@@ -121,7 +121,7 @@ func (r *NuboNotiRepository) UpdateAllChecked(userUid uint) {
 }
 
 // 하나의 알림만 확인 처리하기
-func (r *NuboNotiRepository) UpdateChecked(notiUid uint) {
-	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_NOTI)
-	r.db.Exec(query, 1, notiUid)
+func (r *NuboNotiRepository) UpdateChecked(notiUid uint, userUid uint) {
+	query := fmt.Sprintf("UPDATE %s%s SET checked = ? WHERE uid = ? AND to_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_NOTI)
+	r.db.Exec(query, 1, notiUid, userUid)
 }

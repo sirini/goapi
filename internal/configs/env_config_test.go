@@ -1,6 +1,9 @@
 package configs
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // GONOSUMDB=* GOPROXY=off go test ./internal/configs
 
@@ -63,5 +66,12 @@ func TestGetFileSizeLimitInvalid(t *testing.T) {
 
 	if size != 10485760 {
 		t.Fatalf("expected default file size limit 10485760, got %d", size)
+	}
+}
+
+func TestNotificationSenderForeignKeyReferencesUser(t *testing.T) {
+	ddl := notificationSenderForeignKeyDDL("nubo_")
+	if !strings.Contains(ddl, "REFERENCES nubo_user(uid)") {
+		t.Fatalf("notification sender foreign key references the wrong table: %s", ddl)
 	}
 }
