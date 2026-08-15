@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/pkg/models"
@@ -12,37 +14,64 @@ import (
 func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
 	result := models.TradeWriterParam{}
 	actionUserUid := ExtractUserUid(c.Get(models.AUTH_KEY))
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
-	if err != nil {
-		return result, err
+	var postUid uint64
+	var err error
+	if value := c.FormValue("postUid"); value != "" {
+		postUid, err = strconv.ParseUint(value, 10, 32)
+		if err != nil {
+			return result, fmt.Errorf("invalid post uid")
+		}
 	}
 	brand := Escape(c.FormValue("brand"))
-	if len(brand) < 2 {
-		return result, fmt.Errorf("invalid brand name, too short")
+	if utf8.RuneCountInString(brand) > 100 {
+		return result, fmt.Errorf("invalid brand name, too long")
 	}
-	productCategory, err := strconv.ParseUint(c.FormValue("productCategory"), 10, 32)
+	price, err := strconv.ParseUint(c.FormValue("price"), 10, 64)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("invalid price")
 	}
-	price, err := strconv.ParseUint(c.FormValue("price"), 10, 32)
+	priceTypeValue, err := strconv.ParseUint(c.FormValue("priceType"), 10, 8)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("invalid price type")
 	}
-	productCondition, err := strconv.ParseUint(c.FormValue("productCondition"), 10, 32)
+	priceType := models.TradePriceType(priceTypeValue)
+	if !priceType.Valid() {
+		return result, fmt.Errorf("invalid price type")
+	}
+	if priceType == models.TRADE_PRICE_FREE {
+		price = 0
+	} else if price == 0 {
+		return result, fmt.Errorf("price must be greater than zero")
+	}
+	currency := strings.ToUpper(strings.TrimSpace(c.FormValue("currency")))
+	if currency == "" {
+		currency = "KRW"
+	}
+	if len(currency) != 3 {
+		return result, fmt.Errorf("invalid currency")
+	}
+	productConditionValue, err := strconv.ParseUint(c.FormValue("productCondition"), 10, 8)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("invalid product condition")
+	}
+	productCondition := models.TradeProductCondition(productConditionValue)
+	if !productCondition.Valid() {
+		return result, fmt.Errorf("invalid product condition")
 	}
 	location := Escape(c.FormValue("location"))
-	if len(location) < 2 {
-		return result, fmt.Errorf("invalid location, too short")
+	if utf8.RuneCountInString(location) > 100 {
+		return result, fmt.Errorf("invalid location, too long")
 	}
-	shippingType, err := strconv.ParseUint(c.FormValue("shippingType"), 10, 32)
+	shippingTypeValue, err := strconv.ParseUint(c.FormValue("shippingType"), 10, 8)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("invalid shipping type")
 	}
-	status, err := strconv.ParseUint(c.FormValue("status"), 10, 32)
-	if err != nil {
-		return result, err
+	shippingType := models.TradeShippingType(shippingTypeValue)
+	if !shippingType.Valid() {
+		return result, fmt.Errorf("invalid shipping type")
+	}
+	if shippingType.NeedsLocation() && utf8.RuneCountInString(location) < 2 {
+		return result, fmt.Errorf("location is required for meetup")
 	}
 
 	result = models.TradeWriterParam{
@@ -50,12 +79,13 @@ func CheckTradeWriteParams(c fiber.Ctx) (models.TradeWriterParam, error) {
 		UserUid: uint(actionUserUid),
 		TradeCommonItem: models.TradeCommonItem{
 			Brand:            brand,
-			ProductCategory:  uint8(productCategory),
-			Price:            uint(price),
-			ProductCondition: uint8(productCondition),
+			Price:            price,
+			PriceType:        priceType,
+			Currency:         currency,
+			ProductCondition: productCondition,
 			Location:         location,
-			ShippingType:     uint8(shippingType),
-			Status:           uint8(status),
+			ShippingType:     shippingType,
+			Status:           models.TRADE_AVAILABLE,
 		},
 	}
 	return result, nil

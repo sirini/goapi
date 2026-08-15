@@ -29,13 +29,14 @@ func NewNuboTradeRepository(db *sql.DB) *NuboTradeRepository {
 func (r *NuboTradeRepository) GetTradeItem(postUid uint) (models.TradeResult, error) {
 	item := models.TradeResult{}
 	query := fmt.Sprintf(`
-		SELECT uid, brand, category, price, product_condition, location, shipping_type, status, completed 
+		SELECT uid, brand, price, price_type, currency, product_condition, location, shipping_type, status, completed
 		FROM %s%s WHERE post_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_TRADE)
 	err := r.db.QueryRow(query, postUid).Scan(
 		&item.Uid,
 		&item.Brand,
-		&item.ProductCategory,
 		&item.Price,
+		&item.PriceType,
+		&item.Currency,
 		&item.ProductCondition,
 		&item.Location,
 		&item.ShippingType,
@@ -48,15 +49,16 @@ func (r *NuboTradeRepository) GetTradeItem(postUid uint) (models.TradeResult, er
 // 새 물품 거래 게시글 등록
 func (r *NuboTradeRepository) InsertTrade(param models.TradeWriterParam) error {
 	query := fmt.Sprintf(`INSERT INTO %s%s
-		(post_uid, brand, category, price, product_condition, location, shipping_type, status, completed)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_TRADE)
+		(post_uid, brand, price, price_type, currency, product_condition, location, shipping_type, status, completed)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_TRADE)
 
 	_, err := r.db.Exec(
 		query,
 		param.PostUid,
 		param.Brand,
-		param.ProductCategory,
 		param.Price,
+		param.PriceType,
+		param.Currency,
 		param.ProductCondition,
 		param.Location,
 		param.ShippingType,
@@ -68,8 +70,10 @@ func (r *NuboTradeRepository) InsertTrade(param models.TradeWriterParam) error {
 // 거래 상태 업데이트
 func (r *NuboTradeRepository) UpdateStatus(postUid uint, newStatus uint) error {
 	completed := ""
-	if newStatus == models.TRADE_DONE {
+	if models.TradeStatus(newStatus) == models.TRADE_SOLD {
 		completed = fmt.Sprintf(", completed = %d", time.Now().UnixMilli())
+	} else {
+		completed = ", completed = 0"
 	}
 
 	query := fmt.Sprintf(`UPDATE %s%s SET status = ? %s WHERE post_uid = ? LIMIT 1`,
@@ -80,13 +84,14 @@ func (r *NuboTradeRepository) UpdateStatus(postUid uint, newStatus uint) error {
 
 // 물품 거래 업데이트
 func (r *NuboTradeRepository) UpdateTrade(param models.TradeWriterParam) error {
-	query := fmt.Sprintf(`UPDATE %s%s SET brand = ?, category = ?, price = ?, product_condition = ?, location = ?, shipping_type = ? WHERE post_uid = ? LIMIT 1`,
+	query := fmt.Sprintf(`UPDATE %s%s SET brand = ?, price = ?, price_type = ?, currency = ?, product_condition = ?, location = ?, shipping_type = ? WHERE post_uid = ? LIMIT 1`,
 		configs.Env.Prefix, models.TABLE_TRADE)
 	_, err := r.db.Exec(
 		query,
 		param.Brand,
-		param.ProductCategory,
 		param.Price,
+		param.PriceType,
+		param.Currency,
 		param.ProductCondition,
 		param.Location,
 		param.ShippingType,
