@@ -109,6 +109,12 @@ func (s *NuboAdminService) ChangeGroupId(param models.AdminGroupChangeParam) err
 
 // 새 게시판 만들기
 func (s *NuboAdminService) CreateNewBoard(param models.AdminBoardCreateParam) (uint, error) {
+	if param.Type > models.BOARD_TRADE {
+		return 0, fmt.Errorf("invalid board type")
+	}
+	if param.Type == models.BOARD_TRADE && (param.SkinKey == "" || param.SkinKey == "nubo-basic-board") {
+		param.SkinKey = "nubo-basic-trade"
+	}
 	if isAdded := s.repos.Admin.IsAdded(models.TABLE_BOARD, param.Id); isAdded {
 		return 0, fmt.Errorf("already added")
 	}
@@ -121,6 +127,8 @@ func (s *NuboAdminService) CreateNewBoard(param models.AdminBoardCreateParam) (u
 	var cats []string
 	if len(param.Categories) > 3 {
 		cats = strings.Split(param.Categories, ",")
+	} else if param.Type == models.BOARD_TRADE {
+		cats = []string{"기타"}
 	} else {
 		cats = []string{"qna", "news", "humor"}
 	}
@@ -305,6 +313,12 @@ func (s *NuboAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
 
 // 게시판 설정 수정하기
 func (s *NuboAdminService) ModifyExistBoard(param models.AdminBoardModifyParam) error {
+	if param.Type > models.BOARD_TRADE {
+		return fmt.Errorf("invalid board type")
+	}
+	if param.Type == models.BOARD_TRADE && (param.SkinKey == "" || param.SkinKey == "nubo-basic-board") {
+		param.SkinKey = "nubo-basic-trade"
+	}
 	boardUid := s.repos.Board.GetBoardUidById(param.Id)
 	oldCats := s.repos.Admin.GetOldCategories(boardUid)
 

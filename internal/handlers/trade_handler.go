@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
@@ -12,96 +12,136 @@ import (
 
 type TradeHandler interface {
 	TradeListHandler(c fiber.Ctx) error
+	TradeLoadPostHandler(c fiber.Ctx) error
 	TradeModifyHandler(c fiber.Ctx) error
 	TradeViewHandler(c fiber.Ctx) error
 	TradeWriteHandler(c fiber.Ctx) error
 	UpdateStatusHandler(c fiber.Ctx) error
 }
 
-type NuboTradeHandler struct {
-	service *services.Service
-}
+type NuboTradeHandler struct{ service *services.Service }
 
-// services.Service 주입 받기
 func NewNuboTradeHandler(service *services.Service) *NuboTradeHandler {
 	return &NuboTradeHandler{service: service}
 }
 
-// 거래 목록 가져오기 핸들러
 func (h *NuboTradeHandler) TradeListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	postUidStrs := strings.Split(c.FormValue("postUids"), ",")
-	results := make([]models.TradeResult, 0)
-
-	for _, uidStr := range postUidStrs {
-		uid, err := strconv.ParseUint(uidStr, 10, 32)
-		if err != nil {
-			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-		}
-		result, err := h.service.Trade.GetTradeItem(uint(uid), uint(actionUserUid))
-		if err != nil {
-			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-		}
-		results = append(results, result)
-	}
-	return utils.Ok(c, results)
-}
-
-// 거래 내용 수정하기 핸들러
-func (h *NuboTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckTradeWriteParams(c)
+	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, "invalid search option", models.CODE_INVALID_PARAMETER)
 	}
-
-	err = h.service.Trade.ModifyPost(parameter)
+	keyword, err := url.QueryUnescape(c.Query("keyword"))
+	if err != nil {
+		return utils.Err(c, "invalid keyword", models.CODE_INVALID_PARAMETER)
+	}
+	page, err := strconv.ParseUint(c.Query("page"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "invalid page", models.CODE_INVALID_PARAMETER)
+	}
+	boardUid := h.service.Board.GetBoardUid(c.Query("id"))
+	config := h.service.Board.GetBoardConfig(boardUid)
+	result, err := h.service.Trade.GetList(models.BoardListParam{
+		BoardUid: boardUid, UserUid: uint(actionUserUid), Option: models.Search(option),
+		Keyword: utils.Escape(keyword), Page: uint(page), Limit: config.RowCount,
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-	return utils.Ok(c, nil)
+	return utils.Ok(c, result)
 }
 
-// 거래 보기 핸들러
 func (h *NuboTradeHandler) TradeViewHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	param := models.BoardViewParam{}
+	if err := c.Bind().Query(&param); err != nil {
+		return utils.Err(c, "invalid parameters", models.CODE_INVALID_PARAMETER)
 	}
-	info, err := h.service.Trade.GetTradeItem(uint(postUid), uint(actionUserUid))
+	param.UserUid = uint(max(actionUserUid, 0))
+	param.BoardUid = h.service.Board.GetBoardUid(param.Id)
+	if param.BoardUid < 1 {
+		return utils.Err(c, "invalid board id", models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Trade.GetView(param)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-	return utils.Ok(c, info)
+	return utils.Ok(c, result)
 }
 
-// 새 거래 작성하기 핸들러
+func (h *NuboTradeHandler) TradeLoadPostHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	boardUid, err := strconv.ParseUint(c.Query("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "invalid board uid", models.CODE_INVALID_PARAMETER)
+	}
+	postUid, err := strconv.ParseUint(c.Query("postUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "invalid post uid", models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Trade.LoadPost(uint(boardUid), uint(postUid), uint(actionUserUid))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
 func (h *NuboTradeHandler) TradeWriteHandler(c fiber.Ctx) error {
-	parameter, err := utils.CheckTradeWriteParams(c)
+	post, err := utils.CheckWriteParams(c)
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
+	trade, err := utils.CheckTradeParams(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Trade.WriteTradePost(models.TradeWriteParam{EditorWriteParam: post, TradeCommonItem: trade})
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
 
-	err = h.service.Trade.WritePost(parameter)
+func (h *NuboTradeHandler) TradeModifyHandler(c fiber.Ctx) error {
+	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "invalid post uid", models.CODE_INVALID_PARAMETER)
+	}
+	post, err := utils.CheckWriteParams(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	trade, err := utils.CheckTradeParams(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	err = h.service.Trade.ModifyTradePost(models.TradeModifyParam{
+		EditorModifyParam: models.EditorModifyParam{EditorWriteParam: post, PostUid: uint(postUid)},
+		TradeCommonItem:   trade,
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
 }
 
-// 거래 상태 변경 핸들러
 func (h *NuboTradeHandler) UpdateStatusHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	boardUid, err := strconv.ParseUint(c.FormValue("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "invalid board uid", models.CODE_INVALID_PARAMETER)
+	}
 	postUid, err := strconv.ParseUint(c.FormValue("postUid"), 10, 32)
 	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, "invalid post uid", models.CODE_INVALID_PARAMETER)
 	}
-	newStatus, err := strconv.ParseUint(c.FormValue("newStatus"), 10, 32)
+	status, err := strconv.ParseUint(c.FormValue("status"), 10, 8)
 	if err != nil {
-		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+		return utils.Err(c, "invalid trade status", models.CODE_INVALID_PARAMETER)
 	}
-
-	err = h.service.Trade.UpdateStatus(uint(postUid), uint(newStatus), uint(actionUserUid))
+	err = h.service.Trade.UpdateTradeStatus(models.TradeStatusParam{
+		BoardUid: uint(boardUid), PostUid: uint(postUid), UserUid: uint(actionUserUid), Status: models.TradeStatus(status),
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

@@ -18,6 +18,8 @@ const (
 	BOARD_BOARD Board = iota
 	BOARD_GALLERY
 	BOARD_BLOG
+	BOARD_WEBZINE
+	BOARD_TRADE
 )
 
 func (b Board) String() string {
@@ -26,6 +28,10 @@ func (b Board) String() string {
 		return "gallery"
 	case BOARD_BLOG:
 		return "blog"
+	case BOARD_WEBZINE:
+		return "webzine"
+	case BOARD_TRADE:
+		return "trade"
 	default:
 		return "board"
 	}

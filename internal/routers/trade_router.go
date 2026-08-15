@@ -13,7 +13,8 @@ func RegisterTradeRouters(api fiber.Router, h *handlers.Handler) {
 	trade.Get("/view", h.Trade.TradeViewHandler)
 
 	protected := trade.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))
-	protected.Post("/modify", h.Trade.TradeModifyHandler)
+	protected.Get("/load", h.Trade.TradeLoadPostHandler)
+	protected.Patch("/modify", h.Trade.TradeModifyHandler)
 	protected.Post("/write", h.Trade.TradeWriteHandler)
-	protected.Patch("/update/status", h.Trade.UpdateStatusHandler)
+	protected.Patch("/status", h.Trade.UpdateStatusHandler)
 }

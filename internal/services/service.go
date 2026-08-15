@@ -37,10 +37,11 @@ func applyPointChange(repo repositories.UserRepository, param models.UpdatePoint
 // 모든 서비스들을 생성
 func NewService(repos *repositories.Repository) *Service {
 	user := NewNuboUserService(repos)
+	board := NewNuboBoardService(repos)
 	return &Service{
 		Admin:   NewNuboAdminService(repos, user),
 		Auth:    NewNuboAuthService(repos),
-		Board:   NewNuboBoardService(repos),
+		Board:   board,
 		Blog:    NewNuboBlogService(repos),
 		Chat:    NewNuboChatService(repos),
 		Comment: NewNuboCommentService(repos),
@@ -48,7 +49,7 @@ func NewService(repos *repositories.Repository) *Service {
 		Noti:    NewNuboNotiService(repos),
 		OAuth:   NewNuboOAuthService(repos),
 		Sync:    NewNuboSyncService(repos),
-		Trade:   NewNuboTradeService(repos),
+		Trade:   NewNuboTradeService(repos, board),
 		User:    user,
 	}
 }

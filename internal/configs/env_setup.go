@@ -56,7 +56,8 @@ const (
 	BOARD_DEFAULT = 0
 	BOARD_GALLERY = 1
 	BOARD_BLOG    = 2
-	BOARD_SHOP    = 3
+	BOARD_WEBZINE = 3
+	BOARD_TRADE   = 4
 )
 
 // NUBO 백엔드 실행 시 설치 여부 검사 후 필요 시 설치 진행
@@ -123,6 +124,9 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
 		return err
 	}
+	if err := ensureTradeSchema(db, prefix); err != nil {
+		return err
+	}
 	var count uint
 	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'skin_key'`, prefix+"board").Scan(&count)
@@ -132,6 +136,54 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if count == 0 {
 		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %sboard ADD COLUMN skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board' AFTER type", prefix))
 	}
+	return err
+}
+
+func ensureTradeSchema(db *sql.DB, prefix string) error {
+	if err := createTradeTable(db, prefix); err != nil {
+		return err
+	}
+	table := prefix + "trade"
+	for _, column := range []struct {
+		name string
+		ddl  string
+	}{
+		{"price_type", "TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER price"},
+		{"currency", "CHAR(3) NOT NULL DEFAULT 'KRW' AFTER price_type"},
+	} {
+		var count uint
+		err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`, table, column.name).Scan(&count)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column.name, column.ddl)); err != nil {
+				return err
+			}
+		}
+	}
+	if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN price BIGINT UNSIGNED NOT NULL DEFAULT 0", table)); err != nil {
+		return err
+	}
+
+	var uniqueCount uint
+	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'post_uid' AND NON_UNIQUE = 0`, table).Scan(&uniqueCount)
+	if err != nil {
+		return err
+	}
+	if uniqueCount == 0 {
+		if _, err := db.Exec(fmt.Sprintf("DELETE newer FROM %[1]s newer JOIN %[1]s older ON newer.post_uid = older.post_uid AND newer.uid > older.uid", table)); err != nil {
+			return err
+		}
+		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD UNIQUE KEY uq_trade_post_uid (post_uid)", table))
+	}
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(fmt.Sprintf(`UPDATE %sboard SET skin_key = 'nubo-basic-trade'
+		WHERE type = ? AND skin_key = 'nubo-basic-board'`, prefix), BOARD_TRADE)
 	return err
 }
 
@@ -917,14 +969,16 @@ func createTradeTable(db *sql.DB, prefix string) error {
 	post_uid INT UNSIGNED NOT NULL DEFAULT 0,
 	brand VARCHAR(100) NOT NULL DEFAULT '',
 	category TINYINT UNSIGNED NOT NULL DEFAULT 0,
-	price INT UNSIGNED NOT NULL DEFAULT 0,
+	price BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	price_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
+	currency CHAR(3) NOT NULL DEFAULT 'KRW',
 	product_condition TINYINT UNSIGNED NOT NULL DEFAULT 0,
 	location VARCHAR(100) NOT NULL DEFAULT '',
 	shipping_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
 	status TINYINT UNSIGNED NOT NULL DEFAULT 0,
 	completed BIGINT UNSIGNED NOT NULL DEFAULT 0,
 	PRIMARY KEY (uid),
-	KEY (post_uid),
+	UNIQUE KEY uq_trade_post_uid (post_uid),
 	KEY (status),
 	CONSTRAINT fk_tpp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)

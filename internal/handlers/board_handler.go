@@ -73,6 +73,13 @@ func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	parameter.Keyword = keyword
 	parameter.UserUid = uint(actionUserUid)
 	parameter.Page = uint(page)
+	if config.Type == models.BOARD_TRADE {
+		result, err := h.service.Trade.GetList(parameter)
+		if err != nil {
+			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+		}
+		return utils.Ok(c, result)
+	}
 
 	result, err := h.service.Board.GetListItem(parameter)
 	if err != nil {
@@ -117,6 +124,13 @@ func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid board id, cannot find a board", models.CODE_INVALID_PARAMETER)
 	}
 	param.BoardUid = boardUid
+	if h.service.Board.GetBoardConfig(boardUid).Type == models.BOARD_TRADE {
+		result, err := h.service.Trade.GetView(param)
+		if err != nil {
+			return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+		}
+		return utils.Ok(c, result)
+	}
 
 	result, err := h.service.Board.GetViewItem(param)
 	if err != nil {
