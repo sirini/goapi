@@ -368,43 +368,17 @@ func (s *NuboAdminService) RemoveBoardCategory(boardUid uint, catUid uint) error
 
 // 게시판 삭제하기
 func (s *NuboAdminService) RemoveBoard(boardUid uint) error {
-	// 첨부파일, 썸네일 등 삭제
-	attaches := s.repos.Admin.GetRemoveFilePaths(boardUid)
-	for _, path := range attaches {
-		os.Remove("." + path)
-	}
-
-	// 본문/댓글에 삽입한 이미지 파일 삭제
-	images := s.repos.Admin.GetRemoveImagePaths(boardUid)
-	for _, path := range images {
-		os.Remove("." + path)
-	}
-
-	if err := s.repos.Admin.RemoveBoardCategories(boardUid); err != nil {
+	paths, err := s.repos.Admin.GetBoardRemovalPaths(boardUid)
+	if err != nil {
 		return err
 	}
-	if err := s.repos.Admin.RemoveFileRecords(boardUid); err != nil {
+	if err := s.repos.Admin.RemoveBoardData(boardUid); err != nil {
 		return err
 	}
-	if err := s.repos.Admin.RemoveImageRecords(boardUid); err != nil {
-		return err
+	for _, path := range paths {
+		_ = os.Remove("." + path)
 	}
-	if err := s.repos.Admin.RemovePostHashtag(boardUid); err != nil {
-		return err
-	}
-	if err := s.repos.Admin.RemoveLikeStatus(models.TABLE_COMMENT_LIKE, boardUid); err != nil {
-		return err
-	}
-	if err := s.repos.Admin.RemoveLikeStatus(models.TABLE_POST_LIKE, boardUid); err != nil {
-		return err
-	}
-	if err := s.repos.Admin.RemoveContentPermanently(models.TABLE_COMMENT, boardUid); err != nil {
-		return err
-	}
-	if err := s.repos.Admin.RemoveContentPermanently(models.TABLE_POST, boardUid); err != nil {
-		return err
-	}
-	return s.repos.Admin.RemoveBoard(boardUid)
+	return nil
 }
 
 // 댓글 삭제하기

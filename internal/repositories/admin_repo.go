@@ -29,6 +29,7 @@ type AdminRepository interface {
 	FindWriterUidByName(name string) uint
 	GetAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
+	GetBoardRemovalPaths(boardUid uint) ([]string, error)
 	GetCommentCount(postUid uint) uint
 	GetCommentList(param models.AdminLatestParam) []models.AdminLatestComment
 	GetGroupBoardList(table models.Table, bunch uint) []models.Pair
@@ -55,6 +56,7 @@ type AdminRepository interface {
 	ModifyBoard(param models.AdminBoardModifyParam) error
 	ModifyUser(param models.AdminUserModifyParam) error
 	RemoveBoard(boardUid uint) error
+	RemoveBoardData(boardUid uint) error
 	RemoveBoardCategories(boardUid uint) error
 	RemoveCategory(boardUid uint, catUid uint) error
 	RemoveContentPermanently(table models.Table, boardUid uint) error
@@ -69,6 +71,31 @@ type AdminRepository interface {
 	UpdateGroupId(groupUid uint, newGroupId string) error
 	UpdateGroupUid(newGroupUid uint, oldGroupUid uint) error
 	UpdatePostCategory(boardUid uint, oldCatUid uint, newCatUid uint) error
+}
+
+func boardRemovalStatements(prefix string) []string {
+	return []string{
+		fmt.Sprintf(`UPDATE %shashtag h JOIN (
+			SELECT hashtag_uid, COUNT(*) AS used_count FROM %spost_hashtag
+			WHERE board_uid = ? GROUP BY hashtag_uid
+		) removed ON removed.hashtag_uid = h.uid
+		SET h.used = CASE WHEN h.used >= removed.used_count THEN h.used - removed.used_count ELSE 0 END`, prefix, prefix),
+		fmt.Sprintf("DELETE FROM %snotification WHERE post_uid IN (SELECT uid FROM %spost WHERE board_uid = ?)", prefix, prefix),
+		fmt.Sprintf("DELETE FROM %strade WHERE post_uid IN (SELECT uid FROM %spost WHERE board_uid = ?)", prefix, prefix),
+		fmt.Sprintf("DELETE FROM %simage_description WHERE post_uid IN (SELECT uid FROM %spost WHERE board_uid = ?)", prefix, prefix),
+		fmt.Sprintf("DELETE FROM %sexif WHERE post_uid IN (SELECT uid FROM %spost WHERE board_uid = ?)", prefix, prefix),
+		fmt.Sprintf("DELETE FROM %sfile_thumbnail WHERE post_uid IN (SELECT uid FROM %spost WHERE board_uid = ?)", prefix, prefix),
+		fmt.Sprintf("DELETE FROM %sfile WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %simage WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %scomment_like WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %spost_like WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %spost_hashtag WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %scomment WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %spost WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %spoint_history WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %sboard_category WHERE board_uid = ?", prefix),
+		fmt.Sprintf("DELETE FROM %sboard WHERE uid = ? LIMIT 1", prefix),
+	}
 }
 
 type NuboAdminRepository struct {
@@ -779,6 +806,37 @@ func (r *NuboAdminRepository) GetRemoveFilePaths(boardUid uint) []string {
 	return items
 }
 
+// 게시판 삭제 트랜잭션이 끝난 뒤 제거할 모든 업로드 경로를 반환한다.
+func (r *NuboAdminRepository) GetBoardRemovalPaths(boardUid uint) ([]string, error) {
+	query := fmt.Sprintf(`SELECT path FROM %sfile WHERE board_uid = ?
+		UNION ALL
+		SELECT ft.path FROM %sfile_thumbnail ft JOIN %sfile f ON f.uid = ft.file_uid WHERE f.board_uid = ?
+		UNION ALL
+		SELECT ft.full_path FROM %sfile_thumbnail ft JOIN %sfile f ON f.uid = ft.file_uid WHERE f.board_uid = ?
+		UNION ALL
+		SELECT path FROM %simage WHERE board_uid = ?`,
+		configs.Env.Prefix, configs.Env.Prefix, configs.Env.Prefix,
+		configs.Env.Prefix, configs.Env.Prefix, configs.Env.Prefix)
+	rows, err := r.db.Query(query, boardUid, boardUid, boardUid, boardUid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	paths := make([]string, 0)
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
 // 게시판 삭제 시 제거 필요한 이미지 목록 반환하기
 func (r *NuboAdminRepository) GetRemoveImagePaths(boardUid uint) []string {
 	items := make([]string, 0)
@@ -1101,6 +1159,21 @@ func (r *NuboAdminRepository) RemoveBoard(boardUid uint) error {
 	query := fmt.Sprintf("DELETE FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_BOARD)
 	_, err := r.db.Exec(query, boardUid)
 	return err
+}
+
+// 게시판과 모든 종속 레코드를 외래키 순서에 맞춰 한 번에 삭제한다.
+func (r *NuboAdminRepository) RemoveBoardData(boardUid uint) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, query := range boardRemovalStatements(configs.Env.Prefix) {
+		if _, err := tx.Exec(query, boardUid); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // 카테고리 삭제하기
