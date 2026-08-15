@@ -29,6 +29,7 @@ type Config struct {
 	DBMaxIdle         string
 	DBMaxOpen         string
 	JWTSecretKey      string
+	SyncSecretKey     string
 	JWTAccessHours    string
 	JWTRefreshDays    string
 	ResendKey         string
@@ -81,6 +82,7 @@ func LoadConfig() {
 		DBMaxIdle:         getEnv("DB_MAX_IDLE", "10"),
 		DBMaxOpen:         getEnv("DB_MAX_OPEN", "10"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
+		SyncSecretKey:     getEnv("SYNC_SECRET_KEY", ""),
 		JWTAccessHours:    getEnv("JWT_ACCESS_HOURS", "2"),
 		JWTRefreshDays:    getEnv("JWT_REFRESH_DAYS", "30"),
 		ResendKey:         getEnv("RESEND_API_KEY", ""),
