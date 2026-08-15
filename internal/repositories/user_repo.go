@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type UserRepository interface {
+	ApplyPointChange(param models.UpdatePointParam) error
 	GetReportResponse(userUid uint) string
 	GetUserBlackList(userUid uint) []uint
 	GetUserLevelPoint(userUid uint) (int, int)
@@ -27,14 +29,14 @@ type UserRepository interface {
 	IsReported(actionUserUid uint, targetUserUid uint) bool
 	IsUserReported(userUid uint) bool
 	LoadUserPermission(userUid uint) models.UserPermissionResult
-	UpdatePointHistory(param models.UpdatePointParam) error
 	UpdateUserInfoString(userUid uint, name string, signature string) error
 	UpdateUserProfile(userUid uint, imagePath string) error
 	UpdateUserPermission(userUid uint, perm models.UserPermissionResult) error
-	UpdateUserPoint(userUid uint, updatedPoint uint) error
 	UpdateUserBlocked(userUid uint, isBlocked bool) error
 	UpdateReportResponse(userUid uint, response string) error
 }
+
+var ErrInsufficientPoint = errors.New("not enough point")
 
 type NuboUserRepository struct {
 	db *sql.DB
@@ -269,11 +271,44 @@ func (r *NuboUserRepository) LoadUserPermission(userUid uint) models.UserPermiss
 	return result
 }
 
-// 사용자의 포인트 변경 이력 업데이트
-func (r *NuboUserRepository) UpdatePointHistory(param models.UpdatePointParam) error {
-	query := fmt.Sprintf(`INSERT INTO %s%s (user_uid, board_uid, action, point) 
-												VALUES (?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POINT_HISTORY)
-	_, err := r.db.Exec(query, param.UserUid, param.BoardUid, param.Action.String(), param.Point)
+// 포인트 잔액과 변경 이력을 하나의 트랜잭션에서 원자적으로 반영한다.
+func (r *NuboUserRepository) ApplyPointChange(param models.UpdatePointParam) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := applyPointChangeTx(tx, param); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func applyPointChangeTx(tx *sql.Tx, param models.UpdatePointParam) error {
+	if param.UserUid < 1 || param.Point == 0 {
+		return nil
+	}
+	requiredPoint := 0
+	if param.Point < 0 {
+		requiredPoint = -param.Point
+	}
+	query := fmt.Sprintf(`UPDATE %s%s SET point = point + ?
+		WHERE uid = ? AND point >= ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER)
+	result, err := tx.Exec(query, param.Point, param.UserUid, requiredPoint)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return ErrInsufficientPoint
+	}
+
+	query = fmt.Sprintf(`INSERT INTO %s%s (user_uid, board_uid, action, point)
+		VALUES (?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POINT_HISTORY)
+	_, err = tx.Exec(query, param.UserUid, param.BoardUid, uint(param.Action), param.Point)
 	return err
 }
 
@@ -298,13 +333,6 @@ func (r *NuboUserRepository) UpdateUserPermission(userUid uint, perm models.User
 	query := fmt.Sprintf(`UPDATE %s%s SET write_post = ?, write_comment = ?, send_chat = ?, send_report = ?
 												WHERE user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_USER_PERM)
 	_, err := r.db.Exec(query, perm.WritePost, perm.WriteComment, perm.SendChatMessage, perm.SendReport, userUid)
-	return err
-}
-
-// 사용자 포인트 변경하기
-func (r *NuboUserRepository) UpdateUserPoint(userUid uint, updatedPoint uint) error {
-	query := fmt.Sprintf("UPDATE %s%s SET point = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	_, err := r.db.Exec(query, updatedPoint, userUid)
 	return err
 }
 

@@ -125,16 +125,15 @@ func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error)
 	if !s.repos.Comment.IsCommentInPost(param.ReplyTargetUid, param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("reply target does not belong to this post")
 	}
-	insertId, err := s.Write(param.CommentWriteParam)
-	if err != nil {
-		return models.FAILED, err
-	}
-	s.repos.Comment.UpdateReplyUid(insertId, param.ReplyTargetUid)
-	return insertId, nil
+	return s.write(param.CommentWriteParam, param.ReplyTargetUid)
 }
 
 // 새로운 댓글 작성하기
 func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error) {
+	return s.write(param, 0)
+}
+
+func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint) (uint, error) {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("post does not belong to this board")
 	}
@@ -156,19 +155,15 @@ func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error)
 	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
-	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
+	insertId, err := s.repos.Comment.InsertComment(param, replyUid, models.UpdatePointParam{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_COMMENT,
 		Point:    needPt,
 	})
-
-	insertId, err := s.repos.Comment.InsertComment(param)
 	if err != nil {
 		return models.FAILED, err
 	}
-	s.repos.Comment.UpdateReplyUid(insertId, insertId)
 
 	targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
 	if param.UserUid != targetUserUid {

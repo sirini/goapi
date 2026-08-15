@@ -303,6 +303,7 @@ func SaveThumbnailImage(inputPath string) (models.BoardThumbnail, error) {
 
 	err = ResizeImage(inputPath, result.Small, configs.SIZE_THUMBNAIL.Number())
 	if err != nil {
+		_ = os.Remove(result.Small)
 		return result, err
 	}
 	err = ResizeImage(inputPath, result.Large, configs.SIZE_FULL.Number())

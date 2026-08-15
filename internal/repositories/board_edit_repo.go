@@ -25,7 +25,7 @@ type BoardEditRepository interface {
 	InsertFileThumbnail(param models.EditorSaveThumbnailParam) error
 	InsertImageDescription(fileUid uint, postUid uint, description string) error
 	InsertImagePaths(boardUid uint, userUid uint, paths []string) error
-	InsertPost(param models.EditorWriteParam) (uint, error)
+	InsertPost(param models.EditorWriteParam, point models.UpdatePointParam) (uint, error)
 	InsertPostHashtag(boardUid uint, postUid uint, hashtagUid uint) error
 	InsertTag(boardUid uint, postUid uint, tag string) (uint, error)
 	RemoveInsertedImage(imageUid uint, actionUserUid uint) (string, error)
@@ -232,13 +232,22 @@ func (r *NuboBoardEditRepository) InsertImagePaths(boardUid uint, userUid uint, 
 }
 
 // 새 게시글 작성하기
-func (r *NuboBoardEditRepository) InsertPost(param models.EditorWriteParam) (uint, error) {
+func (r *NuboBoardEditRepository) InsertPost(param models.EditorWriteParam, point models.UpdatePointParam) (uint, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.FAILED, err
+	}
+	defer tx.Rollback()
+	if err := applyPointChangeTx(tx, point); err != nil {
+		return models.FAILED, err
+	}
+
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(board_uid, user_uid, category_uid, title, content, submitted, modified, hit, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST)
 
 	status := utils.GetContentStatus(param.IsNotice, param.IsSecret)
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		param.BoardUid,
 		param.UserUid,
@@ -256,6 +265,9 @@ func (r *NuboBoardEditRepository) InsertPost(param models.EditorWriteParam) (uin
 
 	insertId, err := result.LastInsertId()
 	if err != nil {
+		return models.FAILED, err
+	}
+	if err := tx.Commit(); err != nil {
 		return models.FAILED, err
 	}
 	return uint(insertId), nil

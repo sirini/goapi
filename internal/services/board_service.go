@@ -82,13 +82,14 @@ func (s *NuboBoardService) Download(boardUid uint, fileUid uint, userUid uint) (
 		return result, fmt.Errorf("file not found")
 	}
 
-	s.repos.User.UpdateUserPoint(userUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
+	if err := applyPointChange(s.repos.User, models.UpdatePointParam{
 		UserUid:  userUid,
 		BoardUid: boardUid,
 		Action:   models.POINT_ACTION_DOWNLOAD,
 		Point:    needPt,
-	})
+	}); err != nil {
+		return result, err
+	}
 	return result, nil
 }
 
@@ -246,14 +247,6 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 		return result, fmt.Errorf("not enough point")
 	}
 
-	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-	s.repos.User.UpdatePointHistory(models.UpdatePointParam{
-		UserUid:  param.UserUid,
-		BoardUid: param.BoardUid,
-		Action:   models.POINT_ACTION_VIEW,
-		Point:    needPt,
-	})
-
 	post, err := s.repos.BoardView.GetPostItem(param.PostUid, param.UserUid)
 	if err != nil {
 		return result, err
@@ -300,6 +293,14 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 	result.NextPostUid = s.repos.BoardView.GetNextPostUid(param.BoardUid, param.PostUid)
 	result.WriterPosts, _ = s.repos.BoardView.GetWriterLatestPost(post.Writer.UserUid, param.LatestLimit)
 	result.WriterComments, _ = s.repos.BoardView.GetWriterLatestComment(post.Writer.UserUid, param.LatestLimit)
+	if err := applyPointChange(s.repos.User, models.UpdatePointParam{
+		UserUid:  param.UserUid,
+		BoardUid: param.BoardUid,
+		Action:   models.POINT_ACTION_VIEW,
+		Point:    needPt,
+	}); err != nil {
+		return models.BoardViewResult{}, err
+	}
 	return result, nil
 }
 
@@ -472,6 +473,12 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var errors []error
+	type savedAttachment struct {
+		fileUid   uint
+		filePath  string
+		extraPath []string
+	}
+	var saved []savedAttachment
 
 	for _, file := range param.Files {
 		wg.Add(1)
@@ -481,6 +488,9 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 
 			savedPath, err := utils.SaveAttachmentFile(f)
 			if err != nil {
+				if savedPath != "" {
+					_ = os.Remove(savedPath)
+				}
 				mu.Lock()
 				errors = append(errors, err)
 				mu.Unlock()
@@ -494,6 +504,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				Path:     savedPath[1:],
 			})
 			if err != nil {
+				_ = os.Remove(savedPath)
 				mu.Lock()
 				errors = append(errors, err)
 				mu.Unlock()
@@ -505,38 +516,74 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				thumb, err := utils.SaveThumbnailImage(savedPath)
 				if err != nil {
 					mu.Lock()
+					saved = append(saved, savedAttachment{fileUid: fileUid, filePath: savedPath[1:]})
 					errors = append(errors, err)
 					mu.Unlock()
 
 					return
 				}
 
-				s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
+				if err := s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 					BoardThumbnail: models.BoardThumbnail{
 						Large: thumb.Large[1:],
 						Small: thumb.Small[1:],
 					},
 					FileUid: fileUid,
 					PostUid: param.PostUid,
-				})
+				}); err != nil {
+					mu.Lock()
+					saved = append(saved, savedAttachment{
+						fileUid: fileUid, filePath: savedPath[1:],
+						extraPath: []string{thumb.Small, thumb.Large},
+					})
+					errors = append(errors, err)
+					mu.Unlock()
+					return
+				}
 				exif := utils.ExtractExif(savedPath)
-				s.repos.BoardEdit.InsertExif(fileUid, param.PostUid, exif)
+				if err := s.repos.BoardEdit.InsertExif(fileUid, param.PostUid, exif); err != nil {
+					mu.Lock()
+					saved = append(saved, savedAttachment{
+						fileUid: fileUid, filePath: savedPath[1:],
+						extraPath: []string{thumb.Small, thumb.Large},
+					})
+					errors = append(errors, err)
+					mu.Unlock()
+					return
+				}
 
 				// 이미지 설명 추출은 따로 OpenAI API Key 필요함
 				imgDesc, err := utils.AskImageDescription(param.Context, thumb.Small)
 				if err == nil {
 					s.repos.BoardEdit.InsertImageDescription(fileUid, param.PostUid, imgDesc)
 				}
+
+				mu.Lock()
+				saved = append(saved, savedAttachment{
+					fileUid: fileUid, filePath: savedPath[1:],
+					extraPath: []string{thumb.Small, thumb.Large},
+				})
+				mu.Unlock()
+				return
 			}
+
+			mu.Lock()
+			saved = append(saved, savedAttachment{fileUid: fileUid, filePath: savedPath[1:]})
+			mu.Unlock()
 		}(file)
 	}
 	wg.Wait()
 
-	// 에러가 하나라도 있었다면 맨 처음 에러 반환
 	if len(errors) > 0 {
-		for _, e := range errors {
-			return e
+		for _, attachment := range saved {
+			for _, path := range s.repos.BoardView.RemoveAttachedFile(attachment.fileUid, attachment.filePath) {
+				_ = os.Remove("." + path)
+			}
+			for _, path := range attachment.extraPath {
+				_ = os.Remove(path)
+			}
 		}
+		return errors[0]
 	}
 
 	return nil
@@ -706,15 +753,18 @@ func (s *NuboBoardService) WritePost(param models.EditorWriteParam) (uint, error
 	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
-	s.repos.User.UpdateUserPoint(param.UserUid, uint(userPt+needPt))
-
 	if param.IsNotice {
 		if isAdmin := s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid); !isAdmin {
 			param.IsNotice = false
 		}
 	}
 
-	postUid, err := s.repos.BoardEdit.InsertPost(param)
+	postUid, err := s.repos.BoardEdit.InsertPost(param, models.UpdatePointParam{
+		UserUid:  param.UserUid,
+		BoardUid: param.BoardUid,
+		Action:   models.POINT_ACTION_WRITE,
+		Point:    needPt,
+	})
 	if err != nil {
 		return postUid, err
 	}

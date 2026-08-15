@@ -18,12 +18,11 @@ type CommentRepository interface {
 	IsLikedComment(commentUid uint, userUid uint) bool
 	IsCommentInBoard(commentUid uint, boardUid uint) bool
 	IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool
-	InsertComment(param models.CommentWriteParam) (uint, error)
+	InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error)
 	InsertLikeComment(param models.CommentLikeParam)
 	RemoveComment(commentUid uint) error
 	UpdateComment(commentUid uint, content string)
 	UpdateLikeComment(param models.CommentLikeParam)
-	UpdateReplyUid(commentUid uint, replyUid uint)
 }
 
 func (r *NuboCommentRepository) IsCommentInBoard(commentUid uint, boardUid uint) bool {
@@ -119,14 +118,23 @@ func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bo
 }
 
 // 새로운 댓글 작성하기
-func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam) (uint, error) {
+func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return models.FAILED, err
+	}
+	defer tx.Rollback()
+	if err := applyPointChangeTx(tx, point); err != nil {
+		return models.FAILED, err
+	}
+
 	query := fmt.Sprintf(`INSERT INTO %s%s 
 												(reply_uid, board_uid, post_uid, user_uid, content, submitted, modified, status) 
 												VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT)
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
-		0,
+		replyUid,
 		param.BoardUid,
 		param.PostUid,
 		param.UserUid,
@@ -138,7 +146,20 @@ func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam) (u
 	if err != nil {
 		return models.FAILED, err
 	}
-	insertId, _ := result.LastInsertId()
+	insertId, err := result.LastInsertId()
+	if err != nil {
+		return models.FAILED, err
+	}
+	if replyUid == 0 {
+		query = fmt.Sprintf("UPDATE %s%s SET reply_uid = ? WHERE uid = ? LIMIT 1",
+			configs.Env.Prefix, models.TABLE_COMMENT)
+		if _, err := tx.Exec(query, insertId, insertId); err != nil {
+			return models.FAILED, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return models.FAILED, err
+	}
 	return uint(insertId), nil
 }
 
@@ -172,14 +193,6 @@ func (r *NuboCommentRepository) UpdateLikeComment(param models.CommentLikeParam)
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
 
 	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.CommentUid, param.UserUid)
-}
-
-// 답글 고유 번호 업데이트
-func (r *NuboCommentRepository) UpdateReplyUid(commentUid uint, replyUid uint) {
-	query := fmt.Sprintf("UPDATE %s%s SET reply_uid = ? WHERE uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_COMMENT)
-
-	r.db.Exec(query, replyUid, commentUid)
 }
 
 // 댓글 목록 가져오기

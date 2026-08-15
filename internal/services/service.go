@@ -1,6 +1,12 @@
 package services
 
-import "github.com/sirini/goapi/internal/repositories"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/sirini/goapi/internal/repositories"
+	"github.com/sirini/goapi/pkg/models"
+)
 
 // 모든 서비스들을 관리
 type Service struct {
@@ -16,6 +22,16 @@ type Service struct {
 	Sync    SyncService
 	Trade   TradeService
 	User    UserService
+}
+
+func applyPointChange(repo repositories.UserRepository, param models.UpdatePointParam) error {
+	if err := repo.ApplyPointChange(param); err != nil {
+		if errors.Is(err, repositories.ErrInsufficientPoint) {
+			return repositories.ErrInsufficientPoint
+		}
+		return fmt.Errorf("failed to update point balance")
+	}
+	return nil
 }
 
 // 모든 서비스들을 생성
