@@ -11,7 +11,7 @@ func RegisterCommentRouters(api fiber.Router, h *handlers.Handler) {
 	comment := api.Group("/comment")
 	comment.Get("/list", h.Comment.CommentListHandler)
 
-	protected := comment.Group("/", middlewares.JWTMiddleware())
+	protected := comment.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))
 	protected.Patch("/like", h.Comment.LikeCommentHandler)
 	protected.Patch("/modify", h.Comment.ModifyCommentHandler)
 	protected.Delete("/remove", h.Comment.RemoveCommentHandler)

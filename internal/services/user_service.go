@@ -56,13 +56,14 @@ func (s *NuboUserService) ChangePassword(verifyUid uint, userCode string, newPas
 	if userUid < 1 {
 		return false
 	}
-	s.repos.Auth.UpdateUserPasswordHash(userUid, string(newBcryptHash))
-	return true
+	return s.repos.Auth.UpdateUserPasswordHash(userUid, string(newBcryptHash)) == nil
 }
 
 // 사용자 정보 변경하기
 func (s *NuboUserService) ChangeUserInfo(param models.UpdateUserInfoParam) error {
-	s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature))
+	if err := s.repos.User.UpdateUserInfoString(param.UserUid, utils.Escape(param.Name), utils.Escape(param.Signature)); err != nil {
+		return err
+	}
 	if param.Profile != nil {
 		return s.ChangeUserProfile(param.UserUid, param.Profile, param.OldProfile)
 	}
@@ -104,29 +105,28 @@ func (s *NuboUserService) ChangeUserProfile(userUid uint, profile *multipart.Fil
 	}
 
 	file, err := profile.Open()
-	if err == nil {
-		defer file.Close()
+	if err != nil {
+		return err
 	}
+	defer file.Close()
 
 	if profile.Size > 0 {
 		tempPath, err := utils.SaveUploadedFile(file, profile.Filename)
 		if err != nil {
 			return err
 		}
+		defer os.Remove(tempPath)
 		profilePath, err := utils.SaveProfileImage(tempPath)
 		if err != nil {
-			os.Remove(tempPath)
 			return err
 		}
 
-		s.repos.User.UpdateUserProfile(userUid, profilePath[1:])
-		if len(oldProfile) > 1 {
-			if err := os.Remove("." + oldProfile); err != nil {
-				return err
-			}
-		}
-		if err := os.Remove(tempPath); err != nil {
+		if err := s.repos.User.UpdateUserProfile(userUid, profilePath[1:]); err != nil {
+			_ = os.Remove(profilePath)
 			return err
+		}
+		if len(oldProfile) > 1 {
+			_ = os.Remove("." + oldProfile)
 		}
 	}
 

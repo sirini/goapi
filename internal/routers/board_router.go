@@ -15,7 +15,7 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board.Get("/user/latest", h.Board.LatestUserContentHandler)
 	board.Get("/transfer", h.Board.TransferHandler)
 
-	protected := board.Group("/", middlewares.JWTMiddleware())
+	protected := board.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))
 	protected.Get("/download", h.Board.DownloadHandler)
 	protected.Get("/move/list", h.Board.ListForMoveHandler)
 	protected.Patch("/like", h.Board.LikePostHandler)

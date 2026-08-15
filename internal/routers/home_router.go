@@ -16,7 +16,7 @@ func RegisterHomeRouters(api fiber.Router, h *handlers.Handler) {
 	home.Get("/sidebar/links", h.Home.LoadSidebarLinkHandler)
 
 	// 알림용 라우터들
-	noti := home.Group("/noti", middlewares.JWTMiddleware())
+	noti := home.Group("/noti", middlewares.JWTMiddleware(h.CanAuthenticate))
 	noti.Get("/load", h.Noti.LoadNotiListHandler)
 	noti.Patch("/checked", h.Noti.CheckedAllNotiHandler)
 	noti.Patch("/checked/:notiUid", h.Noti.CheckedSingleNotiHandler)

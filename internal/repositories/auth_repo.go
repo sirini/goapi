@@ -29,7 +29,7 @@ type AuthRepository interface {
 	SaveVerificationCode(id string, code string) uint
 	DeleteVerificationCode(verifyUid uint)
 	UpdateRefreshToken(userUid uint, token string)
-	UpdateUserPasswordHash(userUid uint, newBcryptHash string)
+	UpdateUserPasswordHash(userUid uint, newBcryptHash string) error
 	UpdateUserSignin(userUid uint)
 	UpdateVerificationCode(id string, code string, uid uint)
 }
@@ -327,7 +327,8 @@ func (r *NuboAuthRepository) UpdateUserSignin(userUid uint) {
 }
 
 // 사용자의 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 업데이트
-func (r *NuboAuthRepository) UpdateUserPasswordHash(userUid uint, newBcryptHash string) {
+func (r *NuboAuthRepository) UpdateUserPasswordHash(userUid uint, newBcryptHash string) error {
 	query := fmt.Sprintf("UPDATE %s%s SET password = ? WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER)
-	r.db.Exec(query, newBcryptHash, userUid)
+	_, err := r.db.Exec(query, newBcryptHash, userUid)
+	return err
 }

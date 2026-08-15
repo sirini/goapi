@@ -347,7 +347,7 @@ func (s *NuboAdminService) ModifyUserAccount(param models.AdminUserModifyParam) 
 	}
 
 	if param.Profile != nil {
-		s.userService.ChangeUserProfile(param.UserUid, param.Profile, param.OldProfile)
+		return s.userService.ChangeUserProfile(param.UserUid, param.Profile, param.OldProfile)
 	}
 	return nil
 }

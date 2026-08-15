@@ -18,8 +18,8 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Post("/verify", h.Auth.VerifyCodeHandler)
 	auth.Post("/logout", h.Auth.LogoutHandler)
 
-	auth.Get("/load", middlewares.JWTMiddleware(), h.Auth.LoadMyInfoHandler)
-	auth.Patch("/update", middlewares.JWTMiddleware(), h.Auth.UpdateMyInfoHandler)
+	auth.Get("/load", middlewares.JWTMiddleware(h.CanAuthenticate), h.Auth.LoadMyInfoHandler)
+	auth.Patch("/update", middlewares.JWTMiddleware(h.CanAuthenticate), h.Auth.UpdateMyInfoHandler)
 
 	// OAuth용 라우터들
 	auth.Get("/google/request", h.OAuth2.GoogleOAuthRequestHandler)
@@ -36,8 +36,8 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	user := auth.Group("/user")
 	user.Get("/info", h.User.LoadUserInfoHandler)
 	user.Post("/change-password", h.User.ChangePasswordHandler)
-	user.Post("/report", middlewares.JWTMiddleware(), h.User.ReportUserHandler)
-	user.Get("/report", middlewares.JWTMiddleware(), h.User.CheckReportedUserHandler)
-	user.Get("/permission", middlewares.JWTMiddleware(), h.User.LoadUserPermissionHandler)
-	user.Post("/manage", middlewares.JWTMiddleware(), h.User.ManageUserPermissionHandler)
+	user.Post("/report", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.ReportUserHandler)
+	user.Get("/report", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.CheckReportedUserHandler)
+	user.Get("/permission", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.LoadUserPermissionHandler)
+	user.Post("/manage", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.ManageUserPermissionHandler)
 }

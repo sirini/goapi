@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -30,11 +31,7 @@ type OAuth2Handler interface {
 }
 
 type NuboOAuth2Handler struct {
-	service          *services.Service
-	googleConfig     oauth2.Config
-	naverRedirectURL string
-	naverConfig      oauth2.Config
-	kakaoConfig      oauth2.Config
+	service *services.Service
 }
 
 // services.Service 주입 받기
@@ -44,12 +41,16 @@ func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
 
 // 구글 안드로이드 앱 OAuth 콜백 핸들러
 func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
+	if configs.Env.OAuthGoogleID == "" {
+		return utils.Err(c, "google oauth is not configured", models.CODE_FAILED_OPERATION)
+	}
 	idToken := c.FormValue("id_token")
 	if len(idToken) < 1 {
 		return utils.Err(c, "id_token is empty", models.CODE_INVALID_PARAMETER)
 	}
 
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken))
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return utils.Err(c, "invalid google token", models.CODE_INVALID_TOKEN)
 	}
@@ -59,10 +60,16 @@ func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
+	if !validGoogleIDTokenInfo(userInfo, configs.Env.OAuthGoogleID) {
+		return utils.Err(c, "invalid google token claims", models.CODE_INVALID_TOKEN)
+	}
 
 	userUid := h.UtilRegisterUser(userInfo.Email, userInfo.Name, userInfo.Picture)
 	if userUid < 1 {
 		return utils.Err(c, "failed to registrate a user", models.CODE_FAILED_OPERATION)
+	}
+	if !h.service.Auth.CanAuthenticate(userUid) {
+		return utils.Err(c, "this account is not allowed to sign in", models.CODE_NO_PERMISSION)
 	}
 
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
@@ -76,17 +83,10 @@ func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 
 // 구글 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) GoogleOAuthRequestHandler(c fiber.Ctx) error {
-	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
-
-	h.googleConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/google/callback", configs.Env.Domain),
-		ClientID:     configs.Env.OAuthGoogleID,
-		ClientSecret: configs.Env.OAuthGoogleSecret,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
-	}
-	url := h.googleConfig.AuthCodeURL(state)
+	state := uuid.NewString()
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 1)
+	googleConfig := googleOAuthConfig()
+	url := googleConfig.AuthCodeURL(state)
 	return c.Redirect().To(url)
 }
 
@@ -96,12 +96,13 @@ func (h *NuboOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 		return c.Redirect().To(configs.Env.Domain)
 	}
 
-	token, err := utils.OAuth2ExchangeToken(c, h.googleConfig)
+	googleConfig := googleOAuthConfig()
+	token, err := utils.OAuth2ExchangeToken(c, googleConfig)
 	if err != nil {
 		return c.Redirect().To(configs.Env.Domain)
 	}
 
-	client := h.googleConfig.Client(context.Background(), token)
+	client := googleConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		return c.Redirect().To(configs.Env.Domain)
@@ -124,14 +125,13 @@ func (h *NuboOAuth2Handler) GoogleOAuthCallbackHandler(c fiber.Ctx) error {
 
 // 네이버 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) NaverOAuthRequestHandler(c fiber.Ctx) error {
-	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
-
-	h.naverRedirectURL = fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.Domain)
+	state := uuid.NewString()
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 1)
+	naverRedirectURL := oauthRedirectURL("naver")
 	url := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
 		configs.Env.OAuthNaverID,
-		h.naverRedirectURL,
+		naverRedirectURL,
 		state,
 	)
 	return c.Redirect().To(url)
@@ -145,17 +145,19 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 
 	code := c.FormValue("code")
 	state := c.FormValue("state")
+	naverRedirectURL := oauthRedirectURL("naver")
 
 	cookie := c.Cookies(models.OAUTH_STATE)
-	if cookie != state {
+	if !utils.OAuthStateMatches(cookie, state) {
 		return c.Redirect().To(configs.Env.Domain)
 	}
+	c.ClearCookie(models.OAUTH_STATE)
 
 	apiURL := fmt.Sprintf(
 		"https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=%s&client_secret=%s&redirect_uri=%s&code=%s&state=%s",
 		configs.Env.OAuthNaverID,
 		configs.Env.OAuthNaverSecret,
-		url.QueryEscape(h.naverRedirectURL),
+		url.QueryEscape(naverRedirectURL),
 		code,
 		state,
 	)
@@ -183,8 +185,8 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 		return c.Redirect().To(configs.Env.Domain)
 	}
 
-	h.naverConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/naver/callback", configs.Env.Domain),
+	naverConfig := oauth2.Config{
+		RedirectURL:  naverRedirectURL,
 		ClientID:     configs.Env.OAuthNaverID,
 		ClientSecret: configs.Env.OAuthNaverSecret,
 		Scopes:       []string{},
@@ -194,7 +196,7 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 		},
 	}
 
-	client = h.naverConfig.Client(context.Background(), &oauth2.Token{
+	client = naverConfig.Client(context.Background(), &oauth2.Token{
 		AccessToken: accessToken,
 	})
 
@@ -223,21 +225,10 @@ func (h *NuboOAuth2Handler) NaverOAuthCallbackHandler(c fiber.Ctx) error {
 
 // 카카오 OAuth 로그인을 위해 리다이렉트
 func (h *NuboOAuth2Handler) KakaoOAuthRequestHandler(c fiber.Ctx) error {
-	state := uuid.New().String()[:10]
-	utils.SaveCookie(c, models.OAUTH_STATE, state, 24)
-
-	h.kakaoConfig = oauth2.Config{
-		RedirectURL:  fmt.Sprintf("%s/goapi/auth/kakao/callback", configs.Env.Domain),
-		ClientID:     configs.Env.OAuthKakaoID,
-		ClientSecret: configs.Env.OAuthKakaoSecret,
-		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://kauth.kakao.com/oauth/authorize",
-			TokenURL: "https://kauth.kakao.com/oauth/token",
-		},
-	}
-
-	url := h.kakaoConfig.AuthCodeURL(state)
+	state := uuid.NewString()
+	utils.SaveCookie(c, models.OAUTH_STATE, state, 1)
+	kakaoConfig := kakaoOAuthConfig()
+	url := kakaoConfig.AuthCodeURL(state)
 	return c.Redirect().To(url)
 }
 
@@ -247,12 +238,13 @@ func (h *NuboOAuth2Handler) KakaoOAuthCallbackHandler(c fiber.Ctx) error {
 		return c.Redirect().To(configs.Env.Domain)
 	}
 
-	token, err := utils.OAuth2ExchangeToken(c, h.kakaoConfig)
+	kakaoConfig := kakaoOAuthConfig()
+	token, err := utils.OAuth2ExchangeToken(c, kakaoConfig)
 	if err != nil {
 		return c.Redirect().To(configs.Env.Domain)
 	}
 
-	client := h.kakaoConfig.Client(context.Background(), token)
+	client := kakaoConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://kapi.kakao.com/v2/user/me")
 	if err != nil {
 		return c.Redirect().To(configs.Env.Domain)
@@ -289,6 +281,9 @@ func (h *NuboOAuth2Handler) UtilRegisterUser(id string, name string, profile str
 
 // 토큰 저장 및 쿠키에 사용자 정보 전달
 func (h *NuboOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
+	if !h.service.Auth.CanAuthenticate(userUid) {
+		return c.Redirect().To(configs.Env.Domain)
+	}
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
 	h.service.OAuth.SaveRefreshToken(userUid, refresh)
@@ -297,4 +292,35 @@ func (h *NuboOAuth2Handler) UtilFinishLogin(c fiber.Ctx, userUid uint) error {
 	utils.SaveCookie(c, models.REFRESH_TOKEN, refresh, refreshDays*24)
 
 	return c.Redirect().To(configs.Env.Domain)
+}
+
+func oauthRedirectURL(provider string) string {
+	return fmt.Sprintf("%s/%s/auth/%s/callback", configs.Env.Domain, configs.Env.GoapiBase, provider)
+}
+
+func googleOAuthConfig() oauth2.Config {
+	return oauth2.Config{
+		RedirectURL:  oauthRedirectURL("google"),
+		ClientID:     configs.Env.OAuthGoogleID,
+		ClientSecret: configs.Env.OAuthGoogleSecret,
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
+		Endpoint:     google.Endpoint,
+	}
+}
+
+func kakaoOAuthConfig() oauth2.Config {
+	return oauth2.Config{
+		RedirectURL:  oauthRedirectURL("kakao"),
+		ClientID:     configs.Env.OAuthKakaoID,
+		ClientSecret: configs.Env.OAuthKakaoSecret,
+		Scopes:       []string{"account_email", "profile_image", "profile_nickname"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://kauth.kakao.com/oauth/authorize",
+			TokenURL: "https://kauth.kakao.com/oauth/token",
+		},
+	}
+}
+
+func validGoogleIDTokenInfo(user models.GoogleUser, clientID string) bool {
+	return clientID != "" && user.Audience == clientID && user.Email != "" && user.EmailVerified == "true"
 }

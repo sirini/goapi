@@ -14,11 +14,12 @@ import (
 )
 
 type AuthService interface {
+	CanAuthenticate(userUid uint) bool
 	CheckEmailExists(id string) bool
 	CheckNameExists(name string, userUid uint) bool
 	CheckRefreshToken(userUid uint, refreshToken string) bool
 	CheckUserPermission(userUid uint, action models.UserAction) bool
-	ChangeHashForPassword(userUid uint, newBcryptHash string)
+	ChangeHashForPassword(userUid uint, newBcryptHash string) error
 	GetMyInfo(userUid uint) models.MyInfoResult
 	GetUserAndHash(id string) (models.MyInfoResult, string)
 	Logout(userUid uint)
@@ -28,6 +29,12 @@ type AuthService interface {
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
 	RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error)
 	VerifyEmail(param models.VerifyParam) bool
+}
+
+// 토큰의 사용자가 현재도 존재하며 로그인 가능한 상태인지 확인한다.
+func (s *NuboAuthService) CanAuthenticate(userUid uint) bool {
+	user := s.repos.Auth.FindMyInfoByUid(userUid)
+	return user.Uid == userUid && !user.Blocked
 }
 
 func (s *NuboAuthService) RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error) {
@@ -78,8 +85,8 @@ func (s *NuboAuthService) CheckUserPermission(userUid uint, action models.UserAc
 }
 
 // 사용자 비밀번호를 SHA256 해시값에서 Bcrypt 해시값으로 변경하기
-func (s *NuboAuthService) ChangeHashForPassword(userUid uint, newBcryptHash string) {
-	s.repos.Auth.UpdateUserPasswordHash(userUid, newBcryptHash)
+func (s *NuboAuthService) ChangeHashForPassword(userUid uint, newBcryptHash string) error {
+	return s.repos.Auth.UpdateUserPasswordHash(userUid, newBcryptHash)
 }
 
 // 로그인 한 내 정보 가져오기

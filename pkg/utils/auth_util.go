@@ -113,7 +113,7 @@ func SaveCookie(c fiber.Ctx, name string, value string, hours int) {
 // JWT 토큰 검증
 func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(configs.Env.JWTSecretKey), nil
@@ -130,10 +130,11 @@ func ValidateJWT(tokenStr string) (*jwt.Token, error) {
 // 상태 검사 및 토큰 교환 후 토큰 반환
 func OAuth2ExchangeToken(c fiber.Ctx, cfg oauth2.Config) (*oauth2.Token, error) {
 	cookie := c.Cookies(models.OAUTH_STATE)
-	if cookie != c.FormValue("state") {
+	if !OAuthStateMatches(cookie, c.FormValue("state")) {
 		c.Redirect().To(configs.Env.Domain)
 		return nil, fmt.Errorf("empty oauth state from cookie")
 	}
+	c.ClearCookie(models.OAUTH_STATE)
 
 	code := c.FormValue("code")
 	token, err := cfg.Exchange(context.Background(), code)
@@ -142,4 +143,8 @@ func OAuth2ExchangeToken(c fiber.Ctx, cfg oauth2.Config) (*oauth2.Token, error) 
 		return nil, err
 	}
 	return token, nil
+}
+
+func OAuthStateMatches(cookie string, state string) bool {
+	return cookie != "" && state != "" && cookie == state
 }

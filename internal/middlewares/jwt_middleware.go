@@ -7,10 +7,13 @@ import (
 )
 
 // 로그인 여부를 확인하는 미들웨어
-func JWTMiddleware() fiber.Handler {
+func JWTMiddleware(canAuthenticate func(uint) bool) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 		if actionUserUid < 1 {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+		if canAuthenticate == nil || !canAuthenticate(uint(actionUserUid)) {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 		return c.Next()
@@ -18,10 +21,13 @@ func JWTMiddleware() fiber.Handler {
 }
 
 // 최고 관리자인지 확인하는 미들웨어
-func AdminMiddleware() fiber.Handler {
+func AdminMiddleware(canAuthenticate func(uint) bool) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
 		if actionUserUid < 1 {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+		if canAuthenticate == nil || !canAuthenticate(uint(actionUserUid)) {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 		if actionUserUid != 1 {

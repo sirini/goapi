@@ -9,14 +9,14 @@ import (
 // 관리화면과 상호작용에 필요한 라우터들 등록
 func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	api.Get("/skin/settings", h.Admin.SkinSettingsLoadHandler)
-	admin := api.Group("/admin", middlewares.AdminMiddleware())
-	board := admin.Group("/board", middlewares.AdminMiddleware())
-	dashboard := admin.Group("/dashboard", middlewares.AdminMiddleware())
-	group := admin.Group("/group", middlewares.AdminMiddleware())
-	latest := admin.Group("/latest", middlewares.AdminMiddleware())
-	report := admin.Group("/report", middlewares.AdminMiddleware())
-	user := admin.Group("/user", middlewares.AdminMiddleware())
-	skin := admin.Group("/skin", middlewares.AdminMiddleware())
+	admin := api.Group("/admin", middlewares.AdminMiddleware(h.CanAuthenticate))
+	board := admin.Group("/board")
+	dashboard := admin.Group("/dashboard")
+	group := admin.Group("/group")
+	latest := admin.Group("/latest")
+	report := admin.Group("/report")
+	user := admin.Group("/user")
+	skin := admin.Group("/skin")
 	skin.Put("/setting", h.Admin.SkinSettingModifyHandler)
 
 	board.Get("/load", h.Admin.BoardGeneralLoadHandler)

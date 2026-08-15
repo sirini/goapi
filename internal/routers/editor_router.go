@@ -11,7 +11,7 @@ func RegisterEditorRouters(api fiber.Router, h *handlers.Handler) {
 	editor := api.Group("/editor")
 	editor.Get("/config", h.Editor.GetEditorConfigHandler)
 
-	protected := editor.Group("/", middlewares.JWTMiddleware())
+	protected := editor.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))
 	protected.Get("/load/thumbnail", h.Editor.LoadThumbnailImageHandler)
 	protected.Get("/load/images", h.Editor.LoadInsertImageHandler)
 	protected.Get("/load/post", h.Editor.LoadPostHandler)

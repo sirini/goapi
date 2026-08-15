@@ -173,7 +173,7 @@ func (h *NuboAuthHandler) SigninHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to sign in", models.CODE_FAILED_OPERATION)
 	}
 	if migratedHash != "" {
-		h.service.Auth.ChangeHashForPassword(user.Uid, migratedHash)
+		_ = h.service.Auth.ChangeHashForPassword(user.Uid, migratedHash)
 	}
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 
@@ -240,8 +240,11 @@ func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 
 	if len(password) > 7 {
 		newBcryptHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		if err == nil {
-			h.service.Auth.ChangeHashForPassword(uint(actionUserUid), string(newBcryptHash))
+		if err != nil {
+			return utils.Err(c, "unable to update your password", models.CODE_FAILED_OPERATION)
+		}
+		if err := h.service.Auth.ChangeHashForPassword(uint(actionUserUid), string(newBcryptHash)); err != nil {
+			return utils.Err(c, "unable to update your password", models.CODE_FAILED_OPERATION)
 		}
 	}
 
@@ -254,6 +257,8 @@ func (h *NuboAuthHandler) UpdateMyInfoHandler(c fiber.Ctx) error {
 		Profile:    header,
 		OldProfile: userInfo.Profile,
 	}
-	h.service.User.ChangeUserInfo(parameter)
+	if err := h.service.User.ChangeUserInfo(parameter); err != nil {
+		return utils.Err(c, "unable to update your information", models.CODE_FAILED_OPERATION)
+	}
 	return utils.Ok(c, nil)
 }

@@ -18,10 +18,12 @@ type VerifyParam struct {
 
 // 구글 OAuth 응답
 type GoogleUser struct {
-	ID      string `json:"id"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Picture string `json:"picture"`
+	ID            string `json:"id"`
+	Audience      string `json:"aud"`
+	Email         string `json:"email"`
+	EmailVerified string `json:"email_verified"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
 }
 
 // 네이버 OAuth 응답
