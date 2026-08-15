@@ -61,23 +61,37 @@ func AskImageDescription(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("image description response has no choices")
+	}
 	return resp.Choices[0].Message.Content, nil
 }
 
 // URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .webp 형식으로 저장
 func DownloadImage(imageUrl string, outputPath string, width uint) error {
-	resp, err := http.Get(imageUrl)
+	client := &http.Client{Timeout: 15 * time.Second}
+	return downloadImage(client, imageUrl, outputPath, width)
+}
+
+func downloadImage(client *http.Client, imageUrl string, outputPath string, width uint) error {
+	resp, err := client.Get(imageUrl)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("image download failed with status %d", resp.StatusCode)
+	}
 
-	buffer, err := io.ReadAll(resp.Body)
+	const maxRemoteImageSize = 10 << 20
+	buffer, err := io.ReadAll(io.LimitReader(resp.Body, maxRemoteImageSize+1))
 	if err != nil {
 		return err
 	}
-	SaveImage(buffer, outputPath, width)
-	return nil
+	if len(buffer) > maxRemoteImageSize {
+		return fmt.Errorf("remote image exceeds %d bytes", maxRemoteImageSize)
+	}
+	return SaveImage(buffer, outputPath, width)
 }
 
 // 주어진 파일 경로가 이미지 파일인지 아닌지 확인하기
@@ -126,6 +140,7 @@ func ExtractExif(imagePath string) models.BoardExif {
 	if err != nil {
 		return result
 	}
+	defer f.Close()
 
 	x, err := exif.Decode(f)
 	if err != nil {
@@ -172,7 +187,7 @@ func ExtractExif(imagePath string) models.BoardExif {
 		result.Width = uint(w)
 	}
 
-	height, _ := x.Get(exif.PixelYDimension)
+	height, err := x.Get(exif.PixelYDimension)
 	if err == nil {
 		h, _ := height.Int(0)
 		result.Height = uint(h)
@@ -292,6 +307,7 @@ func SaveThumbnailImage(inputPath string) (models.BoardThumbnail, error) {
 	}
 	err = ResizeImage(inputPath, result.Large, configs.SIZE_FULL.Number())
 	if err != nil {
+		_ = os.Remove(result.Small)
 		return result, err
 	}
 	return result, nil

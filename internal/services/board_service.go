@@ -664,15 +664,23 @@ func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images
 
 	if len(errors) > 0 {
 		for _, tempPath := range tempPaths {
-			os.Remove(tempPath)
+			_ = os.Remove(tempPath)
 		}
-		return imagePaths, errors[0]
+		for _, imagePath := range imagePaths {
+			_ = os.Remove("." + imagePath)
+		}
+		return nil, errors[0]
 	}
 
-	s.repos.BoardEdit.InsertImagePaths(boardUid, userUid, imagePaths)
+	if err := s.repos.BoardEdit.InsertImagePaths(boardUid, userUid, imagePaths); err != nil {
+		for _, imagePath := range imagePaths {
+			_ = os.Remove("." + imagePath)
+		}
+		return nil, err
+	}
 
 	for _, tempPath := range tempPaths {
-		os.Remove(tempPath)
+		_ = os.Remove(tempPath)
 	}
 	return imagePaths, nil
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -36,8 +37,12 @@ func (s *NuboOAuthService) SaveProfileImage(userUid uint, profile string) {
 		return
 	}
 	newSavePath := fmt.Sprintf("%s/%s.webp", dirPath, uuid.New().String())
-	utils.DownloadImage(profile, newSavePath, configs.SIZE_PROFILE.Number())
-	s.repos.User.UpdateUserProfile(userUid, newSavePath[1:])
+	if err := utils.DownloadImage(profile, newSavePath, configs.SIZE_PROFILE.Number()); err != nil {
+		return
+	}
+	if err := s.repos.User.UpdateUserProfile(userUid, newSavePath[1:]); err != nil {
+		_ = os.Remove(newSavePath)
+	}
 }
 
 // OAuth 로그인 시 미가입 상태이면 바로 등록해주기 (프로필도 있으면 함께)
