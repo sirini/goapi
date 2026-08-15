@@ -44,11 +44,7 @@ func (r *NuboChatRepository) InsertNewChat(actionUserUid uint, targetUserUid uin
 
 // 쪽지 목록들 반환
 func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error) {
-	query := fmt.Sprintf(`SELECT MAX(c.uid) AS latest_uid, c.from_uid, MAX(c.message) AS latest_message, 
-												MAX(c.timestamp) AS latest_timestamp, u.name, u.profile 
-												FROM %s%s AS c JOIN %suser AS u ON c.from_uid = u.uid WHERE c.to_uid = ? 
-												GROUP BY c.from_uid ORDER BY latest_uid DESC LIMIT ?`,
-		configs.Env.Prefix, models.TABLE_CHAT, configs.Env.Prefix)
+	query := chatListQuery(configs.Env.Prefix)
 
 	rows, err := r.db.Query(query, userUid, limit)
 	if err != nil {
@@ -70,6 +66,17 @@ func (r *NuboChatRepository) LoadChatList(userUid uint, limit uint) ([]models.Ch
 	}
 	slices.Reverse(items)
 	return items, nil
+}
+
+func chatListQuery(prefix string) string {
+	return fmt.Sprintf(`SELECT c.uid, c.from_uid, c.message, c.timestamp, u.name, u.profile
+		FROM %s%s AS c
+		JOIN (
+			SELECT from_uid, MAX(uid) AS latest_uid
+			FROM %s%s WHERE to_uid = ? GROUP BY from_uid
+		) AS latest ON latest.latest_uid = c.uid
+		JOIN %suser AS u ON c.from_uid = u.uid
+		ORDER BY c.uid DESC LIMIT ?`, prefix, models.TABLE_CHAT, prefix, models.TABLE_CHAT, prefix)
 }
 
 // 상대방과의 대화 내용 가져오기
