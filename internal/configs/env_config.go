@@ -75,7 +75,7 @@ func LoadConfig() {
 	}
 
 	Env = Config{
-		Version:            getEnv("GOAPI_VERSION", "2.0.0"),
+		Version:            getEnv("GOAPI_VERSION", "1.2.1"),
 		GoapiBase:          getEnv("GOAPI_BASE", "goapi"),
 		GoPort:             getEnv("GOAPI_PORT", "3006"),
 		Domain:             getEnv("GOAPI_DOMAIN", "http://localhost"),
