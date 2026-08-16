@@ -41,7 +41,7 @@ func NewService(repos *repositories.Repository) *Service {
 	board := NewNuboBoardService(repos)
 	mailer := utils.NewResendMailer()
 	return &Service{
-		Admin:   newNuboAdminService(repos, user, mailer),
+		Admin:   newNuboAdminService(repos, user, mailer, mailer),
 		Auth:    newNuboAuthService(repos, mailer),
 		Board:   board,
 		Blog:    NewNuboBlogService(repos),

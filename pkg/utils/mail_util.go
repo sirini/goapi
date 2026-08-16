@@ -9,16 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/resend/resend-go/v2"
+	"github.com/resend/resend-go/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
 )
 
 const (
-	resendProvider    = "resend"
-	mailSendTimeout   = 10 * time.Second
-	resendFreeDaily   = 100
-	resendFreeMonthly = 3000
+	resendProvider              = "resend"
+	mailSendTimeout             = 10 * time.Second
+	resendFreeDaily             = 100
+	resendFreeMonthly           = 3000
+	resendFreeMarketingContacts = 1000
 )
 
 // Mailer isolates transactional delivery from the services that compose mail.
@@ -33,6 +34,7 @@ type ResendMailer struct {
 	apiKey    string
 	fromEmail string
 	fromName  string
+	replyTo   string
 }
 
 func NewResendMailer() *ResendMailer {
@@ -50,12 +52,19 @@ func NewResendMailer() *ResendMailer {
 		apiKey:    strings.TrimSpace(configs.Env.ResendKey),
 		fromEmail: fromEmail,
 		fromName:  fromName,
+		replyTo:   strings.TrimSpace(configs.Env.ResendReplyToEmail),
 	}
 }
 
 func (m *ResendMailer) Configured() bool {
 	if !strings.HasPrefix(m.apiKey, "re_") {
 		return false
+	}
+	if m.replyTo != "" {
+		address, err := mail.ParseAddress(m.replyTo)
+		if err != nil || address.Address != m.replyTo {
+			return false
+		}
 	}
 	address, err := mail.ParseAddress(m.fromEmail)
 	return err == nil && address.Address == m.fromEmail
@@ -67,12 +76,14 @@ func (m *ResendMailer) Status() models.MailStatus {
 		from = (&mail.Address{Name: m.fromName, Address: from}).String()
 	}
 	status := models.MailStatus{
-		Configured:   m.Configured(),
-		Provider:     resendProvider,
-		From:         from,
-		DomainStatus: "not_configured",
-		FreeDaily:    resendFreeDaily,
-		FreeMonthly:  resendFreeMonthly,
+		Configured:            m.Configured(),
+		Provider:              resendProvider,
+		From:                  from,
+		ReplyTo:               m.replyTo,
+		DomainStatus:          "not_configured",
+		FreeDaily:             resendFreeDaily,
+		FreeMonthly:           resendFreeMonthly,
+		FreeMarketingContacts: resendFreeMarketingContacts,
 	}
 	if !status.Configured {
 		return status
@@ -129,6 +140,7 @@ func (m *ResendMailer) Send(message models.MailMessage) (models.MailDelivery, er
 		Subject: message.Subject,
 		Html:    message.HTML,
 		Text:    message.Text,
+		ReplyTo: m.replyTo,
 		Tags:    tags,
 	}, &resend.SendEmailOptions{IdempotencyKey: message.IdempotencyKey})
 	if err != nil {

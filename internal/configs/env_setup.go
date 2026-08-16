@@ -121,6 +121,9 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := createMailCampaignTable(db, prefix); err != nil {
+		return err
+	}
 	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
 		return err
 	}
@@ -523,6 +526,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createExifTable(db, dbInfo.Prefix)
 	createImageDescriptionTable(db, dbInfo.Prefix)
 	createTradeTable(db, dbInfo.Prefix)
+	_ = createMailCampaignTable(db, dbInfo.Prefix)
 }
 
 // 기본 레코드들 추가하기
@@ -982,6 +986,28 @@ func createTradeTable(db *sql.DB, prefix string) error {
 	KEY (status),
 	CONSTRAINT fk_tpp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+	_, err := db.Exec(query)
+	return err
+}
+
+func createMailCampaignTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %smail_campaign (
+  uid INT UNSIGNED NOT NULL auto_increment,
+  subject VARCHAR(200) NOT NULL DEFAULT '',
+  markdown MEDIUMTEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  recipient_count INT UNSIGNED NOT NULL DEFAULT 0,
+  resend_segment_id VARCHAR(100) NOT NULL DEFAULT '',
+  resend_import_id VARCHAR(100) NOT NULL DEFAULT '',
+  resend_broadcast_id VARCHAR(100) NOT NULL DEFAULT '',
+  last_error VARCHAR(1000) NOT NULL DEFAULT '',
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  sent BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  KEY status (status),
+  KEY updated (updated)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	_, err := db.Exec(query)
 	return err
 }

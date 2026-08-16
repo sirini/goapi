@@ -18,10 +18,12 @@ type MailDelivery struct {
 
 // MailStatus exposes configuration readiness without revealing credentials.
 type MailStatus struct {
-	Configured   bool   `json:"configured"`
-	Provider     string `json:"provider"`
-	From         string `json:"from"`
-	DomainStatus string `json:"domainStatus"`
-	FreeDaily    uint   `json:"freeDaily"`
-	FreeMonthly  uint   `json:"freeMonthly"`
+	Configured            bool   `json:"configured"`
+	Provider              string `json:"provider"`
+	From                  string `json:"from"`
+	ReplyTo               string `json:"replyTo"`
+	DomainStatus          string `json:"domainStatus"`
+	FreeDaily             uint   `json:"freeDaily"`
+	FreeMonthly           uint   `json:"freeMonthly"`
+	FreeMarketingContacts uint   `json:"freeMarketingContacts"`
 }

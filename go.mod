@@ -13,8 +13,9 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/openai/openai-go/v3 v3.51.0
-	github.com/resend/resend-go/v2 v2.28.0
+	github.com/resend/resend-go/v3 v3.13.0
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
+	github.com/yuin/goldmark v1.7.13
 	golang.org/x/crypto v0.55.0
 	golang.org/x/oauth2 v0.36.0
 )

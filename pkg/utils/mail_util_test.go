@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/resend/resend-go/v2"
+	"github.com/resend/resend-go/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/pkg/models"
 )
@@ -42,6 +42,7 @@ func TestResendMailerSendsProviderNeutralMessage(t *testing.T) {
 		apiKey:    "re_test",
 		fromEmail: "noreply@example.com",
 		fromName:  "NUBO",
+		replyTo:   "owner@example.net",
 	}
 
 	delivery, err := mailer.Send(models.MailMessage{
@@ -61,6 +62,9 @@ func TestResendMailerSendsProviderNeutralMessage(t *testing.T) {
 	if request.From != `"NUBO" <noreply@example.com>` || request.To[0] != "member@example.com" {
 		t.Fatalf("request addresses = from %q, to %#v", request.From, request.To)
 	}
+	if request.ReplyTo != "owner@example.net" {
+		t.Fatalf("reply-to = %q", request.ReplyTo)
+	}
 	if request.Text != "code" || request.Html != "<p>code</p>" {
 		t.Fatalf("request bodies were not preserved")
 	}
@@ -71,6 +75,7 @@ func TestResendMailerRequiresKeyAndValidSender(t *testing.T) {
 		{apiKey: "", fromEmail: "noreply@example.com"},
 		{apiKey: "re_test", fromEmail: ""},
 		{apiKey: "re_test", fromEmail: "not-an-email"},
+		{apiKey: "re_test", fromEmail: "noreply@example.com", replyTo: "not-an-email"},
 	}
 	for _, mailer := range tests {
 		if mailer.Configured() {
@@ -122,11 +127,12 @@ func TestResendLiveDelivery(t *testing.T) {
 	}
 	previous := configs.Env
 	configs.Env = configs.Config{
-		Domain:          os.Getenv("GOAPI_DOMAIN"),
-		Title:           os.Getenv("GOAPI_TITLE"),
-		ResendKey:       os.Getenv("RESEND_API_KEY"),
-		ResendFromEmail: os.Getenv("RESEND_FROM_EMAIL"),
-		ResendFromName:  os.Getenv("RESEND_FROM_NAME"),
+		Domain:             os.Getenv("GOAPI_DOMAIN"),
+		Title:              os.Getenv("GOAPI_TITLE"),
+		ResendKey:          os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:    os.Getenv("RESEND_FROM_EMAIL"),
+		ResendFromName:     os.Getenv("RESEND_FROM_NAME"),
+		ResendReplyToEmail: os.Getenv("RESEND_REPLY_TO_EMAIL"),
 	}
 	t.Cleanup(func() { configs.Env = previous })
 

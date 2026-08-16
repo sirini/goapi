@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -27,6 +28,13 @@ type AdminHandler interface {
 	LatestCommentSearchHandler(c fiber.Ctx) error
 	LatestPostSearchHandler(c fiber.Ctx) error
 	MailStatusHandler(c fiber.Ctx) error
+	MailCampaignListHandler(c fiber.Ctx) error
+	MailCampaignLoadHandler(c fiber.Ctx) error
+	MailCampaignPreviewHandler(c fiber.Ctx) error
+	MailCampaignSaveHandler(c fiber.Ctx) error
+	MailCampaignTestHandler(c fiber.Ctx) error
+	MailCampaignPrepareHandler(c fiber.Ctx) error
+	MailCampaignSendHandler(c fiber.Ctx) error
 	ModifyBoardHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
@@ -46,6 +54,94 @@ type AdminHandler interface {
 
 func (h *NuboAdminHandler) MailStatusHandler(c fiber.Ctx) error {
 	return utils.Ok(c, h.service.Admin.GetMailStatus())
+}
+
+func (h *NuboAdminHandler) MailCampaignListHandler(c fiber.Ctx) error {
+	limit, _ := strconv.ParseUint(c.Query("limit", "20"), 10, 32)
+	result, err := h.service.Admin.GetMailCampaigns(uint(limit))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) MailCampaignLoadHandler(c fiber.Ctx) error {
+	uid, err := strconv.ParseUint(c.Params("uid"), 10, 32)
+	if err != nil || uid < 1 {
+		return utils.Err(c, "invalid campaign id", models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Admin.GetMailCampaign(uint(uid))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) MailCampaignPreviewHandler(c fiber.Ctx) error {
+	param := models.MailCampaignPreviewParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Admin.PreviewMailCampaign(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) MailCampaignSaveHandler(c fiber.Ctx) error {
+	param := models.MailCampaignSaveParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Admin.SaveMailCampaign(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) MailCampaignTestHandler(c fiber.Ctx) error {
+	uid, err := mailCampaignUid(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.Admin.SendMailCampaignTest(uid); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
+}
+
+func (h *NuboAdminHandler) MailCampaignPrepareHandler(c fiber.Ctx) error {
+	uid, err := mailCampaignUid(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Admin.PrepareMailCampaign(uid)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) MailCampaignSendHandler(c fiber.Ctx) error {
+	uid, err := mailCampaignUid(c)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Admin.SendMailCampaign(uid)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func mailCampaignUid(c fiber.Ctx) (uint, error) {
+	uid, err := strconv.ParseUint(c.Params("uid"), 10, 32)
+	if err != nil || uid < 1 {
+		return 0, fmt.Errorf("invalid campaign id")
+	}
+	return uint(uid), nil
 }
 
 func (h *NuboAdminHandler) SkinSettingsLoadHandler(c fiber.Ctx) error {

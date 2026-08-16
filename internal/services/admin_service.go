@@ -3,12 +3,16 @@ package services
 import (
 	"fmt"
 	"io/fs"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/templates"
 	"github.com/sirini/goapi/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,6 +34,13 @@ type AdminService interface {
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupConfig
 	GetMailStatus() models.MailStatus
+	GetMailCampaign(uid uint) (models.MailCampaign, error)
+	GetMailCampaigns(limit uint) (models.MailCampaignListResult, error)
+	PreviewMailCampaign(param models.MailCampaignPreviewParam) (models.MailCampaignPreviewResult, error)
+	SaveMailCampaign(param models.MailCampaignSaveParam) (models.MailCampaign, error)
+	SendMailCampaignTest(uid uint) error
+	PrepareMailCampaign(uid uint) (models.MailCampaign, error)
+	SendMailCampaign(uid uint) (models.MailCampaign, error)
 	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportSearchParam) models.AdminReportListResult
@@ -52,19 +63,224 @@ type NuboAdminService struct {
 	repos       *repositories.Repository
 	userService *NuboUserService
 	mailer      utils.Mailer
+	marketing   utils.MarketingMailer
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboAdminService(repos *repositories.Repository, userService *NuboUserService) *NuboAdminService {
-	return newNuboAdminService(repos, userService, utils.NewResendMailer())
+	mailer := utils.NewResendMailer()
+	return newNuboAdminService(repos, userService, mailer, mailer)
 }
 
-func newNuboAdminService(repos *repositories.Repository, userService *NuboUserService, mailer utils.Mailer) *NuboAdminService {
-	return &NuboAdminService{repos: repos, userService: userService, mailer: mailer}
+func newNuboAdminService(repos *repositories.Repository, userService *NuboUserService, mailer utils.Mailer, marketing utils.MarketingMailer) *NuboAdminService {
+	return &NuboAdminService{repos: repos, userService: userService, mailer: mailer, marketing: marketing}
 }
 
 func (s *NuboAdminService) GetMailStatus() models.MailStatus {
 	return s.mailer.Status()
+}
+
+func (s *NuboAdminService) PreviewMailCampaign(param models.MailCampaignPreviewParam) (models.MailCampaignPreviewResult, error) {
+	result := models.MailCampaignPreviewResult{}
+	if err := validateMailCampaignContent(param.Subject, param.Markdown); err != nil {
+		return result, err
+	}
+	html, text, err := templates.RenderMarketingMail(configs.Env.Title, siteURL(), strings.TrimSpace(param.Subject), param.Markdown, true)
+	if err != nil {
+		return result, err
+	}
+	result.HTML, result.Text = html, text
+	return result, nil
+}
+
+func (s *NuboAdminService) SaveMailCampaign(param models.MailCampaignSaveParam) (models.MailCampaign, error) {
+	if err := validateMailCampaignContent(param.Subject, param.Markdown); err != nil {
+		return models.MailCampaign{}, err
+	}
+	param.Subject = strings.TrimSpace(param.Subject)
+	if param.Uid == 0 {
+		uid, err := s.repos.MailCampaign.CreateCampaign(param)
+		if err != nil {
+			return models.MailCampaign{}, err
+		}
+		param.Uid = uid
+	} else if err := s.repos.MailCampaign.UpdateCampaign(param); err != nil {
+		return models.MailCampaign{}, err
+	}
+	return s.repos.MailCampaign.GetCampaign(param.Uid)
+}
+
+func (s *NuboAdminService) GetMailCampaigns(limit uint) (models.MailCampaignListResult, error) {
+	return s.repos.MailCampaign.ListCampaigns(limit)
+}
+
+func (s *NuboAdminService) GetMailCampaign(uid uint) (models.MailCampaign, error) {
+	campaign, err := s.repos.MailCampaign.GetCampaign(uid)
+	if err != nil {
+		return campaign, err
+	}
+	if campaign.Status == models.MailCampaignSending {
+		if campaign.ResendBroadcastId == "" {
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, "발송 재개가 필요합니다")
+			return s.repos.MailCampaign.GetCampaign(uid)
+		}
+		status, statusErr := s.marketing.GetBroadcastStatus(campaign.ResendBroadcastId)
+		if statusErr != nil {
+			return campaign, statusErr
+		}
+		if status == "draft" {
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, "발송 재개가 필요합니다")
+		} else {
+			_ = s.repos.MailCampaign.SetCampaignSent(uid, campaign.ResendBroadcastId)
+		}
+		return s.repos.MailCampaign.GetCampaign(uid)
+	}
+	if campaign.Status != models.MailCampaignSyncing || campaign.ResendImportId == "" {
+		return campaign, nil
+	}
+	status, err := s.marketing.GetImportStatus(campaign.ResendImportId)
+	if err != nil {
+		return campaign, err
+	}
+	switch status.Status {
+	case "completed":
+		if status.Failed > 0 {
+			errorText := fmt.Sprintf("Resend contact import failed for %d recipient(s)", status.Failed)
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignFailed, errorText)
+		} else {
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, "")
+		}
+	case "failed":
+		_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignFailed, "Resend contact import failed")
+	}
+	return s.repos.MailCampaign.GetCampaign(uid)
+}
+
+func (s *NuboAdminService) SendMailCampaignTest(uid uint) error {
+	if !s.mailer.Configured() {
+		return ErrMailNotConfigured
+	}
+	campaign, err := s.repos.MailCampaign.GetCampaign(uid)
+	if err != nil {
+		return err
+	}
+	admin := s.repos.Admin.GetUserInfo(1)
+	if _, err := mail.ParseAddress(admin.Id); err != nil {
+		return fmt.Errorf("administrator email address is invalid")
+	}
+	html, text, err := templates.RenderMarketingMail(configs.Env.Title, siteURL(), campaign.Subject, campaign.Markdown, true)
+	if err != nil {
+		return err
+	}
+	_, err = s.mailer.Send(models.MailMessage{
+		To: admin.Id, Subject: "[테스트] " + campaign.Subject, HTML: html, Text: text,
+		IdempotencyKey: fmt.Sprintf("campaign-test/%d/%d", uid, time.Now().UnixNano()),
+		Tags:           map[string]string{"type": "campaign-test"},
+	})
+	return err
+}
+
+func (s *NuboAdminService) PrepareMailCampaign(uid uint) (models.MailCampaign, error) {
+	if !s.marketing.Configured() {
+		return models.MailCampaign{}, ErrMailNotConfigured
+	}
+	campaign, err := s.repos.MailCampaign.GetCampaign(uid)
+	if err != nil {
+		return campaign, err
+	}
+	if campaign.Status == models.MailCampaignSent || campaign.Status == models.MailCampaignSyncing {
+		return campaign, fmt.Errorf("campaign cannot be prepared in its current state")
+	}
+	recipients, err := s.repos.MailCampaign.GetActiveMailRecipients()
+	if err != nil {
+		return campaign, err
+	}
+	valid := make([]models.MailRecipient, 0, len(recipients))
+	for _, recipient := range recipients {
+		address, parseErr := mail.ParseAddress(strings.TrimSpace(recipient.Email))
+		if parseErr == nil && address.Address == strings.TrimSpace(recipient.Email) {
+			recipient.Email = address.Address
+			valid = append(valid, recipient)
+		}
+	}
+	if len(valid) == 0 {
+		return campaign, fmt.Errorf("there are no active members with valid email addresses")
+	}
+	if len(valid) > 1000 {
+		return campaign, fmt.Errorf("the Resend free marketing tier supports up to 1,000 contacts")
+	}
+	segmentName := fmt.Sprintf("NUBO %s campaign %d", strings.TrimPrefix(strings.TrimPrefix(siteURL(), "https://"), "http://"), uid)
+	segmentId, err := s.marketing.CreateSegment(segmentName)
+	if err != nil {
+		return campaign, err
+	}
+	importId, err := s.marketing.ImportContacts(segmentId, valid)
+	if err != nil {
+		return campaign, err
+	}
+	if err := s.repos.MailCampaign.SetCampaignImport(uid, segmentId, importId, uint(len(valid))); err != nil {
+		return campaign, err
+	}
+	return s.repos.MailCampaign.GetCampaign(uid)
+}
+
+func (s *NuboAdminService) SendMailCampaign(uid uint) (models.MailCampaign, error) {
+	campaign, err := s.GetMailCampaign(uid)
+	if err != nil {
+		return campaign, err
+	}
+	if campaign.Status != models.MailCampaignReady {
+		return campaign, fmt.Errorf("campaign recipients are not ready")
+	}
+	html, text, err := templates.RenderMarketingMail(configs.Env.Title, siteURL(), campaign.Subject, campaign.Markdown, false)
+	if err != nil {
+		return campaign, err
+	}
+	if err := s.repos.MailCampaign.BeginCampaignSend(uid); err != nil {
+		return campaign, err
+	}
+	broadcastId := campaign.ResendBroadcastId
+	if broadcastId == "" {
+		broadcastId, err = s.marketing.CreateBroadcast(models.MarketingBroadcast{
+			SegmentId: campaign.ResendSegmentId,
+			Name:      fmt.Sprintf("NUBO campaign %d", campaign.Uid),
+			Subject:   campaign.Subject, HTML: html, Text: text,
+		})
+		if err != nil {
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, mailCampaignError(err))
+			return campaign, err
+		}
+		if err := s.repos.MailCampaign.SetCampaignBroadcast(uid, broadcastId); err != nil {
+			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, mailCampaignError(err))
+			return campaign, err
+		}
+	}
+	if err := s.marketing.SendBroadcast(broadcastId); err != nil {
+		_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, mailCampaignError(err))
+		return campaign, err
+	}
+	if err := s.repos.MailCampaign.SetCampaignSent(uid, broadcastId); err != nil {
+		return campaign, err
+	}
+	return s.repos.MailCampaign.GetCampaign(uid)
+}
+
+func validateMailCampaignContent(subject, markdown string) error {
+	if len([]rune(strings.TrimSpace(subject))) < 2 || len([]rune(strings.TrimSpace(subject))) > 200 {
+		return fmt.Errorf("mail subject must be between 2 and 200 characters")
+	}
+	if len(strings.TrimSpace(markdown)) < 2 || len(markdown) > 200000 {
+		return fmt.Errorf("mail content must be between 2 and 200,000 bytes")
+	}
+	return nil
+}
+
+func mailCampaignError(err error) string {
+	message := err.Error()
+	if len(message) > 1000 {
+		return message[:1000]
+	}
+	return message
 }
 
 func (s *NuboAdminService) GetSkinSettings() models.SkinSettings {
