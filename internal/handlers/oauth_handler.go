@@ -272,6 +272,9 @@ func (h *NuboOAuth2Handler) UtilRegisterUser(id string, name string, profile str
 	isRegistered := h.service.Auth.CheckEmailExists(id)
 	var userUid uint
 	if !isRegistered {
+		if !h.service.Auth.CanRegisterOAuthUser() {
+			return 0
+		}
 		userUid = h.service.OAuth.RegisterOAuthUser(id, name, profile)
 	} else {
 		userUid = h.service.OAuth.GetUserUid(id)

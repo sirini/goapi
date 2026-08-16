@@ -35,15 +35,16 @@ GOAPI는 **NUBO의 고성능 백엔드** 구현체입니다. `GoFiber v3` 기반
 - (아래 예시)
 
 ```conf
-# Resend로 메일 발송에 필요한 API Key
+# Resend로 메일 발송에 필요한 API Key (없으면 이메일 기능 비활성화)
 # 주의) localhost 에서는 동작하지 않으며, 실제 도메인 인증을 받은 서버에서만 동작합니다
-# 참고) Resend API Key가 지정되어 있으면 Gmail 메일 대신 Resend를 사용합니다
+# 무료 티어 안내: https://resend.com/pricing
 RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+RESEND_FROM_NAME=
+RESEND_REPLY_TO_EMAIL=
 
-# 구글 앱비밀번호 for GMAIL 발송
-# 참고) https://velog.io/@seul06/nodemailer
-GMAIL_ID=
-GMAIL_APP_PASSWORD=
+# 신규 가입 정책: verified_email(기본) | invite_only | disabled
+SIGNUP_MODE=verified_email
 
 # 구글 OAuth 클라이언트
 OAUTH_GOOGLE_CLIENT_ID=

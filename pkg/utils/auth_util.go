@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
@@ -90,6 +92,27 @@ func IsValidEmail(email string) bool {
 	const regexPattern = `^(?i)[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$`
 	re := regexp.MustCompile(regexPattern)
 	return re.MatchString(email)
+}
+
+func IsValidSignupPassword(password string) bool {
+	if utf8.RuneCountInString(password) < 8 {
+		return false
+	}
+	var letter, digit, special bool
+	for _, value := range password {
+		if unicode.IsSpace(value) {
+			return false
+		}
+		switch {
+		case unicode.IsLetter(value):
+			letter = true
+		case unicode.IsDigit(value):
+			digit = true
+		default:
+			special = true
+		}
+	}
+	return letter && digit && special
 }
 
 // 쿠키에 저장

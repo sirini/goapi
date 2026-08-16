@@ -2,9 +2,7 @@ package models
 
 // 비밀번호 초기화 파라미터
 type ResetPasswordParam struct {
-	Email    string `json:"email"`
-	Template string `json:"template"`
-	Hostname string
+	Email string `json:"email"`
 }
 
 // 인증 완료하기 파라미터
@@ -52,14 +50,41 @@ type SignupParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
-	Template string `json:"template"`
-	Hostname string
+	Invite   string `json:"invite"`
 }
 
 // 회원가입 시 리턴 타입
 type SignupResult struct {
-	Sendmail bool `json:"sendmail"`
-	Target   uint `json:"target"`
+	Target               uint `json:"target"`
+	RequiresVerification bool `json:"requiresVerification"`
+	Completed            bool `json:"completed"`
+}
+
+type SignupStatus struct {
+	Mode                     string `json:"mode"`
+	MailConfigured           bool   `json:"mailConfigured"`
+	OAuthRegistrationAllowed bool   `json:"oauthRegistrationAllowed"`
+}
+
+type SignupInviteCreateParam struct {
+	Email       string `json:"email"`
+	ExpiresDays uint   `json:"expiresDays"`
+}
+
+type SignupInvite struct {
+	Uid       uint   `json:"uid"`
+	Email     string `json:"email"`
+	Created   int64  `json:"created"`
+	Expires   int64  `json:"expires"`
+	Used      int64  `json:"used"`
+	Revoked   bool   `json:"revoked"`
+	CreatedBy uint   `json:"createdBy"`
+}
+
+type SignupInviteCreated struct {
+	SignupInvite
+	Token string `json:"token"`
+	URL   string `json:"url"`
 }
 
 // JWT 컨텍스트 키값 설정

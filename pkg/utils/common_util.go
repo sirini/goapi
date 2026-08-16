@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/sirini/goapi/pkg/models"
 )
 
@@ -23,6 +24,12 @@ func Unescape(escaped string) string {
 	originStr = strings.ReplaceAll(originStr, "&quot;", "\"")
 	originStr = strings.ReplaceAll(originStr, "&#x27;", "'")
 	return originStr
+}
+
+// PlainText removes all markup and normalizes whitespace for non-HTML contexts.
+func PlainText(input string) string {
+	plain := bluemonday.StrictPolicy().Sanitize(input)
+	return strings.Join(strings.Fields(Unescape(plain)), " ")
 }
 
 // YYYY:mm:dd HH:ii:ss 형태의 시간 문자를 Unix timestamp로 변경

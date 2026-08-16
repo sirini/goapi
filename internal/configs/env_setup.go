@@ -121,6 +121,12 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := createSignupInviteTable(db, prefix); err != nil {
+		return err
+	}
+	if err := createMailCampaignTable(db, prefix); err != nil {
+		return err
+	}
 	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
 		return err
 	}
@@ -419,7 +425,7 @@ func askAdminInfo() AdminInfo {
 			Name: "Id",
 			Prompt: &survey.Input{
 				Message: "Admin's email:",
-				Default: "sirini@gmail.com",
+				Default: "admin@example.com",
 				Help:    "An email address of yours",
 			},
 		},
@@ -501,6 +507,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createUserTokenTable(db, dbInfo.Prefix)
 	createUserPermissionTable(db, dbInfo.Prefix)
 	createUserVerificationTable(db, dbInfo.Prefix)
+	_ = createSignupInviteTable(db, dbInfo.Prefix)
 	createUserAccessLogTable(db, dbInfo.Prefix)
 	createUserBlackListTable(db, dbInfo.Prefix)
 	createReportTable(db, dbInfo.Prefix)
@@ -523,6 +530,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createExifTable(db, dbInfo.Prefix)
 	createImageDescriptionTable(db, dbInfo.Prefix)
 	createTradeTable(db, dbInfo.Prefix)
+	_ = createMailCampaignTable(db, dbInfo.Prefix)
 }
 
 // 기본 레코드들 추가하기
@@ -592,6 +600,24 @@ func createUserVerificationTable(db *sql.DB, prefix string) {
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
+}
+
+func createSignupInviteTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %ssignup_invite (
+  uid INT UNSIGNED NOT NULL auto_increment,
+  email VARCHAR(100) NOT NULL DEFAULT '',
+  token_hash CHAR(64) NOT NULL,
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  expires BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  used BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  revoked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_by INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_signup_invite_token_hash (token_hash),
+  KEY idx_signup_invite_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	_, err := db.Exec(query)
+	return err
 }
 
 // user_access_log 테이블 생성
@@ -982,6 +1008,28 @@ func createTradeTable(db *sql.DB, prefix string) error {
 	KEY (status),
 	CONSTRAINT fk_tpp FOREIGN KEY (post_uid) REFERENCES %spost(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+	_, err := db.Exec(query)
+	return err
+}
+
+func createMailCampaignTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %smail_campaign (
+  uid INT UNSIGNED NOT NULL auto_increment,
+  subject VARCHAR(200) NOT NULL DEFAULT '',
+  markdown MEDIUMTEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  recipient_count INT UNSIGNED NOT NULL DEFAULT 0,
+  resend_segment_id VARCHAR(100) NOT NULL DEFAULT '',
+  resend_import_id VARCHAR(100) NOT NULL DEFAULT '',
+  resend_broadcast_id VARCHAR(100) NOT NULL DEFAULT '',
+  last_error VARCHAR(1000) NOT NULL DEFAULT '',
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  sent BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  KEY status (status),
+  KEY updated (updated)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	_, err := db.Exec(query)
 	return err
 }

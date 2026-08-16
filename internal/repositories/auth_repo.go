@@ -27,6 +27,7 @@ type AuthRepository interface {
 	SaveRefreshToken(userUid uint, refreshToken string)
 	RotateRefreshToken(userUid uint, oldRefreshToken string, newRefreshToken string) bool
 	SaveVerificationCode(id string, code string) uint
+	VerificationRecentlyIssued(id string, cooldown time.Duration) bool
 	DeleteVerificationCode(verifyUid uint)
 	UpdateRefreshToken(userUid uint, token string)
 	UpdateUserPasswordHash(userUid uint, newBcryptHash string) error
@@ -282,6 +283,10 @@ func (r *NuboAuthRepository) RotateRefreshToken(userUid uint, oldRefreshToken st
 
 // (회원가입 시) 인증 코드 보관해놓기
 func (r *NuboAuthRepository) SaveVerificationCode(id string, code string) uint {
+	cutoff := time.Now().Add(-verificationCodeLifetime).UnixMilli()
+	cleanupQuery := fmt.Sprintf("DELETE FROM %s%s WHERE timestamp < ?", configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	_, _ = r.db.Exec(cleanupQuery, cutoff)
+
 	var uid uint
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE email = ? LIMIT 1",
 		configs.Env.Prefix, models.TABLE_USER_VERIFY)
@@ -295,6 +300,17 @@ func (r *NuboAuthRepository) SaveVerificationCode(id string, code string) uint {
 	}
 	r.UpdateVerificationCode(id, code, uid)
 	return uid
+}
+
+func (r *NuboAuthRepository) VerificationRecentlyIssued(id string, cooldown time.Duration) bool {
+	var timestamp int64
+	query := fmt.Sprintf("SELECT timestamp FROM %s%s WHERE email = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_USER_VERIFY)
+	if err := r.db.QueryRow(query, id).Scan(&timestamp); err != nil {
+		return false
+	}
+	issuedAt := time.UnixMilli(timestamp)
+	return !issuedAt.After(time.Now()) && time.Since(issuedAt) < cooldown
 }
 
 func (r *NuboAuthRepository) DeleteVerificationCode(verifyUid uint) {

@@ -11,6 +11,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth := api.Group("/auth")
 	auth.Post("/signin", h.Auth.SigninHandler)
 	auth.Post("/signup", h.Auth.SignupHandler)
+	auth.Get("/signup/status", h.Auth.SignupStatusHandler)
 	auth.Post("/reset-password", h.Auth.RequestResetPasswordHandler)
 	auth.Post("/refresh", h.Auth.RefreshAccessTokenHandler)
 	auth.Post("/checkemail", h.Auth.CheckEmailHandler)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 )
 
 // 모든 서비스들을 관리
@@ -38,13 +39,14 @@ func applyPointChange(repo repositories.UserRepository, param models.UpdatePoint
 func NewService(repos *repositories.Repository) *Service {
 	user := NewNuboUserService(repos)
 	board := NewNuboBoardService(repos)
+	mailer := utils.NewResendMailer()
 	return &Service{
-		Admin:   NewNuboAdminService(repos, user),
-		Auth:    NewNuboAuthService(repos),
+		Admin:   newNuboAdminService(repos, user, mailer, mailer),
+		Auth:    newNuboAuthService(repos, mailer),
 		Board:   board,
 		Blog:    NewNuboBlogService(repos),
 		Chat:    NewNuboChatService(repos),
-		Comment: NewNuboCommentService(repos),
+		Comment: newNuboCommentService(repos, mailer),
 		Home:    NewNuboHomeService(repos),
 		Noti:    NewNuboNotiService(repos),
 		OAuth:   NewNuboOAuthService(repos),
