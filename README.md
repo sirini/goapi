@@ -39,6 +39,8 @@ GOAPI는 **NUBO의 고성능 백엔드** 구현체입니다. `GoFiber v3` 기반
 # 주의) localhost 에서는 동작하지 않으며, 실제 도메인 인증을 받은 서버에서만 동작합니다
 # 무료 티어 안내: https://resend.com/pricing
 RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+RESEND_FROM_NAME=
 
 # 구글 OAuth 클라이언트
 OAUTH_GOOGLE_CLIENT_ID=

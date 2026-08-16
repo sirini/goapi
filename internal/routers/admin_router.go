@@ -17,7 +17,9 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	report := admin.Group("/report")
 	user := admin.Group("/user")
 	skin := admin.Group("/skin")
+	system := admin.Group("/system")
 	skin.Put("/setting", h.Admin.SkinSettingModifyHandler)
+	system.Get("/mail", h.Admin.MailStatusHandler)
 
 	board.Get("/load", h.Admin.BoardGeneralLoadHandler)
 	board.Post("/create", h.Admin.CreateBoardHandler)

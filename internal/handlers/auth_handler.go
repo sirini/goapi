@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -101,9 +102,14 @@ func (h *NuboAuthHandler) RequestResetPasswordHandler(c fiber.Ctx) error {
 	if len(param.Email) < 6 || !utils.IsValidEmail(param.Email) {
 		return utils.Err(c, "invalid email", models.CODE_INVALID_PARAMETER)
 	}
-	param.Hostname = c.Hostname()
-	result := h.service.Auth.ResetPassword(param)
-	return utils.Ok(c, result)
+	if err := h.service.Auth.ResetPassword(param); err != nil {
+		if errors.Is(err, services.ErrMailNotConfigured) {
+			return utils.Err(c, err.Error(), models.CODE_MAIL_NOT_CONFIGURED)
+		}
+		// Keep the public response indistinguishable from an unknown email address.
+		return utils.Ok(c, true)
+	}
+	return utils.Ok(c, true)
 }
 
 // 사용자의 기존 (액세스) 토큰이 만료되었을 때, 리프레시 토큰 유효한지 보고 새로 발급
@@ -192,10 +198,14 @@ func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
 	if !utils.IsValidEmail(param.ID) {
 		return utils.Err(c, "invalid id, not an email address", models.CODE_INVALID_PARAMETER)
 	}
-	param.Hostname = c.Hostname()
-
 	result, err := h.service.Auth.Signup(param)
 	if err != nil {
+		if errors.Is(err, services.ErrMailNotConfigured) {
+			return utils.Err(c, err.Error(), models.CODE_MAIL_NOT_CONFIGURED)
+		}
+		if errors.Is(err, services.ErrMailRateLimited) {
+			return utils.Err(c, err.Error(), models.CODE_RATE_LIMITED)
+		}
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, result)

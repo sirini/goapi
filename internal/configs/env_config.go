@@ -33,6 +33,8 @@ type Config struct {
 	JWTAccessHours    string
 	JWTRefreshDays    string
 	ResendKey         string
+	ResendFromEmail   string
+	ResendFromName    string
 	OAuthGoogleID     string
 	OAuthGoogleSecret string
 	OAuthNaverID      string
@@ -84,6 +86,8 @@ func LoadConfig() {
 		JWTAccessHours:    getEnv("JWT_ACCESS_HOURS", "2"),
 		JWTRefreshDays:    getEnv("JWT_REFRESH_DAYS", "30"),
 		ResendKey:         getEnv("RESEND_API_KEY", ""),
+		ResendFromEmail:   getEnv("RESEND_FROM_EMAIL", ""),
+		ResendFromName:    getEnv("RESEND_FROM_NAME", ""),
 		OAuthGoogleID:     getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
 		OAuthGoogleSecret: getEnv("OAUTH_GOOGLE_SECRET", ""),
 		OAuthNaverID:      getEnv("OAUTH_NAVER_CLIENT_ID", ""),

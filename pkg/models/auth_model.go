@@ -2,9 +2,7 @@ package models
 
 // 비밀번호 초기화 파라미터
 type ResetPasswordParam struct {
-	Email    string `json:"email"`
-	Template string `json:"template"`
-	Hostname string
+	Email string `json:"email"`
 }
 
 // 인증 완료하기 파라미터
@@ -52,14 +50,11 @@ type SignupParam struct {
 	ID       string `json:"id"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
-	Template string `json:"template"`
-	Hostname string
 }
 
 // 회원가입 시 리턴 타입
 type SignupResult struct {
-	Sendmail bool `json:"sendmail"`
-	Target   uint `json:"target"`
+	Target uint `json:"target"`
 }
 
 // JWT 컨텍스트 키값 설정

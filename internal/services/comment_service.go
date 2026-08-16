@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"strings"
+	"log"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
@@ -21,12 +21,17 @@ type CommentService interface {
 }
 
 type NuboCommentService struct {
-	repos *repositories.Repository
+	repos  *repositories.Repository
+	mailer utils.Mailer
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboCommentService(repos *repositories.Repository) *NuboCommentService {
-	return &NuboCommentService{repos: repos}
+	return newNuboCommentService(repos, utils.NewResendMailer())
+}
+
+func newNuboCommentService(repos *repositories.Repository, mailer utils.Mailer) *NuboCommentService {
+	return &NuboCommentService{repos: repos, mailer: mailer}
 }
 
 // 댓글에 좋아요 클릭하기
@@ -175,22 +180,44 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 			CommentUid:    insertId,
 		})
 
-		if strings.HasPrefix(configs.Env.ResendKey, "re_") {
-			go func() {
-				writerInfo := s.repos.Auth.FindMyInfoByUid(targetUserUid)
-				commenterInfo := s.repos.Admin.FindWriterByUid(param.UserUid)
-				config := s.repos.Board.GetBoardConfig(param.BoardUid)
-
-				body := strings.ReplaceAll(templates.NoticeCommentBody, "{{Host}}", configs.Env.Domain)
-				body = strings.ReplaceAll(body, "{{Name}}", utils.Unescape(writerInfo.Name))
-				body = strings.ReplaceAll(body, "{{Commenter}}", utils.Unescape(commenterInfo.Name))
-				body = strings.ReplaceAll(body, "{{Comment}}", param.Content)
-				body = strings.ReplaceAll(body, "{{Link}}", fmt.Sprintf("%s/board/%s/view/%d", configs.Env.Domain, config.Id, param.PostUid))
-				body = strings.ReplaceAll(body, "{{From}}", fmt.Sprintf("noreply@%s", param.Hostname))
-				subject := fmt.Sprintf("[%s] %s has just commented on your post!", config.Name, commenterInfo.Name)
-				from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
-				utils.SendMail(writerInfo.Id, from, subject, body)
-			}()
+		if s.mailer.Configured() {
+			writerInfo := s.repos.Auth.FindMyInfoByUid(targetUserUid)
+			commenterInfo := s.repos.Admin.FindWriterByUid(param.UserUid)
+			config := s.repos.Board.GetBoardConfig(param.BoardUid)
+			commentURL := fmt.Sprintf("%s/board/%s/%d", siteURL(), config.Id, param.PostUid)
+			excerpt := utils.CutString(utils.PlainText(param.Content), 240)
+			html, text, renderErr := templates.RenderTransactionalMail(templates.MailContent{
+				SiteName:    configs.Env.Title,
+				SiteURL:     siteURL(),
+				Preheader:   fmt.Sprintf("%s님이 내 글에 댓글을 남겼습니다.", utils.Unescape(commenterInfo.Name)),
+				Label:       "New comment",
+				Heading:     "내 글에 새 댓글이 달렸습니다",
+				Greeting:    fmt.Sprintf("안녕하세요, %s님.", utils.Unescape(writerInfo.Name)),
+				Body:        fmt.Sprintf("%s님이 %s 게시판의 내 글에 댓글을 남겼습니다.", utils.Unescape(commenterInfo.Name), utils.Unescape(config.Name)),
+				Highlight:   excerpt,
+				ActionLabel: "댓글 확인하기",
+				ActionURL:   commentURL,
+				Notice:      "이 알림은 내 글에 새 댓글이 등록되어 발송되었습니다.",
+			})
+			if renderErr != nil {
+				log.Printf("mail: failed to render comment notification %d: %v", insertId, renderErr)
+			} else {
+				go func() {
+					delivery, err := s.mailer.Send(models.MailMessage{
+						To:             writerInfo.Id,
+						Subject:        fmt.Sprintf("[%s] 내 글에 새 댓글이 달렸습니다", configs.Env.Title),
+						HTML:           html,
+						Text:           text,
+						IdempotencyKey: fmt.Sprintf("comment-notification/%d", insertId),
+						Tags:           map[string]string{"type": "comment-notification"},
+					})
+					if err != nil {
+						log.Printf("mail: comment notification %d delivery failed: %v", insertId, err)
+						return
+					}
+					log.Printf("mail: comment notification %d accepted by %s as %s", insertId, delivery.Provider, delivery.MessageID)
+				}()
+			}
 		}
 	}
 

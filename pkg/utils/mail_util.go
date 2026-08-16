@@ -1,29 +1,154 @@
 package utils
 
 import (
+	"context"
+	"fmt"
+	"net/mail"
+	"net/url"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/resend/resend-go/v2"
 	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/pkg/models"
 )
 
-// Resend API를 이용해서 메일 발송하기 (무료: 일 100건 / 월 3,000건 제한 있음)
-func SendMailByResend(to string, from string, subject string, body string) bool {
-	client := resend.NewClient(configs.Env.ResendKey)
-	params := &resend.SendEmailRequest{
-		From:    from,
-		To:      []string{to},
-		Html:    body,
-		Subject: subject,
-	}
-	_, err := client.Emails.Send(params)
-	return err == nil
+const (
+	resendProvider    = "resend"
+	mailSendTimeout   = 10 * time.Second
+	resendFreeDaily   = 100
+	resendFreeMonthly = 3000
+)
+
+// Mailer isolates transactional delivery from the services that compose mail.
+type Mailer interface {
+	Configured() bool
+	Status() models.MailStatus
+	Send(message models.MailMessage) (models.MailDelivery, error)
 }
 
-// Resend API Key가 설정되어 있으면 메일 발송
-func SendMail(to string, from string, subject string, body string) bool {
-	if !strings.HasPrefix(configs.Env.ResendKey, "re_") {
+type ResendMailer struct {
+	client    *resend.Client
+	apiKey    string
+	fromEmail string
+	fromName  string
+}
+
+func NewResendMailer() *ResendMailer {
+	fromEmail := strings.TrimSpace(configs.Env.ResendFromEmail)
+	if fromEmail == "" {
+		fromEmail = defaultResendFromEmail(configs.Env.Domain)
+	}
+	fromName := strings.TrimSpace(configs.Env.ResendFromName)
+	if fromName == "" {
+		fromName = strings.TrimSpace(configs.Env.Title)
+	}
+
+	return &ResendMailer{
+		client:    resend.NewClient(configs.Env.ResendKey),
+		apiKey:    strings.TrimSpace(configs.Env.ResendKey),
+		fromEmail: fromEmail,
+		fromName:  fromName,
+	}
+}
+
+func (m *ResendMailer) Configured() bool {
+	if !strings.HasPrefix(m.apiKey, "re_") {
 		return false
 	}
-	return SendMailByResend(to, from, subject, body)
+	address, err := mail.ParseAddress(m.fromEmail)
+	return err == nil && address.Address == m.fromEmail
+}
+
+func (m *ResendMailer) Status() models.MailStatus {
+	from := m.fromEmail
+	if m.fromName != "" && from != "" {
+		from = (&mail.Address{Name: m.fromName, Address: from}).String()
+	}
+	status := models.MailStatus{
+		Configured:   m.Configured(),
+		Provider:     resendProvider,
+		From:         from,
+		DomainStatus: "not_configured",
+		FreeDaily:    resendFreeDaily,
+		FreeMonthly:  resendFreeMonthly,
+	}
+	if !status.Configured {
+		return status
+	}
+
+	status.DomainStatus = "unknown"
+	_, domain, ok := strings.Cut(m.fromEmail, "@")
+	if !ok || domain == "" {
+		return status
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), mailSendTimeout)
+	defer cancel()
+	domains, err := m.client.Domains.ListWithContext(ctx)
+	if err != nil {
+		return status
+	}
+	status.DomainStatus = "not_found"
+	for _, item := range domains.Data {
+		if strings.EqualFold(item.Name, domain) {
+			status.DomainStatus = item.Status
+			break
+		}
+	}
+	return status
+}
+
+func (m *ResendMailer) Send(message models.MailMessage) (models.MailDelivery, error) {
+	delivery := models.MailDelivery{Provider: resendProvider}
+	if !m.Configured() {
+		return delivery, fmt.Errorf("resend mail delivery is not configured")
+	}
+	if _, err := mail.ParseAddress(message.To); err != nil {
+		return delivery, fmt.Errorf("invalid recipient address: %w", err)
+	}
+	if strings.TrimSpace(message.Subject) == "" || strings.TrimSpace(message.HTML) == "" {
+		return delivery, fmt.Errorf("mail subject and HTML body are required")
+	}
+
+	tags := make([]resend.Tag, 0, len(message.Tags))
+	keys := make([]string, 0, len(message.Tags))
+	for key := range message.Tags {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		tags = append(tags, resend.Tag{Name: key, Value: message.Tags[key]})
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), mailSendTimeout)
+	defer cancel()
+	response, err := m.client.Emails.SendWithOptions(ctx, &resend.SendEmailRequest{
+		From:    (&mail.Address{Name: m.fromName, Address: m.fromEmail}).String(),
+		To:      []string{message.To},
+		Subject: message.Subject,
+		Html:    message.HTML,
+		Text:    message.Text,
+		Tags:    tags,
+	}, &resend.SendEmailOptions{IdempotencyKey: message.IdempotencyKey})
+	if err != nil {
+		return delivery, fmt.Errorf("resend rejected the email: %w", err)
+	}
+	if response == nil || response.Id == "" {
+		return delivery, fmt.Errorf("resend returned no message id")
+	}
+	delivery.MessageID = response.Id
+	return delivery, nil
+}
+
+func defaultResendFromEmail(domain string) string {
+	parsed, err := url.Parse(strings.TrimSpace(domain))
+	if err != nil || parsed.Hostname() == "" {
+		return ""
+	}
+	host := parsed.Hostname()
+	if host == "localhost" {
+		return ""
+	}
+	return "noreply@" + host
 }

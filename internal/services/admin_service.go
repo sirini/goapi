@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
+	"github.com/sirini/goapi/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -28,6 +29,7 @@ type AdminService interface {
 	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupConfig
+	GetMailStatus() models.MailStatus
 	GetSearchedComments(param models.AdminLatestParam) []models.AdminLatestComment
 	GetSearchedPosts(param models.AdminLatestParam) []models.AdminLatestPost
 	GetSearchedReports(param models.AdminReportSearchParam) models.AdminReportListResult
@@ -49,11 +51,20 @@ type AdminService interface {
 type NuboAdminService struct {
 	repos       *repositories.Repository
 	userService *NuboUserService
+	mailer      utils.Mailer
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboAdminService(repos *repositories.Repository, userService *NuboUserService) *NuboAdminService {
-	return &NuboAdminService{repos: repos, userService: userService}
+	return newNuboAdminService(repos, userService, utils.NewResendMailer())
+}
+
+func newNuboAdminService(repos *repositories.Repository, userService *NuboUserService, mailer utils.Mailer) *NuboAdminService {
+	return &NuboAdminService{repos: repos, userService: userService, mailer: mailer}
+}
+
+func (s *NuboAdminService) GetMailStatus() models.MailStatus {
+	return s.mailer.Status()
 }
 
 func (s *NuboAdminService) GetSkinSettings() models.SkinSettings {

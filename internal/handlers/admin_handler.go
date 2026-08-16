@@ -26,6 +26,7 @@ type AdminHandler interface {
 	GroupListLoadHandler(c fiber.Ctx) error
 	LatestCommentSearchHandler(c fiber.Ctx) error
 	LatestPostSearchHandler(c fiber.Ctx) error
+	MailStatusHandler(c fiber.Ctx) error
 	ModifyBoardHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
@@ -41,6 +42,10 @@ type AdminHandler interface {
 	SkinSettingsLoadHandler(c fiber.Ctx) error
 	SkinSettingModifyHandler(c fiber.Ctx) error
 	ReportResolveHandler(c fiber.Ctx) error
+}
+
+func (h *NuboAdminHandler) MailStatusHandler(c fiber.Ctx) error {
+	return utils.Ok(c, h.service.Admin.GetMailStatus())
 }
 
 func (h *NuboAdminHandler) SkinSettingsLoadHandler(c fiber.Ctx) error {
