@@ -419,7 +419,7 @@ func askAdminInfo() AdminInfo {
 			Name: "Id",
 			Prompt: &survey.Input{
 				Message: "Admin's email:",
-				Default: "sirini@gmail.com",
+				Default: "admin@example.com",
 				Help:    "An email address of yours",
 			},
 		},

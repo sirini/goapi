@@ -175,7 +175,7 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 			CommentUid:    insertId,
 		})
 
-		if len(configs.Env.GmailAppPassword) > 0 {
+		if strings.HasPrefix(configs.Env.ResendKey, "re_") {
 			go func() {
 				writerInfo := s.repos.Auth.FindMyInfoByUid(targetUserUid)
 				commenterInfo := s.repos.Admin.FindWriterByUid(param.UserUid)
@@ -186,7 +186,7 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 				body = strings.ReplaceAll(body, "{{Commenter}}", utils.Unescape(commenterInfo.Name))
 				body = strings.ReplaceAll(body, "{{Comment}}", param.Content)
 				body = strings.ReplaceAll(body, "{{Link}}", fmt.Sprintf("%s/board/%s/view/%d", configs.Env.Domain, config.Id, param.PostUid))
-				body = strings.ReplaceAll(body, "{{From}}", configs.Env.GmailID)
+				body = strings.ReplaceAll(body, "{{From}}", fmt.Sprintf("noreply@%s", param.Hostname))
 				subject := fmt.Sprintf("[%s] %s has just commented on your post!", config.Name, commenterInfo.Name)
 				from := fmt.Sprintf("Admin <noreply@%s>", param.Hostname)
 				utils.SendMail(writerInfo.Id, from, subject, body)
