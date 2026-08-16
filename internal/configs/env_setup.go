@@ -483,14 +483,16 @@ func makeEnv(dbInfo DBInfo, adminInfo AdminInfo) bool {
 	env = strings.ReplaceAll(env, "#dbpass#", dbInfo.Pass)
 	env = strings.ReplaceAll(env, "#dbname#", dbInfo.Name)
 	env = strings.ReplaceAll(env, "#dbprefix#", dbInfo.Prefix)
+	env = strings.ReplaceAll(env, "#dbport#", dbInfo.Port)
 	env = strings.ReplaceAll(env, "#dbsock#", dbInfo.Socket)
 	env = strings.ReplaceAll(env, "#dbmaxidle#", dbInfo.MaxIdle)
 	env = strings.ReplaceAll(env, "#dbmaxopen#", dbInfo.MaxOpen)
 	env = strings.ReplaceAll(env, "#jwtsecret#", uuid.New().String())
+	env = strings.ReplaceAll(env, "#syncsecret#", uuid.New().String())
 	env = strings.ReplaceAll(env, "#adminid#", adminInfo.Id)
 	env = strings.ReplaceAll(env, "#adminpw#", adminInfo.Pw)
 
-	err = os.WriteFile(".env", []byte(env), 0644)
+	err = os.WriteFile(".env", []byte(env), 0600)
 	return err == nil
 }
 
