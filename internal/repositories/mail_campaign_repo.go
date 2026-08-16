@@ -44,8 +44,9 @@ func (r *NuboMailCampaignRepository) CreateCampaign(param models.MailCampaignSav
 
 func (r *NuboMailCampaignRepository) UpdateCampaign(param models.MailCampaignSaveParam) error {
 	query := fmt.Sprintf(`UPDATE %s%s SET subject = ?, markdown = ?, updated = ?, last_error = ''
-		WHERE uid = ? AND status != ? LIMIT 1`, configs.Env.Prefix, models.TABLE_MAIL_CAMPAIGN)
-	result, err := r.db.Exec(query, param.Subject, param.Markdown, time.Now().UnixMilli(), param.Uid, models.MailCampaignSent)
+		WHERE uid = ? AND status IN (?, ?, ?) LIMIT 1`, configs.Env.Prefix, models.TABLE_MAIL_CAMPAIGN)
+	result, err := r.db.Exec(query, param.Subject, param.Markdown, time.Now().UnixMilli(), param.Uid,
+		models.MailCampaignDraft, models.MailCampaignReady, models.MailCampaignFailed)
 	if err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func (r *NuboMailCampaignRepository) UpdateCampaign(param models.MailCampaignSav
 		return err
 	}
 	if rows != 1 {
-		return fmt.Errorf("campaign does not exist or was already sent")
+		return fmt.Errorf("campaign cannot be edited in its current state")
 	}
 	return nil
 }

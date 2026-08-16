@@ -128,10 +128,13 @@ func (s *NuboAdminService) GetMailCampaign(uid uint) (models.MailCampaign, error
 		if statusErr != nil {
 			return campaign, statusErr
 		}
-		if status == "draft" {
+		switch status {
+		case "draft":
 			_ = s.repos.MailCampaign.SetCampaignStatus(uid, models.MailCampaignReady, "발송 재개가 필요합니다")
-		} else {
+		case "queued", "scheduled", "sent":
 			_ = s.repos.MailCampaign.SetCampaignSent(uid, campaign.ResendBroadcastId)
+		default:
+			return campaign, fmt.Errorf("Resend returned an unknown broadcast status: %s", status)
 		}
 		return s.repos.MailCampaign.GetCampaign(uid)
 	}
@@ -188,7 +191,7 @@ func (s *NuboAdminService) PrepareMailCampaign(uid uint) (models.MailCampaign, e
 	if err != nil {
 		return campaign, err
 	}
-	if campaign.Status == models.MailCampaignSent || campaign.Status == models.MailCampaignSyncing {
+	if campaign.Status != models.MailCampaignDraft && campaign.Status != models.MailCampaignFailed {
 		return campaign, fmt.Errorf("campaign cannot be prepared in its current state")
 	}
 	recipients, err := s.repos.MailCampaign.GetActiveMailRecipients()
