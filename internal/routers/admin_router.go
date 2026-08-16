@@ -62,4 +62,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	user.Get("/load", h.Admin.UserInfoLoadHandler)
 	user.Post("/modify", h.Admin.UserInfoModifyHandler)
 	user.Delete("/remove", h.Admin.RemoveUserHandler)
+	user.Get("/invites", h.Admin.SignupInviteListHandler)
+	user.Post("/invite", h.Admin.SignupInviteCreateHandler)
+	user.Delete("/invite/:uid", h.Admin.SignupInviteRevokeHandler)
 }

@@ -121,6 +121,9 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := createSignupInviteTable(db, prefix); err != nil {
+		return err
+	}
 	if err := createMailCampaignTable(db, prefix); err != nil {
 		return err
 	}
@@ -504,6 +507,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createUserTokenTable(db, dbInfo.Prefix)
 	createUserPermissionTable(db, dbInfo.Prefix)
 	createUserVerificationTable(db, dbInfo.Prefix)
+	_ = createSignupInviteTable(db, dbInfo.Prefix)
 	createUserAccessLogTable(db, dbInfo.Prefix)
 	createUserBlackListTable(db, dbInfo.Prefix)
 	createReportTable(db, dbInfo.Prefix)
@@ -596,6 +600,24 @@ func createUserVerificationTable(db *sql.DB, prefix string) {
   PRIMARY KEY (uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	db.Exec(query)
+}
+
+func createSignupInviteTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %ssignup_invite (
+  uid INT UNSIGNED NOT NULL auto_increment,
+  email VARCHAR(100) NOT NULL DEFAULT '',
+  token_hash CHAR(64) NOT NULL,
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  expires BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  used BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  revoked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_by INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_signup_invite_token_hash (token_hash),
+  KEY idx_signup_invite_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	_, err := db.Exec(query)
+	return err
 }
 
 // user_access_log 테이블 생성

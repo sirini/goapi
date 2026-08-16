@@ -40,6 +40,7 @@ const (
 	TABLE_USER_TOKEN    Table = "user_token"
 	TABLE_USER_VERIFY   Table = "user_verification"
 	TABLE_MAIL_CAMPAIGN Table = "mail_campaign"
+	TABLE_SIGNUP_INVITE Table = "signup_invite"
 )
 
 // 고유값과 이름 구조체 정의

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -36,6 +37,7 @@ type Config struct {
 	ResendFromEmail    string
 	ResendFromName     string
 	ResendReplyToEmail string
+	SignupMode         string
 	OAuthGoogleID      string
 	OAuthGoogleSecret  string
 	OAuthNaverID       string
@@ -43,6 +45,16 @@ type Config struct {
 	OAuthKakaoID       string
 	OAuthKakaoSecret   string
 	OpenaiKey          string
+}
+
+func GetSignupMode() string {
+	mode := strings.ToLower(strings.TrimSpace(Env.SignupMode))
+	switch mode {
+	case "invite_only", "disabled":
+		return mode
+	default:
+		return "verified_email"
+	}
 }
 
 // 환경변수에 기본값을 설정해주는 함수
@@ -90,6 +102,7 @@ func LoadConfig() {
 		ResendFromEmail:    getEnv("RESEND_FROM_EMAIL", ""),
 		ResendFromName:     getEnv("RESEND_FROM_NAME", ""),
 		ResendReplyToEmail: getEnv("RESEND_REPLY_TO_EMAIL", ""),
+		SignupMode:         getEnv("SIGNUP_MODE", "verified_email"),
 		OAuthGoogleID:      getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
 		OAuthGoogleSecret:  getEnv("OAUTH_GOOGLE_SECRET", ""),
 		OAuthNaverID:       getEnv("OAUTH_NAVER_CLIENT_ID", ""),

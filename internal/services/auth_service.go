@@ -3,6 +3,8 @@ package services
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -20,6 +22,8 @@ import (
 
 var ErrMailNotConfigured = errors.New("Resend is not configured; add a Resend API key to enable email features")
 var ErrMailRateLimited = errors.New("please wait before requesting another email")
+var ErrSignupDisabled = errors.New("new account registration is currently disabled")
+var ErrInvalidInvite = errors.New("a valid invitation issued for this email is required")
 
 const verificationRequestCooldown = time.Minute
 
@@ -35,10 +39,15 @@ type AuthService interface {
 	Logout(userUid uint)
 	ResetPassword(param models.ResetPasswordParam) error
 	Signin(id string, pw string) models.MyInfoResult
+	SignupStatus() models.SignupStatus
 	Signup(param models.SignupParam) (models.SignupResult, error)
+	CreateSignupInvite(param models.SignupInviteCreateParam, createdBy uint) (models.SignupInviteCreated, error)
+	ListSignupInvites(limit uint) ([]models.SignupInvite, error)
+	RevokeSignupInvite(uid uint) error
+	CanRegisterOAuthUser() bool
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
 	RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error)
-	VerifyEmail(param models.VerifyParam) bool
+	VerifyEmail(param models.VerifyParam) (bool, error)
 }
 
 // 토큰의 사용자가 현재도 존재하며 로그인 가능한 상태인지 확인한다.
@@ -87,6 +96,19 @@ func (s *NuboAuthService) CheckEmailExists(id string) bool {
 // 이름 중복 체크
 func (s *NuboAuthService) CheckNameExists(name string, userUid uint) bool {
 	return s.repos.User.IsNameDuplicated(name, userUid)
+}
+
+func (s *NuboAuthService) SignupStatus() models.SignupStatus {
+	mode := configs.GetSignupMode()
+	return models.SignupStatus{
+		Mode:                     mode,
+		MailConfigured:           s.mailer.Configured(),
+		OAuthRegistrationAllowed: mode == "verified_email",
+	}
+}
+
+func (s *NuboAuthService) CanRegisterOAuthUser() bool {
+	return configs.GetSignupMode() == "verified_email"
 }
 
 // 리프레시 토큰이 유효할 경우 새로운 액세스 토큰 발급하기
@@ -203,8 +225,15 @@ func (s *NuboAuthService) Signin(id string, pw string) models.MyInfoResult {
 
 // 신규 회원 바로 가입 혹은 인증 메일 발송
 func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult, error) {
-	isDupId := s.repos.User.IsEmailDuplicated(param.ID)
+	mode := configs.GetSignupMode()
 	signupResult := models.SignupResult{}
+	if mode == "disabled" {
+		return signupResult, ErrSignupDisabled
+	}
+	if mode == "invite_only" && strings.TrimSpace(param.Invite) == "" {
+		return signupResult, ErrInvalidInvite
+	}
+	isDupId := s.repos.User.IsEmailDuplicated(param.ID)
 	var target uint
 	if isDupId {
 		return signupResult, fmt.Errorf("email(%s) is already in use", param.ID)
@@ -214,6 +243,23 @@ func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult,
 	isDupName := s.repos.User.IsNameDuplicated(name, 0)
 	if isDupName {
 		return signupResult, fmt.Errorf("name(%s) is already in use", name)
+	}
+	if !utils.IsValidSignupPassword(param.Password) || len(name) < 2 || len(name) > 30 {
+		return signupResult, fmt.Errorf("invalid signup credentials")
+	}
+
+	if mode == "invite_only" {
+		digest := sha256.Sum256([]byte(strings.TrimSpace(param.Invite)))
+		_, err := s.repos.SignupInvite.ConsumeInviteAndCreateUser(
+			hex.EncodeToString(digest[:]), param.ID, param.Password, name, time.Now().UnixMilli(),
+		)
+		if err != nil {
+			if errors.Is(err, repositories.ErrInviteInvalid) {
+				return signupResult, ErrInvalidInvite
+			}
+			return signupResult, err
+		}
+		return models.SignupResult{Completed: true}, nil
 	}
 
 	if !s.mailer.Configured() {
@@ -260,9 +306,48 @@ func (s *NuboAuthService) Signup(param models.SignupParam) (models.SignupResult,
 	log.Printf("mail: signup verification accepted by %s as %s", delivery.Provider, delivery.MessageID)
 
 	signupResult = models.SignupResult{
-		Target: target,
+		Target:               target,
+		RequiresVerification: true,
 	}
 	return signupResult, nil
+}
+
+func (s *NuboAuthService) CreateSignupInvite(param models.SignupInviteCreateParam, createdBy uint) (models.SignupInviteCreated, error) {
+	result := models.SignupInviteCreated{}
+	email := strings.ToLower(strings.TrimSpace(param.Email))
+	if !utils.IsValidEmail(email) {
+		return result, fmt.Errorf("invalid invitation email")
+	}
+	if s.repos.User.IsEmailDuplicated(email) {
+		return result, fmt.Errorf("email is already in use")
+	}
+	if param.ExpiresDays < 1 || param.ExpiresDays > 90 {
+		return result, fmt.Errorf("invitation expiry must be between 1 and 90 days")
+	}
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
+		return result, err
+	}
+	token := base64.RawURLEncoding.EncodeToString(random)
+	digest := sha256.Sum256([]byte(token))
+	created := time.Now()
+	expires := created.Add(time.Duration(param.ExpiresDays) * 24 * time.Hour)
+	uid, err := s.repos.SignupInvite.CreateInvite(email, hex.EncodeToString(digest[:]), createdBy, created.UnixMilli(), expires.UnixMilli())
+	if err != nil {
+		return result, err
+	}
+	result.SignupInvite = models.SignupInvite{Uid: uid, Email: email, Created: created.UnixMilli(), Expires: expires.UnixMilli(), CreatedBy: createdBy}
+	result.Token = token
+	result.URL = fmt.Sprintf("%s/auth/join?invite=%s", siteURL(), token)
+	return result, nil
+}
+
+func (s *NuboAuthService) ListSignupInvites(limit uint) ([]models.SignupInvite, error) {
+	return s.repos.SignupInvite.ListInvites(limit)
+}
+
+func (s *NuboAuthService) RevokeSignupInvite(uid uint) error {
+	return s.repos.SignupInvite.RevokeInvite(uid)
 }
 
 func generateVerificationCode() (string, error) {
@@ -302,10 +387,16 @@ func (s *NuboAuthService) SaveTokensInCookie(c fiber.Ctx, userUid uint) (string,
 }
 
 // 이메일 인증 완료하기
-func (s *NuboAuthService) VerifyEmail(param models.VerifyParam) bool {
+func (s *NuboAuthService) VerifyEmail(param models.VerifyParam) (bool, error) {
+	if configs.GetSignupMode() != "verified_email" {
+		return false, ErrSignupDisabled
+	}
+	if !utils.IsValidSignupPassword(param.Password) {
+		return false, fmt.Errorf("invalid signup credentials")
+	}
 	_, ok := s.repos.Auth.ConsumeVerificationCode(param.Target, param.Code, param.ID)
 	if !ok {
-		return false
+		return false, nil
 	}
-	return s.repos.User.InsertNewUser(param.ID, param.Password, utils.Escape(param.Name)) > 0
+	return s.repos.User.InsertNewUser(param.ID, param.Password, utils.Escape(param.Name)) > 0, nil
 }

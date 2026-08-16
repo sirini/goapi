@@ -35,6 +35,9 @@ type AdminHandler interface {
 	MailCampaignTestHandler(c fiber.Ctx) error
 	MailCampaignPrepareHandler(c fiber.Ctx) error
 	MailCampaignSendHandler(c fiber.Ctx) error
+	SignupInviteCreateHandler(c fiber.Ctx) error
+	SignupInviteListHandler(c fiber.Ctx) error
+	SignupInviteRevokeHandler(c fiber.Ctx) error
 	ModifyBoardHandler(c fiber.Ctx) error
 	RemoveBoardHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
@@ -50,6 +53,38 @@ type AdminHandler interface {
 	SkinSettingsLoadHandler(c fiber.Ctx) error
 	SkinSettingModifyHandler(c fiber.Ctx) error
 	ReportResolveHandler(c fiber.Ctx) error
+}
+
+func (h *NuboAdminHandler) SignupInviteListHandler(c fiber.Ctx) error {
+	items, err := h.service.Auth.ListSignupInvites(100)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, items)
+}
+
+func (h *NuboAdminHandler) SignupInviteCreateHandler(c fiber.Ctx) error {
+	param := models.SignupInviteCreateParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	createdBy := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	result, err := h.service.Auth.CreateSignupInvite(param, createdBy)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+func (h *NuboAdminHandler) SignupInviteRevokeHandler(c fiber.Ctx) error {
+	uid, err := strconv.ParseUint(c.Params("uid"), 10, 32)
+	if err != nil || uid < 1 {
+		return utils.Err(c, "invalid invitation id", models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.Auth.RevokeSignupInvite(uint(uid)); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
 }
 
 func (h *NuboAdminHandler) MailStatusHandler(c fiber.Ctx) error {

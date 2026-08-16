@@ -43,6 +43,9 @@ RESEND_FROM_EMAIL=
 RESEND_FROM_NAME=
 RESEND_REPLY_TO_EMAIL=
 
+# 신규 가입 정책: verified_email(기본) | invite_only | disabled
+SIGNUP_MODE=verified_email
+
 # 구글 OAuth 클라이언트
 OAUTH_GOOGLE_CLIENT_ID=
 OAUTH_GOOGLE_SECRET=

@@ -51,3 +51,18 @@ func TestOAuthStateMatchesRejectsEmptyValues(t *testing.T) {
 		t.Fatal("equal non-empty OAuth state did not match")
 	}
 }
+
+func TestIsValidSignupPassword(t *testing.T) {
+	cases := map[string]bool{
+		"Password!1":  true,
+		"짧음!1":        false,
+		"password!":   false,
+		"Password1":   false,
+		"Pass word!1": false,
+	}
+	for password, expected := range cases {
+		if actual := IsValidSignupPassword(password); actual != expected {
+			t.Fatalf("IsValidSignupPassword(%q) = %v, want %v", password, actual, expected)
+		}
+	}
+}

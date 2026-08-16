@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -95,7 +96,7 @@ func TestSignupRequiresConfiguredMailer(t *testing.T) {
 		User: transactionalUserRepo{},
 	}, mailer)
 
-	_, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member"})
+	_, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"})
 	if err != ErrMailNotConfigured {
 		t.Fatalf("Signup() error = %v", err)
 	}
@@ -113,7 +114,7 @@ func TestSignupRendersTrustedServerTemplate(t *testing.T) {
 		User: transactionalUserRepo{},
 	}, mailer)
 
-	result, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member"})
+	result, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +126,26 @@ func TestSignupRendersTrustedServerTemplate(t *testing.T) {
 	}
 	if !strings.HasPrefix(mailer.message.IdempotencyKey, "signup-verification/42/") {
 		t.Fatalf("idempotency key = %q", mailer.message.IdempotencyKey)
+	}
+}
+
+func TestSignupModesBlockUnapprovedRegistration(t *testing.T) {
+	previous := configs.Env
+	t.Cleanup(func() { configs.Env = previous })
+	service := newNuboAuthService(&repositories.Repository{User: transactionalUserRepo{}}, &recordingMailer{configured: true})
+	param := models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"}
+
+	configs.Env.SignupMode = "disabled"
+	if _, err := service.Signup(param); !errors.Is(err, ErrSignupDisabled) {
+		t.Fatalf("disabled Signup() error = %v", err)
+	}
+
+	configs.Env.SignupMode = "invite_only"
+	if _, err := service.Signup(param); !errors.Is(err, ErrInvalidInvite) {
+		t.Fatalf("invite-only Signup() error = %v", err)
+	}
+	if service.CanRegisterOAuthUser() {
+		t.Fatal("invite-only mode allowed a new OAuth account")
 	}
 }
 

@@ -22,9 +22,14 @@ type AuthHandler interface {
 	RequestResetPasswordHandler(c fiber.Ctx) error
 	RefreshAccessTokenHandler(c fiber.Ctx) error
 	SigninHandler(c fiber.Ctx) error
+	SignupStatusHandler(c fiber.Ctx) error
 	SignupHandler(c fiber.Ctx) error
 	VerifyCodeHandler(c fiber.Ctx) error
 	UpdateMyInfoHandler(c fiber.Ctx) error
+}
+
+func (h *NuboAuthHandler) SignupStatusHandler(c fiber.Ctx) error {
+	return utils.Ok(c, h.service.Auth.SignupStatus())
 }
 
 type NuboAuthHandler struct {
@@ -198,6 +203,9 @@ func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
 	if !utils.IsValidEmail(param.ID) {
 		return utils.Err(c, "invalid id, not an email address", models.CODE_INVALID_PARAMETER)
 	}
+	if len(param.Name) < 2 || len(param.Name) > 30 || !utils.IsValidSignupPassword(param.Password) {
+		return utils.Err(c, "invalid signup credentials", models.CODE_INVALID_PARAMETER)
+	}
 	result, err := h.service.Auth.Signup(param)
 	if err != nil {
 		if errors.Is(err, services.ErrMailNotConfigured) {
@@ -205,6 +213,12 @@ func (h *NuboAuthHandler) SignupHandler(c fiber.Ctx) error {
 		}
 		if errors.Is(err, services.ErrMailRateLimited) {
 			return utils.Err(c, err.Error(), models.CODE_RATE_LIMITED)
+		}
+		if errors.Is(err, services.ErrSignupDisabled) {
+			return utils.Err(c, err.Error(), models.CODE_SIGNUP_DISABLED)
+		}
+		if errors.Is(err, services.ErrInvalidInvite) {
+			return utils.Err(c, err.Error(), models.CODE_INVALID_INVITE)
 		}
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
@@ -223,10 +237,16 @@ func (h *NuboAuthHandler) VerifyCodeHandler(c fiber.Ctx) error {
 	if len(param.Name) < 2 {
 		return utils.Err(c, "invalid name, too short", models.CODE_INVALID_PARAMETER)
 	}
+	if !utils.IsValidSignupPassword(param.Password) {
+		return utils.Err(c, "invalid password", models.CODE_INVALID_PARAMETER)
+	}
 	if len(param.Code) != 6 {
 		return utils.Err(c, "invalid code, wrong length", models.CODE_INVALID_PARAMETER)
 	}
-	result := h.service.Auth.VerifyEmail(param)
+	result, err := h.service.Auth.VerifyEmail(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_SIGNUP_DISABLED)
+	}
 	return utils.Ok(c, result)
 }
 
