@@ -88,9 +88,9 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
 ./scripts/build-ubuntu22.sh
 ```
 
-- 형제 경로에 `nubo.git` 디렉터리가 있으면 `../nubo.git/goapi-linux`를 자동으로 교체합니다.
+- README의 `git clone` 예시처럼 형제 경로에 `nubo` 디렉터리가 있으면 `../nubo/goapi-linux`를 자동으로 교체합니다.
 - NUBO 디렉터리가 없으면 `dist/goapi-linux`에 생성합니다.
-- 다른 경로를 원하면 첫 번째 인자로 지정할 수 있습니다.
+- NUBO를 다른 디렉터리 이름이나 위치에 clone했다면 첫 번째 인자로 출력 경로를 지정합니다.
 
 ```bash
 ./scripts/build-ubuntu22.sh /path/to/nubo/goapi-linux

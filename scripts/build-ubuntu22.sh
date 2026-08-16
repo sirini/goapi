@@ -4,12 +4,16 @@ set -euo pipefail
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd "${script_directory}/.." && pwd)"
-default_nubo_directory="$(cd "${repository_root}/.." && pwd)/nubo.git"
+repository_parent="$(cd "${repository_root}/.." && pwd)"
+default_nubo_directory="${repository_parent}/nubo"
+legacy_nubo_directory="${repository_parent}/nubo.git"
 
 if [[ -n "${1:-}" ]]; then
   output_path="$1"
 elif [[ -d "${default_nubo_directory}" ]]; then
   output_path="${default_nubo_directory}/goapi-linux"
+elif [[ -d "${legacy_nubo_directory}" ]]; then
+  output_path="${legacy_nubo_directory}/goapi-linux"
 else
   output_path="${repository_root}/dist/goapi-linux"
 fi
