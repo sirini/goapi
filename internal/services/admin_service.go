@@ -34,6 +34,7 @@ type AdminService interface {
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupConfig
 	GetMailStatus() models.MailStatus
+	GetMailDeliveries(param models.MailDeliveryListParam) (models.MailDeliveryListResult, error)
 	GetMailCampaign(uid uint) (models.MailCampaign, error)
 	GetMailCampaigns(limit uint) (models.MailCampaignListResult, error)
 	PreviewMailCampaign(param models.MailCampaignPreviewParam) (models.MailCampaignPreviewResult, error)
@@ -78,6 +79,11 @@ func newNuboAdminService(repos *repositories.Repository, userService *NuboUserSe
 
 func (s *NuboAdminService) GetMailStatus() models.MailStatus {
 	return s.mailer.Status()
+}
+
+func (s *NuboAdminService) GetMailDeliveries(param models.MailDeliveryListParam) (models.MailDeliveryListResult, error) {
+	since := uint64(time.Now().Add(-30 * 24 * time.Hour).UnixMilli())
+	return s.repos.MailDelivery.ListDeliveries(param, since)
 }
 
 func (s *NuboAdminService) PreviewMailCampaign(param models.MailCampaignPreviewParam) (models.MailCampaignPreviewResult, error) {

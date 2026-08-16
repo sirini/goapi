@@ -127,6 +127,9 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if err := createMailCampaignTable(db, prefix); err != nil {
 		return err
 	}
+	if err := createMailDeliveryTable(db, prefix); err != nil {
+		return err
+	}
 	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
 		return err
 	}
@@ -533,6 +536,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createImageDescriptionTable(db, dbInfo.Prefix)
 	createTradeTable(db, dbInfo.Prefix)
 	_ = createMailCampaignTable(db, dbInfo.Prefix)
+	_ = createMailDeliveryTable(db, dbInfo.Prefix)
 }
 
 // 기본 레코드들 추가하기
@@ -1031,6 +1035,27 @@ func createMailCampaignTable(db *sql.DB, prefix string) error {
   PRIMARY KEY (uid),
   KEY status (status),
   KEY updated (updated)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	_, err := db.Exec(query)
+	return err
+}
+
+func createMailDeliveryTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %smail_delivery (
+  uid BIGINT UNSIGNED NOT NULL auto_increment,
+  type VARCHAR(50) NOT NULL DEFAULT '',
+  recipient VARCHAR(320) NOT NULL DEFAULT '',
+  subject VARCHAR(200) NOT NULL DEFAULT '',
+  provider VARCHAR(30) NOT NULL DEFAULT '',
+  provider_message_id VARCHAR(100) NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT '',
+  error VARCHAR(1000) NOT NULL DEFAULT '',
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  KEY created (created),
+  KEY recipient (recipient),
+  KEY type_created (type, created),
+  KEY status_created (status, created)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
 	_, err := db.Exec(query)
 	return err

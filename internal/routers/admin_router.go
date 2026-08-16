@@ -21,6 +21,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	system := admin.Group("/system")
 	skin.Put("/setting", h.Admin.SkinSettingModifyHandler)
 	system.Get("/mail", h.Admin.MailStatusHandler)
+	mail.Get("/deliveries", h.Admin.MailDeliveryListHandler)
 	mail.Get("/campaigns", h.Admin.MailCampaignListHandler)
 	mail.Get("/campaign/:uid", h.Admin.MailCampaignLoadHandler)
 	mail.Post("/preview", h.Admin.MailCampaignPreviewHandler)

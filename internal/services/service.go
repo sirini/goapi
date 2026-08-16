@@ -40,13 +40,14 @@ func NewService(repos *repositories.Repository) *Service {
 	user := NewNuboUserService(repos)
 	board := NewNuboBoardService(repos)
 	mailer := utils.NewResendMailer()
+	transactionalMailer := newTrackedMailer(mailer, repos.MailDelivery)
 	return &Service{
 		Admin:   newNuboAdminService(repos, user, mailer, mailer),
-		Auth:    newNuboAuthService(repos, mailer),
+		Auth:    newNuboAuthService(repos, transactionalMailer),
 		Board:   board,
 		Blog:    NewNuboBlogService(repos),
 		Chat:    NewNuboChatService(repos),
-		Comment: newNuboCommentService(repos, mailer),
+		Comment: newNuboCommentService(repos, transactionalMailer),
 		Home:    NewNuboHomeService(repos),
 		Noti:    NewNuboNotiService(repos),
 		OAuth:   NewNuboOAuthService(repos),

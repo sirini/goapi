@@ -179,6 +179,8 @@ RESEND_REPLY_TO_EMAIL=admin@example.com
 - 관리자 단체 메일은 Resend의 연락처·세그먼트·Broadcast API를 사용하므로 API 키에 해당 작업 권한이 필요합니다. 간단하게 운영하려면 Full Access 키를 사용할 수 있습니다.
 - `.env`에 키를 넣어도 Resend 도메인 인증이 끝나지 않았거나 발신 주소의 도메인이 다르면 실제 발송은 실패합니다.
 
+회원가입 인증, 비밀번호 초기화, 댓글 알림의 발송 요청은 `mail_delivery` 테이블에도 기록됩니다. 최근 30일 요약과 전체 페이지 목록은 관리자 메일 화면에서 확인할 수 있으며, 이 조회 기능은 Resend API나 웹훅에 접속하지 않습니다. 수신자·유형·제목·제공자 응답 ID·성공 또는 실패 상태만 저장하고 메일 본문과 인증 코드는 저장하지 않습니다. 기존 설치는 새 바이너리를 배포한 뒤 `./goapi-linux install`을 실행해 테이블을 추가하세요.
+
 ## 가입 정책
 
 ```dotenv
@@ -188,11 +190,11 @@ SIGNUP_MODE=verified_email
 
 | 값 | 동작 |
 | --- | --- |
-| `verified_email` | Resend로 받은 인증 코드를 확인한 뒤 가입 완료 |
+| `verified_email` | Resend 인증 코드 또는 설정된 소셜 로그인의 인증된 이메일로 가입 완료 |
 | `invite_only` | 관리자 발급 초대 링크와 초대 이메일이 일치해야 가입 가능 |
 | `disabled` | 신규 가입 요청 차단 |
 
-알 수 없는 값은 안전하게 `verified_email`로 처리합니다. Resend를 설정하지 않은 상태에서 공개 가입을 열어야 한다는 이유로 이메일 미인증 가입을 허용하지는 않습니다. 소규모 비공개 사이트는 `invite_only`를 사용할 수 있습니다.
+알 수 없는 값은 안전하게 `verified_email`로 처리합니다. Resend가 없으면 일반 이메일 가입은 완료할 수 없지만 설정된 OAuth를 통한 신규 가입은 가능합니다. `invite_only`와 `disabled`에서는 신규 OAuth 가입도 차단되고 기존 회원 로그인만 유지됩니다. 소규모 비공개 사이트는 `invite_only`를 사용할 수 있습니다.
 
 ## 선택 연동
 

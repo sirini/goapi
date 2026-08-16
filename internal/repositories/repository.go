@@ -13,6 +13,7 @@ type Repository struct {
 	Comment      CommentRepository
 	Home         HomeRepository
 	MailCampaign MailCampaignRepository
+	MailDelivery MailDeliveryRepository
 	SignupInvite SignupInviteRepository
 	Noti         NotiRepository
 	Sync         SyncRepository
@@ -33,6 +34,7 @@ func NewRepository(db *sql.DB) *Repository {
 		Comment:      NewNuboCommentRepository(db, board),
 		Home:         NewNuboHomeRepository(db, board),
 		MailCampaign: NewNuboMailCampaignRepository(db),
+		MailDelivery: NewNuboMailDeliveryRepository(db),
 		SignupInvite: NewNuboSignupInviteRepository(db),
 		Noti:         NewNuboNotiRepository(db),
 		Sync:         NewNuboSyncRepository(db),

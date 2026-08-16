@@ -28,6 +28,7 @@ type AdminHandler interface {
 	LatestCommentSearchHandler(c fiber.Ctx) error
 	LatestPostSearchHandler(c fiber.Ctx) error
 	MailStatusHandler(c fiber.Ctx) error
+	MailDeliveryListHandler(c fiber.Ctx) error
 	MailCampaignListHandler(c fiber.Ctx) error
 	MailCampaignLoadHandler(c fiber.Ctx) error
 	MailCampaignPreviewHandler(c fiber.Ctx) error
@@ -89,6 +90,19 @@ func (h *NuboAdminHandler) SignupInviteRevokeHandler(c fiber.Ctx) error {
 
 func (h *NuboAdminHandler) MailStatusHandler(c fiber.Ctx) error {
 	return utils.Ok(c, h.service.Admin.GetMailStatus())
+}
+
+func (h *NuboAdminHandler) MailDeliveryListHandler(c fiber.Ctx) error {
+	page, _ := strconv.ParseUint(c.Query("page", "1"), 10, 32)
+	limit, _ := strconv.ParseUint(c.Query("limit", "20"), 10, 32)
+	result, err := h.service.Admin.GetMailDeliveries(models.MailDeliveryListParam{
+		Page:  uint(page),
+		Limit: uint(limit),
+	})
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
 }
 
 func (h *NuboAdminHandler) MailCampaignListHandler(c fiber.Ctx) error {
