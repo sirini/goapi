@@ -14,6 +14,7 @@ GOAPI is the Fiber v3 backend for the NUBO community and publishing platform. AP
 - Run `gofmt` on changed Go files and run relevant tests plus `go test ./...` and `go vet ./...` when practical.
 - Add regression tests for security and authentication fixes. Do not weaken authorization checks merely to preserve an invalid request pattern.
 - Preserve unrelated user changes and avoid destructive Git operations.
+- Build the x86-64 Linux binary bundled with NUBO only through `./scripts/build-ubuntu22.sh`; do not replace it with a binary compiled directly on the host OS.
 
 ## Current priority
 

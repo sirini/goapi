@@ -1,0 +1,9 @@
+.env
+.env.*
+.git
+.github
+.idea
+.codex
+dist
+upload
+*.swp

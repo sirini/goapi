@@ -78,6 +78,26 @@ go test ./...
 go build -trimpath -o goapi-linux ./cmd
 ```
 
+### 배포용 Ubuntu 22.04 호환 바이너리
+
+NUBO에 포함할 공식 x86-64 Linux 바이너리는 호스트 운영체제에서 직접 빌드하지 않고 Docker의 Ubuntu 22.04 환경에서 만듭니다. 이렇게 하면 빌드 호스트가 더 최신 배포판이어도 바이너리가 glibc 2.35보다 새로운 심볼을 요구하지 않습니다.
+
+Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세요.
+
+```bash
+./scripts/build-ubuntu22.sh
+```
+
+- 형제 경로에 `nubo.git` 디렉터리가 있으면 `../nubo.git/goapi-linux`를 자동으로 교체합니다.
+- NUBO 디렉터리가 없으면 `dist/goapi-linux`에 생성합니다.
+- 다른 경로를 원하면 첫 번째 인자로 지정할 수 있습니다.
+
+```bash
+./scripts/build-ubuntu22.sh /path/to/nubo/goapi-linux
+```
+
+빌드 과정은 Ubuntu 22.04 안에서 필요한 공유 라이브러리를 설치하고, `ldd`로 누락된 라이브러리가 없는지와 glibc 2.35보다 새로운 심볼을 요구하지 않는지를 검사합니다. 같은 바이너리를 Ubuntu 24.04 컨테이너에서도 다시 검사합니다. 산출물은 Ubuntu 22.04 이상 x86-64 서버에서 `libvips42` 런타임 라이브러리가 설치된 환경을 기준으로 합니다.
+
 빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
 
 ```bash
