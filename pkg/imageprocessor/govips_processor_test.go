@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/h2non/bimg"
+	_ "golang.org/x/image/webp"
 )
 
 func TestGovipsProcessorCreatesRequestedVariants(t *testing.T) {
@@ -73,11 +73,11 @@ func assertVariant(t *testing.T, path string, format Format, width, height int) 
 			t.Fatal("processor did not create a JPEG variant")
 		}
 	}
-	size, err := bimg.Size(buffer)
+	config, _, err := image.DecodeConfig(bytes.NewReader(buffer))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size.Width != width || size.Height != height {
-		t.Fatalf("unexpected dimensions: %dx%d", size.Width, size.Height)
+	if config.Width != width || config.Height != height {
+		t.Fatalf("unexpected dimensions: %dx%d", config.Width, config.Height)
 	}
 }

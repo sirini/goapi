@@ -9,48 +9,25 @@ import (
 	"testing"
 )
 
-func BenchmarkProcessorVariants(b *testing.B) {
+func BenchmarkGovipsProcessorVariants(b *testing.B) {
 	input := benchmarkJPEG(b, 2400, 1600)
-
-	benchmarks := []struct {
-		name      string
-		processor func() (Processor, error)
-	}{
-		{
-			name: "bimg",
-			processor: func() (Processor, error) {
-				return NewBimgProcessor(), nil
-			},
-		},
-		{
-			name: "govips",
-			processor: func() (Processor, error) {
-				return NewGovipsProcessor()
-			},
-		},
+	processor, err := NewGovipsProcessor()
+	if err != nil {
+		b.Fatal(err)
+	}
+	dir := b.TempDir()
+	variants := []Variant{
+		{Path: filepath.Join(dir, "thumbnail.webp"), Width: 480, Quality: 90, Format: FormatWebP},
+		{Path: filepath.Join(dir, "full.webp"), Width: 1920, Quality: 90, Format: FormatWebP},
 	}
 
-	for _, benchmark := range benchmarks {
-		b.Run(benchmark.name, func(b *testing.B) {
-			processor, err := benchmark.processor()
-			if err != nil {
-				b.Fatal(err)
-			}
-			dir := b.TempDir()
-			variants := []Variant{
-				{Path: filepath.Join(dir, "thumbnail.webp"), Width: 480, Quality: 90, Format: FormatWebP},
-				{Path: filepath.Join(dir, "full.webp"), Width: 1920, Quality: 90, Format: FormatWebP},
-			}
-
-			b.SetBytes(int64(len(input)))
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				if err := processor.ProcessBuffer(input, variants); err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
+	b.SetBytes(int64(len(input)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := processor.ProcessBuffer(input, variants); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 

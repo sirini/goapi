@@ -20,7 +20,15 @@ import (
 	"github.com/sirini/goapi/pkg/models"
 )
 
-var defaultImageProcessor imageprocessor.Processor = imageprocessor.NewBimgProcessor()
+var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
+
+func newDefaultImageProcessor() imageprocessor.Processor {
+	processor, err := imageprocessor.NewGovipsProcessor()
+	if err != nil {
+		panic(fmt.Sprintf("initialize image processor: %v", err))
+	}
+	return processor
+}
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
 func AskImageDescription(ctx context.Context, path string) (string, error) {
