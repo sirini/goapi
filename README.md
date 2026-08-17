@@ -222,6 +222,12 @@ go run ./cmd
 
 `go run ./cmd` 역시 현재 작업 디렉터리에서 `.env`와 `env.sample`을 찾습니다. GOAPI 저장소에서 직접 실행하려면 NUBO의 설정 파일을 복사하거나, NUBO 디렉터리에서 빌드한 바이너리를 실행하세요. 실제 운영 DB 대신 별도 개발 DB를 사용하는 것을 권장합니다.
 
+이미지 변환 호출부는 `pkg/imageprocessor.Processor` 뒤에 있으며 현재 운영 기본값은 bimg입니다. govips 어댑터는 Ubuntu 22.04의 libvips 8.12에서 컴파일·실행되는 v2.16으로 고정해 비교할 수 있습니다. 두 구현의 JPEG 입력 및 WebP 다중 변형 성능은 다음 명령으로 확인합니다.
+
+```bash
+go test ./pkg/imageprocessor -run '^$' -bench BenchmarkProcessorVariants -benchmem
+```
+
 ## 자주 겪는 문제
 
 - `No .env file found`: 바이너리를 NUBO 디렉터리에서 실행했는지 확인합니다.

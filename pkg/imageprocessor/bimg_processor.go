@@ -1,10 +1,6 @@
 package imageprocessor
 
-import (
-	"fmt"
-
-	"github.com/h2non/bimg"
-)
+import "github.com/h2non/bimg"
 
 // BimgProcessor transforms images using the bimg binding for libvips.
 type BimgProcessor struct{}
@@ -23,10 +19,8 @@ func (p *BimgProcessor) ProcessFile(inputPath string, variants []Variant) error 
 }
 
 func (p *BimgProcessor) ProcessBuffer(input []byte, variants []Variant) error {
-	for _, variant := range variants {
-		if _, err := bimgType(variant.Format); err != nil {
-			return err
-		}
+	if err := validateVariants(variants); err != nil {
+		return err
 	}
 	for _, variant := range variants {
 		imageType, _ := bimgType(variant.Format)
@@ -53,7 +47,7 @@ func bimgType(format Format) (bimg.ImageType, error) {
 	case FormatWebP:
 		return bimg.WEBP, nil
 	default:
-		return bimg.UNKNOWN, fmt.Errorf("unsupported image format: %d", format)
+		return bimg.UNKNOWN, unsupportedFormatError(format)
 	}
 }
 
