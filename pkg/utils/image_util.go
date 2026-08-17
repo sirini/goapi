@@ -22,6 +22,11 @@ import (
 
 var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
 
+const (
+	imageDescriptionWidth   = 256
+	imageDescriptionQuality = 60
+)
+
 type ImageDescriptionResult struct {
 	Description  string
 	Model        string
@@ -69,6 +74,7 @@ func AskImageDescription(ctx context.Context, path, model string) (ImageDescript
 		},
 		Model:               model,
 		MaxCompletionTokens: openai.Int(300),
+		ReasoningEffort:     openai.ReasoningEffortNone,
 	}
 	resp, err := client.Chat.Completions.New(tc, cc)
 	if err != nil {
@@ -152,7 +158,7 @@ func EncodeImage(path string) (string, error) {
 		return "", err
 	}
 	base64Data := base64.StdEncoding.EncodeToString(fileData)
-	return base64Data, nil
+	return "data:image/jpeg;base64," + base64Data, nil
 }
 
 // EXIF 정보 추출
@@ -225,14 +231,24 @@ func ExtractExif(imagePath string) models.BoardExif {
 
 // 이미지 비전용으로 잠시 사용하고 삭제할 고압축 미니 썸네일 생성
 func MakeTempJpeg(path string) (string, error) {
-	jpgTempPath := strings.ReplaceAll(path, ".webp", ".jpg")
-	err := defaultImageProcessor.ProcessFile(path, []imageprocessor.Variant{{
+	tempFile, err := os.CreateTemp(filepath.Dir(path), ".nubo-vision-*.jpg")
+	if err != nil {
+		return "", err
+	}
+	jpgTempPath := tempFile.Name()
+	if err := tempFile.Close(); err != nil {
+		_ = os.Remove(jpgTempPath)
+		return "", err
+	}
+
+	err = defaultImageProcessor.ProcessFile(path, []imageprocessor.Variant{{
 		Path:    jpgTempPath,
-		Width:   configs.SIZE_PROFILE.Number(),
-		Quality: 60,
+		Width:   imageDescriptionWidth,
+		Quality: imageDescriptionQuality,
 		Format:  imageprocessor.FormatJPEG,
 	}})
 	if err != nil {
+		_ = os.Remove(jpgTempPath)
 		return "", err
 	}
 	return jpgTempPath, nil

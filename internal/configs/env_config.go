@@ -70,7 +70,7 @@ func GetImageDescriptionConfig() ImageDescriptionConfig {
 
 	model := strings.TrimSpace(Env.ImageDescription.Model)
 	if model == "" {
-		model = "gpt-4o-mini"
+		model = "gpt-5.6-luna"
 	}
 
 	return ImageDescriptionConfig{
@@ -154,7 +154,7 @@ func LoadConfig() {
 		OpenaiKey:          getEnv("OPENAI_API_KEY", ""),
 		ImageDescription: ImageDescriptionEnv{
 			Enabled:     getEnv("OPENAI_IMAGE_DESCRIPTION_ENABLED", "false"),
-			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-4o-mini"),
+			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-5.6-luna"),
 			MaxPerPost:  getEnv("OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST", "3"),
 			Concurrency: getEnv("OPENAI_IMAGE_DESCRIPTION_CONCURRENCY", "1"),
 		},
