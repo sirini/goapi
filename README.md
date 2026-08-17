@@ -206,11 +206,16 @@ OAUTH_NAVER_SECRET=
 OAUTH_KAKAO_CLIENT_ID=
 OAUTH_KAKAO_SECRET=
 OPENAI_API_KEY=
+OPENAI_IMAGE_DESCRIPTION_ENABLED=false
+OPENAI_IMAGE_DESCRIPTION_MODEL=gpt-5.6-luna
+OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST=3
+OPENAI_IMAGE_DESCRIPTION_CONCURRENCY=1
 ```
 
 - OAuth 키는 해당 소셜 로그인을 사용할 때만 필요합니다.
 - OAuth 제공자에는 `https://example.com/goapi/...` 형태의 콜백 경로를 정확히 등록해야 합니다.
-- OpenAI 키는 업로드 이미지 설명 생성 같은 부가 기능에 사용하며 없어도 핵심 기능은 동작합니다.
+- OpenAI 키는 자격 증명일 뿐 기능 활성화 동의로 간주하지 않습니다. 이미지 설명은 키와 함께 `OPENAI_IMAGE_DESCRIPTION_ENABLED=true`를 설정해야 호출됩니다.
+- 이미지 설명은 기본적으로 게시글당 최대 3개, 서버 전체 동시 1개로 제한됩니다. 모델과 상한은 위 환경 변수로 변경할 수 있으며 API 사용료는 운영자가 부담합니다.
 
 ## 개발과 검증
 

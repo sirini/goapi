@@ -45,6 +45,48 @@ type Config struct {
 	OAuthKakaoID       string
 	OAuthKakaoSecret   string
 	OpenaiKey          string
+	ImageDescription   ImageDescriptionEnv
+}
+
+type ImageDescriptionEnv struct {
+	Enabled     string
+	Model       string
+	MaxPerPost  string
+	Concurrency string
+}
+
+type ImageDescriptionConfig struct {
+	Enabled       bool
+	Model         string
+	MaxPerPost    int
+	MaxConcurrent int
+}
+
+func GetImageDescriptionConfig() ImageDescriptionConfig {
+	enabled, err := strconv.ParseBool(strings.TrimSpace(Env.ImageDescription.Enabled))
+	if err != nil {
+		enabled = false
+	}
+
+	model := strings.TrimSpace(Env.ImageDescription.Model)
+	if model == "" {
+		model = "gpt-5.6-luna"
+	}
+
+	return ImageDescriptionConfig{
+		Enabled:       enabled && strings.TrimSpace(Env.OpenaiKey) != "",
+		Model:         model,
+		MaxPerPost:    parseBoundedInt(Env.ImageDescription.MaxPerPost, 3, 0, 100),
+		MaxConcurrent: parseBoundedInt(Env.ImageDescription.Concurrency, 1, 1, 10),
+	}
+}
+
+func parseBoundedInt(value string, fallback, minimum, maximum int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || parsed < minimum || parsed > maximum {
+		return fallback
+	}
+	return parsed
 }
 
 func GetSignupMode() string {
@@ -110,6 +152,12 @@ func LoadConfig() {
 		OAuthKakaoID:       getEnv("OAUTH_KAKAO_CLIENT_ID", ""),
 		OAuthKakaoSecret:   getEnv("OAUTH_KAKAO_SECRET", ""),
 		OpenaiKey:          getEnv("OPENAI_API_KEY", ""),
+		ImageDescription: ImageDescriptionEnv{
+			Enabled:     getEnv("OPENAI_IMAGE_DESCRIPTION_ENABLED", "false"),
+			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-5.6-luna"),
+			MaxPerPost:  getEnv("OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST", "3"),
+			Concurrency: getEnv("OPENAI_IMAGE_DESCRIPTION_CONCURRENCY", "1"),
+		},
 	}
 }
 
