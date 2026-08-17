@@ -484,7 +484,7 @@ func (s *NuboBoardService) RemoveAttachedFile(param models.EditorRemoveAttachedP
 	removes := s.repos.BoardView.RemoveAttachedFile(param.FileUid, filePath)
 
 	for _, target := range removes {
-		os.Remove("." + target)
+		_ = utils.RemoveUploadFile(target)
 	}
 	return nil
 }
@@ -496,7 +496,7 @@ func (s *NuboBoardService) RemoveInsertedImage(imageUid uint, userUid uint) {
 		return
 	}
 	if len(removePath) > 0 {
-		os.Remove("." + removePath)
+		_ = utils.RemoveUploadFile(removePath)
 	}
 }
 
@@ -519,7 +519,7 @@ func (s *NuboBoardService) RemovePost(boardUid uint, postUid uint, userUid uint)
 	removes := s.repos.BoardView.RemoveAttachments(postUid)
 
 	for _, path := range removes {
-		_ = os.Remove("." + path)
+		_ = utils.RemoveUploadFile(path)
 	}
 	return nil
 }
@@ -554,11 +554,19 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 
 				return
 			}
+			publicSavedPath, err := utils.PublicUploadPath(savedPath)
+			if err != nil {
+				_ = os.Remove(savedPath)
+				mu.Lock()
+				errors = append(errors, err)
+				mu.Unlock()
+				return
+			}
 			fileUid, err := s.repos.BoardEdit.InsertFile(models.EditorSaveFileParam{
 				BoardUid: param.BoardUid,
 				PostUid:  param.PostUid,
 				Name:     utils.CutString(f.Filename, 100),
-				Path:     savedPath[1:],
+				Path:     publicSavedPath,
 			})
 			if err != nil {
 				_ = os.Remove(savedPath)
@@ -573,24 +581,42 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				thumb, err := utils.SaveThumbnailImage(savedPath)
 				if err != nil {
 					mu.Lock()
-					saved = append(saved, savedAttachment{fileUid: fileUid, filePath: savedPath[1:]})
+					saved = append(saved, savedAttachment{fileUid: fileUid, filePath: publicSavedPath})
 					errors = append(errors, err)
 					mu.Unlock()
 
 					return
 				}
 
+				publicLarge, largePathErr := utils.PublicUploadPath(thumb.Large)
+				publicSmall, smallPathErr := utils.PublicUploadPath(thumb.Small)
+				if largePathErr != nil || smallPathErr != nil {
+					if largePathErr != nil {
+						err = largePathErr
+					} else {
+						err = smallPathErr
+					}
+					mu.Lock()
+					saved = append(saved, savedAttachment{
+						fileUid: fileUid, filePath: publicSavedPath,
+						extraPath: []string{thumb.Small, thumb.Large},
+					})
+					errors = append(errors, err)
+					mu.Unlock()
+					return
+				}
+
 				if err := s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 					BoardThumbnail: models.BoardThumbnail{
-						Large: thumb.Large[1:],
-						Small: thumb.Small[1:],
+						Large: publicLarge,
+						Small: publicSmall,
 					},
 					FileUid: fileUid,
 					PostUid: param.PostUid,
 				}); err != nil {
 					mu.Lock()
 					saved = append(saved, savedAttachment{
-						fileUid: fileUid, filePath: savedPath[1:],
+						fileUid: fileUid, filePath: publicSavedPath,
 						extraPath: []string{thumb.Small, thumb.Large},
 					})
 					errors = append(errors, err)
@@ -601,7 +627,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 				if err := s.repos.BoardEdit.InsertExif(fileUid, param.PostUid, exif); err != nil {
 					mu.Lock()
 					saved = append(saved, savedAttachment{
-						fileUid: fileUid, filePath: savedPath[1:],
+						fileUid: fileUid, filePath: publicSavedPath,
 						extraPath: []string{thumb.Small, thumb.Large},
 					})
 					errors = append(errors, err)
@@ -622,7 +648,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 
 				mu.Lock()
 				saved = append(saved, savedAttachment{
-					fileUid: fileUid, filePath: savedPath[1:],
+					fileUid: fileUid, filePath: publicSavedPath,
 					extraPath: []string{thumb.Small, thumb.Large},
 				})
 				mu.Unlock()
@@ -630,7 +656,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 			}
 
 			mu.Lock()
-			saved = append(saved, savedAttachment{fileUid: fileUid, filePath: savedPath[1:]})
+			saved = append(saved, savedAttachment{fileUid: fileUid, filePath: publicSavedPath})
 			mu.Unlock()
 		}(file)
 	}
@@ -639,7 +665,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 	if len(errors) > 0 {
 		for _, attachment := range saved {
 			for _, path := range s.repos.BoardView.RemoveAttachedFile(attachment.fileUid, attachment.filePath) {
-				_ = os.Remove("." + path)
+				_ = utils.RemoveUploadFile(path)
 			}
 			for _, path := range attachment.extraPath {
 				_ = os.Remove(path)
@@ -688,10 +714,15 @@ func (s *NuboBoardService) SaveThumbnail(fileUid uint, postUid uint, path string
 	if err != nil {
 		return thumb
 	}
+	publicSmall, smallPathErr := utils.PublicUploadPath(thumb.Small)
+	publicLarge, largePathErr := utils.PublicUploadPath(thumb.Large)
+	if smallPathErr != nil || largePathErr != nil {
+		return models.BoardThumbnail{}
+	}
 	s.repos.BoardEdit.InsertFileThumbnail(models.EditorSaveThumbnailParam{
 		BoardThumbnail: models.BoardThumbnail{
-			Small: thumb.Small[1:],
-			Large: thumb.Large[1:],
+			Small: publicSmall,
+			Large: publicLarge,
 		},
 		FileUid: fileUid,
 		PostUid: postUid,
@@ -763,7 +794,14 @@ func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images
 
 			mu.Lock()
 			tempPaths = append(tempPaths, tempPath)
-			imagePaths = append(imagePaths, imagePath[1:])
+			publicImagePath, pathErr := utils.PublicUploadPath(imagePath)
+			if pathErr != nil {
+				errors = append(errors, pathErr)
+				_ = os.Remove(imagePath)
+				mu.Unlock()
+				return
+			}
+			imagePaths = append(imagePaths, publicImagePath)
 			mu.Unlock()
 
 		}(header)
@@ -776,14 +814,14 @@ func (s *NuboBoardService) UploadInsertImage(boardUid uint, userUid uint, images
 			_ = os.Remove(tempPath)
 		}
 		for _, imagePath := range imagePaths {
-			_ = os.Remove("." + imagePath)
+			_ = utils.RemoveUploadFile(imagePath)
 		}
 		return nil, errors[0]
 	}
 
 	if err := s.repos.BoardEdit.InsertImagePaths(boardUid, userUid, imagePaths); err != nil {
 		for _, imagePath := range imagePaths {
-			_ = os.Remove("." + imagePath)
+			_ = utils.RemoveUploadFile(imagePath)
 		}
 		return nil, err
 	}

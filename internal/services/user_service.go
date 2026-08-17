@@ -121,12 +121,17 @@ func (s *NuboUserService) ChangeUserProfile(userUid uint, profile *multipart.Fil
 			return err
 		}
 
-		if err := s.repos.User.UpdateUserProfile(userUid, profilePath[1:]); err != nil {
+		publicProfilePath, err := utils.PublicUploadPath(profilePath)
+		if err != nil {
+			_ = os.Remove(profilePath)
+			return err
+		}
+		if err := s.repos.User.UpdateUserProfile(userUid, publicProfilePath); err != nil {
 			_ = os.Remove(profilePath)
 			return err
 		}
 		if len(oldProfile) > 1 {
-			_ = os.Remove("." + oldProfile)
+			_ = utils.RemoveUploadFile(oldProfile)
 		}
 	}
 

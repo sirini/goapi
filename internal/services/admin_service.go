@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/mail"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -626,7 +625,7 @@ func (s *NuboAdminService) RemoveBoard(boardUid uint) error {
 		return err
 	}
 	for _, path := range paths {
-		_ = os.Remove("." + path)
+		_ = utils.RemoveUploadFile(path)
 	}
 	return nil
 }

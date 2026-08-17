@@ -26,10 +26,13 @@ GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v
 | --- | --- | --- |
 | API 주소 | `http://127.0.0.1:3006/goapi` | `GOAPI_PORT`, `GOAPI_BASE`로 변경 |
 | 설정 파일 | `.env` 또는 `NUBO_ENV_FILE` 경로 | Nuxt와 GOAPI가 함께 사용 |
+| 업로드 루트 | `NUBO_UPLOAD_DIR` 또는 `./upload` | DB/URL의 `/upload/...` 경로는 그대로 유지 |
 | 설치 템플릿 | NUBO 디렉터리의 `env.sample` | 최초 실행 시 `.env` 생성에 사용 |
 | 데이터베이스 | MySQL/MariaDB | 테이블 접두사 지원 |
 
 기존 소스 설치는 GOAPI 바이너리를 **NUBO 프로젝트 디렉터리에서 실행해야 합니다.** Prebuilt 설치는 `NUBO_ENV_FILE=/etc/nubo/nubo.env`처럼 외부 설정 파일을 명시하여 릴리스 디렉터리와 설정을 분리할 수 있습니다. 최초 대화형 설치에는 여전히 현재 디렉터리의 `env.sample`이 필요합니다.
+
+`NUBO_UPLOAD_DIR`에는 `/var/lib/nubo/upload`나 기존 `/var/www/example.org/upload`처럼 절대 경로를 지정할 수 있습니다. 값을 생략하면 기존처럼 실행 작업 디렉터리의 `./upload`를 사용하며, 기존 심볼릭 링크도 계속 동작합니다. 파일시스템 위치와 무관하게 DB와 HTTP 경로는 `/upload/...` 형태를 유지합니다.
 
 ## 가장 쉬운 사용법
 

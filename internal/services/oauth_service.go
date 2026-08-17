@@ -40,7 +40,12 @@ func (s *NuboOAuthService) SaveProfileImage(userUid uint, profile string) {
 	if err := utils.DownloadImage(profile, newSavePath, configs.SIZE_PROFILE.Number()); err != nil {
 		return
 	}
-	if err := s.repos.User.UpdateUserProfile(userUid, newSavePath[1:]); err != nil {
+	publicPath, err := utils.PublicUploadPath(newSavePath)
+	if err != nil {
+		_ = os.Remove(newSavePath)
+		return
+	}
+	if err := s.repos.User.UpdateUserProfile(userUid, publicPath); err != nil {
 		_ = os.Remove(newSavePath)
 	}
 }

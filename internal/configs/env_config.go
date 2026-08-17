@@ -20,6 +20,7 @@ type Config struct {
 	ThumbnailSize      string
 	FullSize           string
 	FileSizeLimit      string
+	UploadDir          string
 	DBHost             string
 	DBUser             string
 	DBPass             string
@@ -146,6 +147,7 @@ func LoadConfig() error {
 		ThumbnailSize:      getEnv("GOAPI_THUMBNAIL_SIZE", "512"),
 		FullSize:           getEnv("GOAPI_FULL_SIZE", "2400"),
 		FileSizeLimit:      getEnv("GOAPI_FILE_SIZE_LIMIT", "104857600"),
+		UploadDir:          getEnv("NUBO_UPLOAD_DIR", "./upload"),
 		DBHost:             getEnv("DB_HOST", "localhost"),
 		DBUser:             getEnv("DB_USER", ""),
 		DBPass:             getEnv("DB_PASS", ""),
