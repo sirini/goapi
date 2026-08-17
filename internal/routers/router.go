@@ -7,6 +7,9 @@ import (
 
 // 라우터들 등록하기
 func RegisterRouters(api fiber.Router, h *handlers.Handler) {
+	api.Get("/health", h.Status.HealthHandler)
+	api.Get("/ready", h.Status.ReadyHandler)
+	api.Get("/version", h.Status.VersionHandler)
 	RegisterAdminRouters(api, h)
 	RegisterAuthRouters(api, h)
 	RegisterBoardRouters(api, h)

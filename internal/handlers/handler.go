@@ -1,6 +1,10 @@
 package handlers
 
-import "github.com/sirini/goapi/internal/services"
+import (
+	"database/sql"
+
+	"github.com/sirini/goapi/internal/services"
+)
 
 // 모든 핸들러들을 관리
 type Handler struct {
@@ -15,13 +19,14 @@ type Handler struct {
 	Home            HomeHandler
 	Noti            NotiHandler
 	OAuth2          OAuth2Handler
+	Status          StatusHandler
 	Sync            SyncHandler
 	Trade           TradeHandler
 	User            UserHandler
 }
 
 // 모든 핸들러들을 생성
-func NewHandler(s *services.Service) *Handler {
+func NewHandler(s *services.Service, db *sql.DB) *Handler {
 	return &Handler{
 		CanAuthenticate: s.Auth.CanAuthenticate,
 		Admin:           NewNuboAdminHandler(s),
@@ -34,6 +39,7 @@ func NewHandler(s *services.Service) *Handler {
 		Home:            NewNuboHomeHandler(s),
 		Noti:            NewNuboNotiHandler(s),
 		OAuth2:          NewNuboOAuth2Handler(s),
+		Status:          NewNuboStatusHandler(db),
 		Sync:            NewNuboSyncHandler(s),
 		Trade:           NewNuboTradeHandler(s),
 		User:            NewNuboUserHandler(s),
