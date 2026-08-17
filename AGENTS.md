@@ -7,7 +7,7 @@ GOAPI is the Fiber v3 backend for the NUBO community and publishing platform. AP
 ## Collaboration and workflow
 
 - The product owner defines behavior and performs final QA; Codex critically reviews, implements, tests, commits, and pushes agreed changes.
-- Do not merge stabilization or feature branches into `main` until product-owner QA is complete.
+- Work directly on `main` by default. After a coherent work unit passes proportional validation, commit and push `main` immediately; if an isolated branch is necessary, merge it with a merge commit first. Product-owner QA may follow on `main`; pause only when the product owner explicitly requests a QA gate or validation is incomplete.
 - Read `docs/PROJECT_STATUS.md` in the sibling NUBO repository at the beginning of work when it exists, and update it at meaningful milestones.
 - Use `docs/NUBO_COMMUNITY_OS_ROADMAP.md` in the sibling NUBO repository as adaptable long-term direction when product scope or priority is relevant; do not treat it as a mandatory implementation sequence.
 - Check frontend contract effects in the sibling NUBO repository whenever request, response, cookie, authentication, upload, or download behavior changes.

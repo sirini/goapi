@@ -222,9 +222,9 @@ func notificationSenderForeignKeyDDL(prefix string) string {
 	return fmt.Sprintf("ALTER TABLE %snotification ADD CONSTRAINT fk_nf FOREIGN KEY (from_uid) REFERENCES %suser(uid)", prefix, prefix)
 }
 
-// .env 파일이 존재하는지 확인하기
+// 선택된 환경 파일이 존재하는지 확인하기
 func isAlreadyInstalled() bool {
-	info, err := os.Stat(".env")
+	info, err := os.Stat(EnvironmentFilePath())
 	if os.IsNotExist(err) {
 		return false
 	}
@@ -495,7 +495,7 @@ func makeEnv(dbInfo DBInfo, adminInfo AdminInfo) bool {
 	env = strings.ReplaceAll(env, "#adminid#", adminInfo.Id)
 	env = strings.ReplaceAll(env, "#adminpw#", adminInfo.Pw)
 
-	err = os.WriteFile(".env", []byte(env), 0600)
+	err = os.WriteFile(EnvironmentFilePath(), []byte(env), 0600)
 	return err == nil
 }
 

@@ -1,11 +1,83 @@
 package configs
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 // GONOSUMDB=* GOPROXY=off go test ./internal/configs
+
+func TestEnvironmentFilePathDefaultsAndAcceptsOverride(t *testing.T) {
+	t.Setenv(EnvironmentFileVariable, "")
+	if path := EnvironmentFilePath(); path != ".env" {
+		t.Fatalf("default environment path = %q, want .env", path)
+	}
+
+	externalPath := filepath.Join(t.TempDir(), "nubo.env")
+	t.Setenv(EnvironmentFileVariable, "  "+externalPath+"  ")
+	if path := EnvironmentFilePath(); path != externalPath {
+		t.Fatalf("environment path = %q, want %q", path, externalPath)
+	}
+}
+
+func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) {
+	original := Env
+	t.Cleanup(func() { Env = original })
+
+	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
+	contents := "GOAPI_TITLE=File Title\nGOAPI_PORT=4310\nDB_NAME=external_db\n"
+	if err := os.WriteFile(environmentPath, []byte(contents), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvironmentFileVariable, environmentPath)
+	t.Setenv("GOAPI_TITLE", "Process Title")
+	unsetEnvironmentForTest(t, "GOAPI_PORT")
+	unsetEnvironmentForTest(t, "DB_NAME")
+
+	if err := LoadConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if Env.Title != "Process Title" {
+		t.Fatalf("title = %q, want process override", Env.Title)
+	}
+	if Env.GoPort != "4310" {
+		t.Fatalf("port = %q, want file value", Env.GoPort)
+	}
+	if Env.DBName != "external_db" {
+		t.Fatalf("database = %q, want file value", Env.DBName)
+	}
+}
+
+func TestLoadConfigMissingFileDoesNotReplaceCurrentConfig(t *testing.T) {
+	original := Env
+	t.Cleanup(func() { Env = original })
+	Env = Config{Title: "keep-current"}
+	t.Setenv(EnvironmentFileVariable, filepath.Join(t.TempDir(), "missing.env"))
+
+	if err := LoadConfig(); err == nil {
+		t.Fatal("LoadConfig succeeded with a missing explicit environment file")
+	}
+	if Env.Title != "keep-current" {
+		t.Fatalf("failed load replaced current config: %+v", Env)
+	}
+}
+
+func unsetEnvironmentForTest(t *testing.T, key string) {
+	t.Helper()
+	value, exists := os.LookupEnv(key)
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if exists {
+			_ = os.Setenv(key, value)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
+}
 
 func TestGetJWTAccessRefreshValid(t *testing.T) {
 	original := Env

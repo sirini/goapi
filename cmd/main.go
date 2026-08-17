@@ -22,7 +22,9 @@ func main() {
 			"Please leave a support request on the [nubohub.org] website!")
 	}
 
-	configs.LoadConfig()
+	if err := configs.LoadConfig(); err != nil {
+		log.Fatal(err)
+	}
 	db := models.Connect(&configs.Env)
 	defer db.Close()
 	if len(os.Args) > 1 && os.Args[1] == "install" {

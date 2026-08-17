@@ -41,6 +41,12 @@ SIGNUP_MODE=verified_email
 	if err := os.Chdir(temporaryDirectory); err != nil {
 		t.Fatal(err)
 	}
+	environmentDirectory := filepath.Join(temporaryDirectory, "config")
+	if err := os.Mkdir(environmentDirectory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	environmentPath := filepath.Join(environmentDirectory, "nubo.env")
+	t.Setenv(EnvironmentFileVariable, environmentPath)
 
 	dbInfo := DBInfo{
 		Host: "db.example.com", User: "nubo", Pass: "secret", Name: "nubo",
@@ -50,7 +56,7 @@ SIGNUP_MODE=verified_email
 		t.Fatal("makeEnv returned false")
 	}
 
-	contents, err := os.ReadFile(".env")
+	contents, err := os.ReadFile(environmentPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,12 +81,26 @@ SIGNUP_MODE=verified_email
 	}
 
 	if runtime.GOOS != "windows" {
-		info, err := os.Stat(".env")
+		info, err := os.Stat(environmentPath)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if info.Mode().Perm() != 0600 {
 			t.Errorf("generated .env permissions = %o, want 600", info.Mode().Perm())
 		}
+	}
+}
+
+func TestInstallStateUsesExplicitEnvironmentFile(t *testing.T) {
+	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
+	t.Setenv(EnvironmentFileVariable, environmentPath)
+	if isAlreadyInstalled() {
+		t.Fatal("missing explicit environment file was treated as installed")
+	}
+	if err := os.WriteFile(environmentPath, []byte("GOAPI_PORT=3006\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !isAlreadyInstalled() {
+		t.Fatal("existing explicit environment file was not treated as installed")
 	}
 }

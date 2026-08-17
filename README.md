@@ -25,11 +25,11 @@ GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v
 | 항목 | 기본값 | 설명 |
 | --- | --- | --- |
 | API 주소 | `http://127.0.0.1:3006/goapi` | `GOAPI_PORT`, `GOAPI_BASE`로 변경 |
-| 설정 파일 | NUBO 디렉터리의 `.env` | Nuxt와 GOAPI가 함께 사용 |
+| 설정 파일 | `.env` 또는 `NUBO_ENV_FILE` 경로 | Nuxt와 GOAPI가 함께 사용 |
 | 설치 템플릿 | NUBO 디렉터리의 `env.sample` | 최초 실행 시 `.env` 생성에 사용 |
 | 데이터베이스 | MySQL/MariaDB | 테이블 접두사 지원 |
 
-GOAPI 바이너리는 **NUBO 프로젝트 디렉터리에서 실행해야 합니다.** 다른 디렉터리에서 실행하면 `env.sample`과 `.env`를 찾지 못합니다.
+기존 소스 설치는 GOAPI 바이너리를 **NUBO 프로젝트 디렉터리에서 실행해야 합니다.** Prebuilt 설치는 `NUBO_ENV_FILE=/etc/nubo/nubo.env`처럼 외부 설정 파일을 명시하여 릴리스 디렉터리와 설정을 분리할 수 있습니다. 최초 대화형 설치에는 여전히 현재 디렉터리의 `env.sample`이 필요합니다.
 
 ## 가장 쉬운 사용법
 
@@ -112,6 +112,14 @@ Apple Silicon, ARM Linux 등에서는 해당 환경에서 직접 빌드하는 �
 ## `.env` 핵심 설정
 
 전체 템플릿은 NUBO 저장소의 [env.sample](https://github.com/sirini/nubo/blob/main/env.sample)에 있습니다.
+
+기본값은 현재 디렉터리의 `.env`이며 기존 설치 방식은 그대로 동작합니다. 외부 설정을 사용할 때는 실행 전에 경로를 명시합니다.
+
+```bash
+NUBO_ENV_FILE=/etc/nubo/nubo.env ./goapi-linux
+```
+
+GOAPI는 프로세스 환경, 지정한 파일, 코드 기본값 순서로 설정을 선택합니다. 따라서 systemd 같은 프로세스 관리자가 직접 제공한 값이 파일보다 우선합니다. 같은 파일을 prebuilt Nuxt의 `node --env-file=/etc/nubo/nubo.env`에도 전달할 수 있도록 `NUXT_*` 값은 `${...}` 참조 없이 최종값으로 작성해야 합니다.
 
 ### 서버와 데이터베이스
 
@@ -225,7 +233,7 @@ go vet ./...
 go run ./cmd
 ```
 
-`go run ./cmd` 역시 현재 작업 디렉터리에서 `.env`와 `env.sample`을 찾습니다. GOAPI 저장소에서 직접 실행하려면 NUBO의 설정 파일을 복사하거나, NUBO 디렉터리에서 빌드한 바이너리를 실행하세요. 실제 운영 DB 대신 별도 개발 DB를 사용하는 것을 권장합니다.
+`go run ./cmd` 역시 기본적으로 현재 작업 디렉터리에서 `.env`와 `env.sample`을 찾습니다. GOAPI 저장소에서 직접 실행하려면 NUBO의 설정 파일을 복사하거나 `NUBO_ENV_FILE`에 절대 경로를 지정하세요. 실제 운영 DB 대신 별도 개발 DB를 사용하는 것을 권장합니다.
 
 이미지 변환 호출부는 `pkg/imageprocessor.Processor` 뒤에 있으며 govips를 사용합니다. Ubuntu 22.04의 libvips 8.12에서 컴파일·실행되는 v2.16으로 고정되어 있습니다. JPEG 입력 및 WebP 다중 변형 성능은 다음 명령으로 확인합니다.
 
@@ -235,7 +243,7 @@ go test ./pkg/imageprocessor -run '^$' -bench BenchmarkGovipsProcessorVariants -
 
 ## 자주 겪는 문제
 
-- `No .env file found`: 바이너리를 NUBO 디렉터리에서 실행했는지 확인합니다.
+- `load environment file`: 기본 `.env`가 있는 디렉터리에서 실행했는지, 또는 `NUBO_ENV_FILE` 경로와 읽기 권한이 올바른지 확인합니다.
 - DB 접속 실패: `DB_HOST`, `DB_PORT`, socket 경로와 DB 계정 권한을 확인합니다.
 - 이미지 처리 실패: 실행 환경에 `libvips`가 설치되어 있는지 확인합니다.
 - 메일 설정은 보이지만 발송 실패: Resend 도메인 인증 상태와 `RESEND_FROM_EMAIL` 도메인을 확인합니다.

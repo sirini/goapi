@@ -1,7 +1,7 @@
 package configs
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -62,6 +62,17 @@ type ImageDescriptionConfig struct {
 	MaxConcurrent int
 }
 
+const EnvironmentFileVariable = "NUBO_ENV_FILE"
+
+// EnvironmentFilePath returns the explicit runtime configuration path or the
+// legacy working-directory .env path when no override was supplied.
+func EnvironmentFilePath() string {
+	if path := strings.TrimSpace(os.Getenv(EnvironmentFileVariable)); path != "" {
+		return path
+	}
+	return ".env"
+}
+
 func GetImageDescriptionConfig() ImageDescriptionConfig {
 	enabled, err := strconv.ParseBool(strings.TrimSpace(Env.ImageDescription.Enabled))
 	if err != nil {
@@ -99,9 +110,12 @@ func GetSignupMode() string {
 	}
 }
 
-// 환경변수에 기본값을 설정해주는 함수
-func getEnv(key, defaultValue string) string {
+// 환경변수, 설정 파일, 기본값 순서로 설정값을 반환한다.
+func getConfigValue(fileValues map[string]string, key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	if value, exists := fileValues[key]; exists {
 		return value
 	}
 	return defaultValue
@@ -110,10 +124,15 @@ func getEnv(key, defaultValue string) string {
 // 설정 저장한 변수
 var Env Config
 
-// .env 파일에서 설정 내용 불러오기
-func LoadConfig() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("No .env file found. Please make sure that this goapi binary is locate in the nubo.git directory.")
+// 명시한 환경 파일 또는 기본 .env 파일에서 설정 내용을 불러온다.
+func LoadConfig() error {
+	path := EnvironmentFilePath()
+	fileValues, err := godotenv.Read(path)
+	if err != nil {
+		return fmt.Errorf("load environment file %q: %w", path, err)
+	}
+	getEnv := func(key, defaultValue string) string {
+		return getConfigValue(fileValues, key, defaultValue)
 	}
 
 	Env = Config{
@@ -159,6 +178,7 @@ func LoadConfig() {
 			Concurrency: getEnv("OPENAI_IMAGE_DESCRIPTION_CONCURRENCY", "1"),
 		},
 	}
+	return nil
 }
 
 // 숫자 형태로 반환이 필요한 항목 정의
