@@ -1,11 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"os"
 	"sync"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -41,12 +44,57 @@ type BoardService interface {
 }
 
 type NuboBoardService struct {
-	repos *repositories.Repository
+	repos                  *repositories.Repository
+	imageDescriptionConfig configs.ImageDescriptionConfig
+	imageDescriptionSlots  chan struct{}
+	describeImage          func(context.Context, string, string) (utils.ImageDescriptionResult, error)
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboBoardService(repos *repositories.Repository) *NuboBoardService {
-	return &NuboBoardService{repos: repos}
+	return newNuboBoardService(repos, configs.GetImageDescriptionConfig(), utils.AskImageDescription)
+}
+
+func newNuboBoardService(
+	repos *repositories.Repository,
+	config configs.ImageDescriptionConfig,
+	describeImage func(context.Context, string, string) (utils.ImageDescriptionResult, error),
+) *NuboBoardService {
+	return &NuboBoardService{
+		repos:                  repos,
+		imageDescriptionConfig: config,
+		imageDescriptionSlots:  make(chan struct{}, config.MaxConcurrent),
+		describeImage:          describeImage,
+	}
+}
+
+func (s *NuboBoardService) imageDescriptionCandidates(files []*multipart.FileHeader) map[*multipart.FileHeader]struct{} {
+	candidates := make(map[*multipart.FileHeader]struct{})
+	if !s.imageDescriptionConfig.Enabled || s.imageDescriptionConfig.MaxPerPost < 1 {
+		return candidates
+	}
+	for _, file := range files {
+		if utils.IsImage(file.Filename) {
+			candidates[file] = struct{}{}
+			if len(candidates) == s.imageDescriptionConfig.MaxPerPost {
+				break
+			}
+		}
+	}
+	return candidates
+}
+
+func (s *NuboBoardService) requestImageDescription(ctx context.Context, path string) (utils.ImageDescriptionResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case s.imageDescriptionSlots <- struct{}{}:
+		defer func() { <-s.imageDescriptionSlots }()
+	case <-ctx.Done():
+		return utils.ImageDescriptionResult{}, ctx.Err()
+	}
+	return s.describeImage(ctx, path, s.imageDescriptionConfig.Model)
 }
 
 // 다운로드에 필요한 정보 반환
@@ -487,6 +535,7 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 		extraPath []string
 	}
 	var saved []savedAttachment
+	descriptionCandidates := s.imageDescriptionCandidates(param.Files)
 
 	for _, file := range param.Files {
 		wg.Add(1)
@@ -560,10 +609,15 @@ func (s *NuboBoardService) SaveAttachments(param models.EditorSaveAttachedParam)
 					return
 				}
 
-				// 이미지 설명 추출은 따로 OpenAI API Key 필요함
-				imgDesc, err := utils.AskImageDescription(param.Context, thumb.Small)
-				if err == nil {
-					s.repos.BoardEdit.InsertImageDescription(fileUid, param.PostUid, imgDesc)
+				if _, shouldDescribe := descriptionCandidates[f]; shouldDescribe {
+					result, descriptionErr := s.requestImageDescription(param.Context, thumb.Small)
+					if descriptionErr != nil {
+						log.Printf("ai: image description failed post_uid=%d file_uid=%d model=%s: %v", param.PostUid, fileUid, s.imageDescriptionConfig.Model, descriptionErr)
+					} else if insertErr := s.repos.BoardEdit.InsertImageDescription(fileUid, param.PostUid, result.Description); insertErr != nil {
+						log.Printf("ai: image description storage failed post_uid=%d file_uid=%d model=%s: %v", param.PostUid, fileUid, result.Model, insertErr)
+					} else {
+						log.Printf("ai: image description generated post_uid=%d file_uid=%d model=%s input_tokens=%d output_tokens=%d", param.PostUid, fileUid, result.Model, result.InputTokens, result.OutputTokens)
+					}
 				}
 
 				mu.Lock()

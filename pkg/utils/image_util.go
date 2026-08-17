@@ -22,6 +22,13 @@ import (
 
 var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
 
+type ImageDescriptionResult struct {
+	Description  string
+	Model        string
+	InputTokens  int64
+	OutputTokens int64
+}
+
 func newDefaultImageProcessor() imageprocessor.Processor {
 	processor, err := imageprocessor.NewGovipsProcessor()
 	if err != nil {
@@ -31,19 +38,19 @@ func newDefaultImageProcessor() imageprocessor.Processor {
 }
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
-func AskImageDescription(ctx context.Context, path string) (string, error) {
+func AskImageDescription(ctx context.Context, path, model string) (ImageDescriptionResult, error) {
 	if len(configs.Env.OpenaiKey) < 1 {
-		return "", fmt.Errorf("api key of openai is empty")
+		return ImageDescriptionResult{}, fmt.Errorf("api key of openai is empty")
 	}
 	jpgTempPath, err := MakeTempJpeg(path)
 	if err != nil {
-		return "", err
+		return ImageDescriptionResult{}, err
 	}
 	defer os.Remove(jpgTempPath)
 
 	encoded, err := EncodeImage(jpgTempPath)
 	if err != nil {
-		return "", err
+		return ImageDescriptionResult{}, err
 	}
 
 	tc, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -54,21 +61,32 @@ func AskImageDescription(ctx context.Context, path string) (string, error) {
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			openai.UserMessage([]openai.ChatCompletionContentPartUnionParam{
 				openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-					URL: encoded,
+					URL:    encoded,
+					Detail: "low",
 				}),
 				openai.TextContentPart("이 이미지가 무엇인지 한국어로 자세히 설명해줘."),
 			}),
 		},
-		Model: openai.ChatModelGPT4oMini,
+		Model:               model,
+		MaxCompletionTokens: openai.Int(300),
 	}
 	resp, err := client.Chat.Completions.New(tc, cc)
 	if err != nil {
-		return "", err
+		return ImageDescriptionResult{}, err
 	}
 	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("image description response has no choices")
+		return ImageDescriptionResult{}, fmt.Errorf("image description response has no choices")
 	}
-	return resp.Choices[0].Message.Content, nil
+	description := strings.TrimSpace(resp.Choices[0].Message.Content)
+	if description == "" {
+		return ImageDescriptionResult{}, fmt.Errorf("image description response is empty")
+	}
+	return ImageDescriptionResult{
+		Description:  description,
+		Model:        resp.Model,
+		InputTokens:  resp.Usage.PromptTokens,
+		OutputTokens: resp.Usage.CompletionTokens,
+	}, nil
 }
 
 // URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .webp 형식으로 저장

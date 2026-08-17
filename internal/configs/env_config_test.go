@@ -69,6 +69,78 @@ func TestGetFileSizeLimitInvalid(t *testing.T) {
 	}
 }
 
+func TestGetImageDescriptionConfigRequiresKeyAndExplicitOptIn(t *testing.T) {
+	original := Env
+	defer func() { Env = original }()
+
+	Env.OpenaiKey = "configured"
+	Env.ImageDescription.Enabled = "false"
+	if config := GetImageDescriptionConfig(); config.Enabled {
+		t.Fatal("API key alone enabled image descriptions")
+	}
+
+	Env.ImageDescription.Enabled = "true"
+	Env.OpenaiKey = ""
+	if config := GetImageDescriptionConfig(); config.Enabled {
+		t.Fatal("image descriptions were enabled without an API key")
+	}
+
+	Env.OpenaiKey = "configured"
+	if config := GetImageDescriptionConfig(); !config.Enabled {
+		t.Fatal("explicitly configured image descriptions were not enabled")
+	}
+}
+
+func TestGetImageDescriptionConfigUsesSafeDefaultsForInvalidValues(t *testing.T) {
+	original := Env
+	defer func() { Env = original }()
+
+	Env.OpenaiKey = "configured"
+	Env.ImageDescription.Enabled = "not-a-boolean"
+	Env.ImageDescription.Model = " "
+	Env.ImageDescription.MaxPerPost = "unlimited"
+	Env.ImageDescription.Concurrency = "0"
+
+	config := GetImageDescriptionConfig()
+	if config.Enabled {
+		t.Fatal("invalid opt-in value enabled image descriptions")
+	}
+	if config.Model != "gpt-4o-mini" {
+		t.Fatalf("model = %q, want gpt-4o-mini", config.Model)
+	}
+	if config.MaxPerPost != 3 {
+		t.Fatalf("max per post = %d, want 3", config.MaxPerPost)
+	}
+	if config.MaxConcurrent != 1 {
+		t.Fatalf("max concurrent = %d, want 1", config.MaxConcurrent)
+	}
+}
+
+func TestGetImageDescriptionConfigAcceptsBoundedOverrides(t *testing.T) {
+	original := Env
+	defer func() { Env = original }()
+
+	Env.OpenaiKey = "configured"
+	Env.ImageDescription.Enabled = "true"
+	Env.ImageDescription.Model = "gpt-4o-mini-2024-07-18"
+	Env.ImageDescription.MaxPerPost = "0"
+	Env.ImageDescription.Concurrency = "4"
+
+	config := GetImageDescriptionConfig()
+	if !config.Enabled {
+		t.Fatal("valid image-description configuration was not enabled")
+	}
+	if config.Model != "gpt-4o-mini-2024-07-18" {
+		t.Fatalf("model = %q", config.Model)
+	}
+	if config.MaxPerPost != 0 {
+		t.Fatalf("max per post = %d, want 0", config.MaxPerPost)
+	}
+	if config.MaxConcurrent != 4 {
+		t.Fatalf("max concurrent = %d, want 4", config.MaxConcurrent)
+	}
+}
+
 func TestNotificationSenderForeignKeyReferencesUser(t *testing.T) {
 	ddl := notificationSenderForeignKeyDDL("nubo_")
 	if !strings.Contains(ddl, "REFERENCES nubo_user(uid)") {
