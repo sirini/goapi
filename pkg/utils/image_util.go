@@ -12,19 +12,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/h2non/bimg"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/pkg/imageprocessor"
 	"github.com/sirini/goapi/pkg/models"
 )
 
-//                                                                //
-// 고품질의 이미지 생성을 위해 libvips 라이브러리를 사용하는 bimg 기반으로 구현 //
-// macOS(homebrew): brew install vips                             //
-// Ubuntu Linux: sudo apt install libvips-dev                     //
-//                                                                //
+var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
+
+func newDefaultImageProcessor() imageprocessor.Processor {
+	processor, err := imageprocessor.NewGovipsProcessor()
+	if err != nil {
+		panic(fmt.Sprintf("initialize image processor: %v", err))
+	}
+	return processor
+}
 
 // OpenAI의 API를 이용해서 사진에 대한 설명 가져오기
 func AskImageDescription(ctx context.Context, path string) (string, error) {
@@ -203,24 +207,13 @@ func ExtractExif(imagePath string) models.BoardExif {
 
 // 이미지 비전용으로 잠시 사용하고 삭제할 고압축 미니 썸네일 생성
 func MakeTempJpeg(path string) (string, error) {
-	buffer, err := bimg.Read(path)
-	if err != nil {
-		return "", err
-	}
-
 	jpgTempPath := strings.ReplaceAll(path, ".webp", ".jpg")
-	options := bimg.Options{
-		Width:   int(configs.SIZE_PROFILE.Number()),
-		Height:  0,
+	err := defaultImageProcessor.ProcessFile(path, []imageprocessor.Variant{{
+		Path:    jpgTempPath,
+		Width:   configs.SIZE_PROFILE.Number(),
 		Quality: 60,
-		Type:    bimg.JPEG,
-	}
-
-	processed, err := bimg.NewImage(buffer).Process(options)
-	if err != nil {
-		return "", err
-	}
-	err = bimg.Write(jpgTempPath, processed)
+		Format:  imageprocessor.FormatJPEG,
+	}})
 	if err != nil {
 		return "", err
 	}
@@ -229,32 +222,22 @@ func MakeTempJpeg(path string) (string, error) {
 
 // 이미지를 주어진 크기로 줄여서 .webp 형식으로 저장하기
 func ResizeImage(inputPath string, outputPath string, width uint) error {
-	buffer, err := bimg.Read(inputPath)
-	if err != nil {
-		return err
-	}
-	return SaveImage(buffer, outputPath, width)
+	return defaultImageProcessor.ProcessFile(inputPath, []imageprocessor.Variant{{
+		Path:    outputPath,
+		Width:   width,
+		Quality: 90,
+		Format:  imageprocessor.FormatWebP,
+	}})
 }
 
 // 바이트 버퍼 이미지를 지정된 크기로 줄여서 .webp 형식으로 저장
 func SaveImage(inputBuffer []byte, outputPath string, width uint) error {
-	options := bimg.Options{
-		Width:   int(width),
-		Height:  0,
+	return defaultImageProcessor.ProcessBuffer(inputBuffer, []imageprocessor.Variant{{
+		Path:    outputPath,
+		Width:   width,
 		Quality: 90,
-		Type:    bimg.WEBP,
-	}
-
-	processed, err := bimg.NewImage(inputBuffer).Process(options)
-	if err != nil {
-		return err
-	}
-
-	err = bimg.Write(outputPath, processed)
-	if err != nil {
-		return err
-	}
-	return nil
+		Format:  imageprocessor.FormatWebP,
+	}})
 }
 
 // 본문 삽입용 이미지 저장하고 경로 반환
@@ -301,14 +284,23 @@ func SaveThumbnailImage(inputPath string) (models.BoardThumbnail, error) {
 	result.Small = fmt.Sprintf("%s/t%s.webp", savePath, randName)
 	result.Large = fmt.Sprintf("%s/f%s.webp", savePath, randName)
 
-	err = ResizeImage(inputPath, result.Small, configs.SIZE_THUMBNAIL.Number())
+	err = defaultImageProcessor.ProcessFile(inputPath, []imageprocessor.Variant{
+		{
+			Path:    result.Small,
+			Width:   configs.SIZE_THUMBNAIL.Number(),
+			Quality: 90,
+			Format:  imageprocessor.FormatWebP,
+		},
+		{
+			Path:    result.Large,
+			Width:   configs.SIZE_FULL.Number(),
+			Quality: 90,
+			Format:  imageprocessor.FormatWebP,
+		},
+	})
 	if err != nil {
 		_ = os.Remove(result.Small)
-		return result, err
-	}
-	err = ResizeImage(inputPath, result.Large, configs.SIZE_FULL.Number())
-	if err != nil {
-		_ = os.Remove(result.Small)
+		_ = os.Remove(result.Large)
 		return result, err
 	}
 	return result, nil
