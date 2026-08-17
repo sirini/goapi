@@ -22,11 +22,6 @@ import (
 
 var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
 
-const (
-	imageDescriptionWidth   = 256
-	imageDescriptionQuality = 60
-)
-
 type ImageDescriptionResult struct {
 	Description  string
 	Model        string
@@ -47,13 +42,7 @@ func AskImageDescription(ctx context.Context, path, model string) (ImageDescript
 	if len(configs.Env.OpenaiKey) < 1 {
 		return ImageDescriptionResult{}, fmt.Errorf("api key of openai is empty")
 	}
-	jpgTempPath, err := MakeTempJpeg(path)
-	if err != nil {
-		return ImageDescriptionResult{}, err
-	}
-	defer os.Remove(jpgTempPath)
-
-	encoded, err := EncodeImage(jpgTempPath)
+	encoded, err := EncodeImage(path)
 	if err != nil {
 		return ImageDescriptionResult{}, err
 	}
@@ -147,6 +136,20 @@ func IsImage(path string) bool {
 
 // 이미지를 Base64로 인코딩해서 문자열로 반환
 func EncodeImage(path string) (string, error) {
+	var mediaType string
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".jpg", ".jpeg":
+		mediaType = "image/jpeg"
+	case ".png":
+		mediaType = "image/png"
+	case ".webp":
+		mediaType = "image/webp"
+	case ".gif":
+		mediaType = "image/gif"
+	default:
+		return "", fmt.Errorf("unsupported OpenAI image format: %s", filepath.Ext(path))
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -158,7 +161,7 @@ func EncodeImage(path string) (string, error) {
 		return "", err
 	}
 	base64Data := base64.StdEncoding.EncodeToString(fileData)
-	return "data:image/jpeg;base64," + base64Data, nil
+	return fmt.Sprintf("data:%s;base64,%s", mediaType, base64Data), nil
 }
 
 // EXIF 정보 추출
@@ -227,31 +230,6 @@ func ExtractExif(imagePath string) models.BoardExif {
 		result.Date = ConvUnixMilli(timeStr)
 	}
 	return result
-}
-
-// 이미지 비전용으로 잠시 사용하고 삭제할 고압축 미니 썸네일 생성
-func MakeTempJpeg(path string) (string, error) {
-	tempFile, err := os.CreateTemp(filepath.Dir(path), ".nubo-vision-*.jpg")
-	if err != nil {
-		return "", err
-	}
-	jpgTempPath := tempFile.Name()
-	if err := tempFile.Close(); err != nil {
-		_ = os.Remove(jpgTempPath)
-		return "", err
-	}
-
-	err = defaultImageProcessor.ProcessFile(path, []imageprocessor.Variant{{
-		Path:    jpgTempPath,
-		Width:   imageDescriptionWidth,
-		Quality: imageDescriptionQuality,
-		Format:  imageprocessor.FormatJPEG,
-	}})
-	if err != nil {
-		_ = os.Remove(jpgTempPath)
-		return "", err
-	}
-	return jpgTempPath, nil
 }
 
 // 이미지를 주어진 크기로 줄여서 .webp 형식으로 저장하기
