@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	GoPort             string
+	GoHost             string
 	GoapiBase          string
 	Domain             string
 	Title              string
@@ -65,8 +66,8 @@ type ImageDescriptionConfig struct {
 
 const EnvironmentFileVariable = "NUBO_ENV_FILE"
 
-// EnvironmentFilePath returns the explicit runtime configuration path or the
-// legacy working-directory .env path when no override was supplied.
+// EnvironmentFilePath는 명시적인 런타임 설정 경로를 반환하며,
+// 별도 지정이 없으면 기존 방식대로 작업 디렉터리의 .env를 사용한다.
 func EnvironmentFilePath() string {
 	if path := strings.TrimSpace(os.Getenv(EnvironmentFileVariable)); path != "" {
 		return path
@@ -139,6 +140,7 @@ func LoadConfig() error {
 	Env = Config{
 		Version:            getEnv("GOAPI_VERSION", "1.2.1"),
 		GoapiBase:          getEnv("GOAPI_BASE", "goapi"),
+		GoHost:             getEnv("GOAPI_HOST", "0.0.0.0"),
 		GoPort:             getEnv("GOAPI_PORT", "3006"),
 		Domain:             getEnv("GOAPI_DOMAIN", "http://localhost"),
 		Title:              getEnv("GOAPI_TITLE", "NUBO"),

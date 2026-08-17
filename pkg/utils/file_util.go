@@ -17,8 +17,8 @@ import (
 
 const publicUploadRoot = "/upload"
 
-// UploadDirectory returns the configured filesystem root for mutable uploads.
-// The legacy relative directory remains the default for source installations.
+// UploadDirectory는 설정된 업로드 파일시스템 루트를 반환한다.
+// 소스 설치 호환성을 위해 기존 상대 경로를 기본값으로 유지한다.
 func UploadDirectory() string {
 	directory := strings.TrimSpace(configs.Env.UploadDir)
 	if directory == "" {
@@ -27,7 +27,7 @@ func UploadDirectory() string {
 	return filepath.Clean(directory)
 }
 
-// UploadFilePath maps a stable public /upload path to its configured disk path.
+// UploadFilePath는 공개 `/upload` 경로를 설정된 실제 디스크 경로로 변환한다.
 func UploadFilePath(publicPath string) (string, error) {
 	cleanPath := path.Clean("/" + strings.TrimSpace(publicPath))
 	if cleanPath != publicUploadRoot && !strings.HasPrefix(cleanPath, publicUploadRoot+"/") {
@@ -37,8 +37,8 @@ func UploadFilePath(publicPath string) (string, error) {
 	return filepath.Join(UploadDirectory(), filepath.FromSlash(relativePath)), nil
 }
 
-// PublicUploadPath maps a file below the configured upload directory to the
-// stable URL/DB path used by existing installations.
+// PublicUploadPath는 설정된 업로드 디렉터리 아래의 파일을
+// 기존 설치와 호환되는 URL/DB 경로로 변환한다.
 func PublicUploadPath(filePath string) (string, error) {
 	rootPath, err := filepath.Abs(UploadDirectory())
 	if err != nil {

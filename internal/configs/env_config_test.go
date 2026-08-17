@@ -27,13 +27,14 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	t.Cleanup(func() { Env = original })
 
 	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
-	contents := "GOAPI_TITLE=File Title\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\n"
+	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\n"
 	if err := os.WriteFile(environmentPath, []byte(contents), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv(EnvironmentFileVariable, environmentPath)
 	t.Setenv("GOAPI_TITLE", "Process Title")
 	unsetEnvironmentForTest(t, "GOAPI_PORT")
+	unsetEnvironmentForTest(t, "GOAPI_HOST")
 	unsetEnvironmentForTest(t, "DB_NAME")
 	unsetEnvironmentForTest(t, "NUBO_UPLOAD_DIR")
 
@@ -45,6 +46,9 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	}
 	if Env.GoPort != "4310" {
 		t.Fatalf("port = %q, want file value", Env.GoPort)
+	}
+	if Env.GoHost != "127.0.0.1" {
+		t.Fatalf("host = %q, want loopback file value", Env.GoHost)
 	}
 	if Env.DBName != "external_db" {
 		t.Fatalf("database = %q, want file value", Env.DBName)
@@ -65,6 +69,25 @@ func TestLoadConfigMissingFileDoesNotReplaceCurrentConfig(t *testing.T) {
 	}
 	if Env.Title != "keep-current" {
 		t.Fatalf("failed load replaced current config: %+v", Env)
+	}
+}
+
+func TestLoadConfigKeepsLegacyListenDefault(t *testing.T) {
+	original := Env
+	t.Cleanup(func() { Env = original })
+
+	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
+	if err := os.WriteFile(environmentPath, []byte("GOAPI_PORT=3006\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvironmentFileVariable, environmentPath)
+	unsetEnvironmentForTest(t, "GOAPI_HOST")
+
+	if err := LoadConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if Env.GoHost != "0.0.0.0" {
+		t.Fatalf("legacy host = %q, want 0.0.0.0", Env.GoHost)
 	}
 }
 
