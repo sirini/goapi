@@ -39,7 +39,7 @@ func main() {
 
 	repo := repositories.NewRepository(db)
 	service := services.NewService(repo)
-	handler := handlers.NewHandler(service)
+	handler := handlers.NewHandler(service, db)
 
 	sizeLimit := configs.GetFileSizeLimit()
 	app := fiber.New(fiber.Config{
