@@ -27,7 +27,7 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	t.Cleanup(func() { Env = original })
 
 	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
-	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\n"
+	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\nADMIN_ID=admin@example.com\nADMIN_PW=admin-password\n"
 	if err := os.WriteFile(environmentPath, []byte(contents), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -37,6 +37,8 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	unsetEnvironmentForTest(t, "GOAPI_HOST")
 	unsetEnvironmentForTest(t, "DB_NAME")
 	unsetEnvironmentForTest(t, "NUBO_UPLOAD_DIR")
+	unsetEnvironmentForTest(t, "ADMIN_ID")
+	unsetEnvironmentForTest(t, "ADMIN_PW")
 
 	if err := LoadConfig(); err != nil {
 		t.Fatal(err)
@@ -55,6 +57,9 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	}
 	if Env.UploadDir != "/srv/nubo/upload" {
 		t.Fatalf("upload directory = %q, want file value", Env.UploadDir)
+	}
+	if Env.AdminID != "admin@example.com" || Env.AdminPW != "admin-password" {
+		t.Fatalf("admin values were not loaded from the external environment file")
 	}
 }
 

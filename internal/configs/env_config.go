@@ -31,6 +31,8 @@ type Config struct {
 	DBSocket           string
 	DBMaxIdle          string
 	DBMaxOpen          string
+	AdminID            string
+	AdminPW            string
 	JWTSecretKey       string
 	SyncSecretKey      string
 	JWTAccessHours     string
@@ -159,6 +161,8 @@ func LoadConfig() error {
 		DBSocket:           getEnv("DB_UNIX_SOCKET", ""),
 		DBMaxIdle:          getEnv("DB_MAX_IDLE", "10"),
 		DBMaxOpen:          getEnv("DB_MAX_OPEN", "10"),
+		AdminID:            getEnv("ADMIN_ID", ""),
+		AdminPW:            getEnv("ADMIN_PW", ""),
 		JWTSecretKey:       getEnv("JWT_SECRET_KEY", ""),
 		SyncSecretKey:      getEnv("SYNC_SECRET_KEY", ""),
 		JWTAccessHours:     getEnv("JWT_ACCESS_HOURS", "2"),
