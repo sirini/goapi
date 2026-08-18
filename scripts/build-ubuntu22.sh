@@ -47,7 +47,7 @@ cp -a "${artifact_directory}/lib/." "${library_directory}/"
 cp -a "${artifact_directory}/licenses/sharp-libvips/." "${license_directory}/"
 
 echo "Built Ubuntu 22.04-compatible GOAPI: ${output_path}"
-echo "Bundled libvips: ${library_directory}"
+echo "Bundled libvips compatibility and x86-64-v2 variants: ${library_directory}"
 echo "Bundled libvips licenses: ${license_directory}"
 if command -v file >/dev/null 2>&1; then
   file "${output_path}"

@@ -86,7 +86,7 @@ go build -trimpath -o goapi-linux ./cmd
 
 ### 배포용 Ubuntu 22.04 호환 묶음
 
-NUBO에 포함할 공식 x86-64 Linux 바이너리는 호스트 운영체제에서 직접 빌드하지 않고 Docker의 Ubuntu 22.04 환경에서 만듭니다. sharp 프로젝트가 배포하는 libvips를 함께 넣으므로 서버에 libvips 패키지를 별도로 설치할 필요가 없습니다.
+NUBO에 포함할 공식 x86-64 Linux 바이너리는 호스트 운영체제에서 직접 빌드하지 않고 Docker의 Ubuntu 22.04 환경에서 만듭니다. sharp-libvips 기반 libvips를 함께 넣으므로 서버에 libvips 패키지를 별도로 설치할 필요가 없습니다.
 
 Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세요.
 
@@ -97,7 +97,8 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
 - README의 `git clone` 예시처럼 형제 경로에 `nubo` 디렉터리가 있으면 `../nubo/goapi-linux`를 자동으로 교체합니다.
 - NUBO 디렉터리가 없으면 `dist/goapi-linux`에 생성합니다.
 - NUBO를 다른 디렉터리 이름이나 위치에 clone했다면 첫 번째 인자로 바이너리 출력 경로를 지정합니다.
-- libvips는 바이너리 옆의 `lib/`, 라이선스 자료는 `licenses/sharp-libvips/`에 생성됩니다. 두 번째와 세 번째 인자로 각 경로를 바꿀 수 있습니다.
+- x86-64 기본 호환판은 `lib/`, sharp 공식 x86-64-v2판은 `lib/glibc-hwcaps/x86-64-v2/`에 생성됩니다.
+- 라이선스와 호환판 빌드 출처는 `licenses/sharp-libvips/`에 생성됩니다. 두 번째와 세 번째 인자로 각 경로를 바꿀 수 있습니다.
 
 ```bash
 ./scripts/build-ubuntu22.sh /path/to/nubo/goapi-linux \
@@ -105,7 +106,7 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
   /path/to/nubo/licenses/sharp-libvips
 ```
 
-빌드 과정은 npm 패키지의 고정 버전과 SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04 컨테이너에서 공유 라이브러리 연결과 실제 이미지 변환 테스트까지 수행합니다. 산출물은 SSE4.2를 지원하는 Ubuntu 22.04 이상 x86-64 서버를 기준으로 합니다.
+빌드 과정은 공식 npm 패키지와 sharp-libvips 소스의 고정 버전·SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. glibc는 CPU가 x86-64-v2를 만족하면 공식 최적화판을, 그렇지 않으면 `-march=x86-64` 호환판을 자동 선택합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04에서 두 변형을 시험하고, SSE4가 없는 QEMU `qemu64` CPU에서도 JPEG→WebP 변환을 검증합니다.
 
 빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
 
@@ -245,7 +246,7 @@ go run ./cmd
 
 `go run ./cmd` 역시 기본적으로 현재 작업 디렉터리에서 `.env`와 `env.sample`을 찾습니다. GOAPI 저장소에서 직접 실행하려면 NUBO의 설정 파일을 복사하거나 `NUBO_ENV_FILE`에 절대 경로를 지정하세요. 실제 운영 DB 대신 별도 개발 DB를 사용하는 것을 권장합니다.
 
-이미지 변환 호출부는 `pkg/imageprocessor.Processor` 뒤에 있으며 govips v2.18을 사용합니다. 공식 릴리스는 sharp-libvips 1.3.2의 libvips 8.18.3과 이미지 코덱을 함께 배포합니다. JPEG 입력 및 WebP 다중 변형 성능은 다음 명령으로 확인합니다.
+이미지 변환 호출부는 `pkg/imageprocessor.Processor` 뒤에 있으며 govips v2.18을 사용합니다. 공식 릴리스는 sharp-libvips 1.3.2의 libvips 8.18.3과 이미지 코덱을 CPU 호환판·최적화판으로 함께 배포합니다. JPEG 입력 및 WebP 다중 변형 성능은 다음 명령으로 확인합니다.
 
 ```bash
 go test ./pkg/imageprocessor -run '^$' -bench BenchmarkGovipsProcessorVariants -benchmem
@@ -255,7 +256,7 @@ go test ./pkg/imageprocessor -run '^$' -bench BenchmarkGovipsProcessorVariants -
 
 - `load environment file`: 기본 `.env`가 있는 디렉터리에서 실행했는지, 또는 `NUBO_ENV_FILE` 경로와 읽기 권한이 올바른지 확인합니다.
 - DB 접속 실패: `DB_HOST`, `DB_PORT`, socket 경로와 DB 계정 권한을 확인합니다.
-- 이미지 처리 실패: 공식 릴리스의 `lib/libvips-cpp.so.8.18.3` 파일과 서버 CPU의 SSE4.2 지원 여부를 확인합니다.
+- 이미지 처리 실패: 공식 릴리스의 `lib/libvips-cpp.so.8.18.3`과 `lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3` 파일을 확인합니다.
 - 메일 설정은 보이지만 발송 실패: Resend 도메인 인증 상태와 `RESEND_FROM_EMAIL` 도메인을 확인합니다.
 - 업데이트 후 테이블/컬럼 오류: `./goapi-linux install`을 실행합니다.
 - 더 필요한 안내는 [NUBO README](https://github.com/sirini/nubo#readme) 또는 [nubohub.org](https://nubohub.org)를 참고하세요.
