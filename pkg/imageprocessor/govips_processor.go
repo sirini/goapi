@@ -33,7 +33,7 @@ func startGovips() {
 		}
 	}()
 	vips.LoggingSettings(nil, vips.LogLevelWarning)
-	vips.Startup(nil)
+	govipsStartupErr = vips.Startup(nil)
 }
 
 func (p *GovipsProcessor) ProcessFile(inputPath string, variants []Variant) error {

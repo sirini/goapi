@@ -1,0 +1,9 @@
+prefix=/opt/sharp-libvips
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libvips
+Description: sharp 프로젝트가 배포하는 libvips와 이미지 코덱 묶음
+Version: 8.18.3
+Libs: -L${libdir} -l:libvips-cpp.so.8.18.3
+Cflags: -I${includedir} -I${includedir}/glib-2.0 -I${libdir}/glib-2.0/include

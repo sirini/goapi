@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/davidbyttow/govips/v2 v2.16.0
+	github.com/davidbyttow/govips/v2 v2.18.0
 	github.com/fatih/color v1.19.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/gofiber/fiber/v3 v3.5.0
@@ -17,7 +17,7 @@ require (
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	github.com/yuin/goldmark v1.7.13
 	golang.org/x/crypto v0.55.0
-	golang.org/x/image v0.18.0
+	golang.org/x/image v0.38.0
 	golang.org/x/oauth2 v0.36.0
 )
 

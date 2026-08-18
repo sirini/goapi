@@ -22,6 +22,12 @@ output_directory="$(dirname "${output_path}")"
 mkdir -p "${output_directory}"
 output_directory="$(cd "${output_directory}" && pwd)"
 output_path="${output_directory}/$(basename "${output_path}")"
+library_directory="${2:-${output_directory}/lib}"
+license_directory="${3:-${output_directory}/licenses/sharp-libvips}"
+
+mkdir -p "${library_directory}" "${license_directory}"
+library_directory="$(cd "${library_directory}" && pwd)"
+license_directory="$(cd "${license_directory}" && pwd)"
 
 artifact_directory="$(mktemp -d)"
 cleanup() {
@@ -37,8 +43,12 @@ docker buildx build \
   "${repository_root}"
 
 install -m 0755 "${artifact_directory}/goapi-linux" "${output_path}"
+cp -a "${artifact_directory}/lib/." "${library_directory}/"
+cp -a "${artifact_directory}/licenses/sharp-libvips/." "${license_directory}/"
 
 echo "Built Ubuntu 22.04-compatible GOAPI: ${output_path}"
+echo "Bundled libvips: ${library_directory}"
+echo "Bundled libvips licenses: ${license_directory}"
 if command -v file >/dev/null 2>&1; then
   file "${output_path}"
 fi
