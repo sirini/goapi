@@ -158,12 +158,23 @@ func (s *NuboBoardService) GetBoardConfig(boardUid uint) models.BoardConfig {
 
 // 게시글 이동할 대상 게시판 목록 가져오기
 func (s *NuboBoardService) GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error) {
-	isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
-	if !isAdmin {
+	if !s.repos.Auth.CheckPermissionByUid(userUid, boardUid) {
 		return nil, fmt.Errorf("unauthorized access")
 	}
-	boards := s.repos.BoardView.GetAllBoards()
-	return boards, nil
+	if s.repos.Board.GetBoardConfig(boardUid).Type == models.BOARD_TRADE {
+		return nil, fmt.Errorf("trade posts cannot be moved through the generic board endpoint")
+	}
+
+	targets := make([]models.BoardItem, 0)
+	for _, board := range s.repos.BoardView.GetAllBoards() {
+		if board.Uid == boardUid || board.Type == models.BOARD_TRADE {
+			continue
+		}
+		if s.repos.Auth.CheckPermissionByUid(userUid, board.Uid) {
+			targets = append(targets, board)
+		}
+	}
+	return targets, nil
 }
 
 // 게시판 설정 및 카테고리, 관리자 여부 반환
@@ -302,6 +313,7 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 
 	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	result.Config = config
+	result.IsAdmin = s.repos.Auth.CheckPermissionByUid(param.UserUid, param.BoardUid)
 	result.Post = post
 	result.Files = make([]models.BoardAttachment, 0)
 	result.Images = make([]models.BoardAttachedImage, 0)

@@ -291,6 +291,8 @@ type BoardFile struct {
 // 게시글 이동에 필요한 게시판 목록 타입 정의
 type BoardItem struct {
 	Pair
+	Id   string `json:"id"`
+	Type Board  `json:"type"`
 	Info string `json:"info"`
 }
 
@@ -341,6 +343,7 @@ type BoardViewResult struct {
 	NextPostUid    uint                       `json:"nextPostUid"`
 	WriterPosts    []BoardWriterLatestPost    `json:"writerPosts"`
 	WriterComments []BoardWriterLatestComment `json:"writerComments"`
+	IsAdmin        bool                       `json:"isAdmin"`
 }
 
 // 게시글 좋아하기에 필요한 파라미터 정의

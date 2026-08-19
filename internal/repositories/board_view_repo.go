@@ -134,7 +134,7 @@ func (r *NuboBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid ui
 // 게시판 목록들 가져오기 (게시글 이동 시 필요)
 func (r *NuboBoardViewRepository) GetAllBoards() []models.BoardItem {
 	items := make([]models.BoardItem, 0)
-	query := fmt.Sprintf("SELECT uid, name, info FROM %s%s", configs.Env.Prefix, models.TABLE_BOARD)
+	query := fmt.Sprintf("SELECT uid, id, type, name, info FROM %s%s ORDER BY uid", configs.Env.Prefix, models.TABLE_BOARD)
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return items
@@ -143,7 +143,9 @@ func (r *NuboBoardViewRepository) GetAllBoards() []models.BoardItem {
 
 	for rows.Next() {
 		item := models.BoardItem{}
-		rows.Scan(&item.Uid, &item.Name, &item.Info)
+		if err := rows.Scan(&item.Uid, &item.Id, &item.Type, &item.Name, &item.Info); err != nil {
+			return items
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

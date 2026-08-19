@@ -66,6 +66,109 @@ type denyAuthRepo struct{ repositories.AuthRepository }
 
 func (denyAuthRepo) CheckPermissionByUid(uint, uint) bool { return false }
 
+type boardPermissionRepo struct {
+	repositories.AuthRepository
+	permissions map[uint]bool
+}
+
+func (r boardPermissionRepo) CheckPermissionByUid(_ uint, boardUid uint) bool {
+	return r.permissions[boardUid]
+}
+
+type boardConfigRepo struct {
+	repositories.BoardRepository
+	configs map[uint]models.BoardConfig
+}
+
+func (r boardConfigRepo) GetBoardConfig(boardUid uint) models.BoardConfig {
+	return r.configs[boardUid]
+}
+
+type postMoveBoardViewRepo struct {
+	repositories.BoardViewRepository
+	postBoard map[uint]uint
+	boards    []models.BoardItem
+	exists    map[uint]bool
+	movedTo   uint
+	movedPost uint
+}
+
+func (r *postMoveBoardViewRepo) IsPostInBoard(postUid uint, boardUid uint) bool {
+	return r.postBoard[postUid] == boardUid
+}
+
+func (r *postMoveBoardViewRepo) GetAllBoards() []models.BoardItem { return r.boards }
+
+func (r *postMoveBoardViewRepo) BoardExists(boardUid uint) bool { return r.exists[boardUid] }
+
+func (r *postMoveBoardViewRepo) MovePost(boardUid uint, postUid uint) error {
+	r.movedTo = boardUid
+	r.movedPost = postUid
+	return nil
+}
+
+func TestBoardMoveTargetsOnlyIncludeBoardsUserCanManage(t *testing.T) {
+	boardView := &postMoveBoardViewRepo{boards: []models.BoardItem{
+		{Pair: models.Pair{Uid: 1, Name: "Source"}, Id: "source", Type: models.BOARD_BOARD},
+		{Pair: models.Pair{Uid: 2, Name: "Gallery"}, Id: "gallery", Type: models.BOARD_GALLERY},
+		{Pair: models.Pair{Uid: 3, Name: "Other"}, Id: "other", Type: models.BOARD_BOARD},
+		{Pair: models.Pair{Uid: 4, Name: "Market"}, Id: "market", Type: models.BOARD_TRADE},
+	}}
+	s := NewNuboBoardService(&repositories.Repository{
+		Auth:      boardPermissionRepo{permissions: map[uint]bool{1: true, 2: true, 4: true}},
+		Board:     boardConfigRepo{configs: map[uint]models.BoardConfig{1: {Type: models.BOARD_BOARD}}},
+		BoardView: boardView,
+	})
+
+	targets, err := s.GetBoardList(1, 7)
+	if err != nil {
+		t.Fatalf("GetBoardList returned an error: %v", err)
+	}
+	if len(targets) != 1 || targets[0].Uid != 2 || targets[0].Id != "gallery" {
+		t.Fatalf("unexpected move targets: %+v", targets)
+	}
+
+	s.repos.Auth = denyAuthRepo{}
+	if _, err := s.GetBoardList(1, 7); err == nil {
+		t.Fatal("non-admin received move targets")
+	}
+}
+
+func TestMovePostRequiresPermissionForSourceAndTarget(t *testing.T) {
+	boardView := &postMoveBoardViewRepo{
+		postBoard: map[uint]uint{10: 1},
+		exists:    map[uint]bool{2: true},
+	}
+	auth := boardPermissionRepo{permissions: map[uint]bool{1: true, 2: false}}
+	s := NewNuboBoardService(&repositories.Repository{
+		Auth: auth,
+		Board: boardConfigRepo{configs: map[uint]models.BoardConfig{
+			1: {Type: models.BOARD_BOARD},
+			2: {Type: models.BOARD_GALLERY},
+		}},
+		BoardView: boardView,
+	})
+	param := models.BoardMovePostParam{
+		BoardViewCommonParam: models.BoardViewCommonParam{BoardUid: 1, PostUid: 10, UserUid: 7},
+		TargetBoardUid:       2,
+	}
+
+	if err := s.MovePost(param); err == nil {
+		t.Fatal("move into a board the user cannot manage was accepted")
+	}
+	if boardView.movedPost != 0 {
+		t.Fatal("repository move was called after authorization failed")
+	}
+
+	auth.permissions[2] = true
+	if err := s.MovePost(param); err != nil {
+		t.Fatalf("authorized move failed: %v", err)
+	}
+	if boardView.movedTo != 2 || boardView.movedPost != 10 {
+		t.Fatalf("unexpected repository move: board=%d post=%d", boardView.movedTo, boardView.movedPost)
+	}
+}
+
 func TestBoardOperationsRejectCrossBoardIdentifiers(t *testing.T) {
 	boardView := ownershipBoardViewRepo{
 		postBoard: map[uint]uint{10: 1},
