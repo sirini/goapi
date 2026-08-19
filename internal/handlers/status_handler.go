@@ -3,13 +3,18 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	_ "embed"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 )
 
-const apiContractVersion = "1"
+//go:embed api-contract-version.txt
+var embeddedAPIContractVersion string
+
+var apiContractVersion = strings.TrimSpace(embeddedAPIContractVersion)
 
 type StatusHandler interface {
 	HealthHandler(c fiber.Ctx) error
