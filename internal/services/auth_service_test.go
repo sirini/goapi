@@ -41,11 +41,14 @@ func TestCanAuthenticateRejectsBlockedAndMissingUsers(t *testing.T) {
 
 type transactionalAuthRepo struct {
 	repositories.AuthRepository
-	userUID  uint
-	recent   bool
-	savedUID uint
-	saved    bool
-	deleted  uint
+	userUID        uint
+	recent         bool
+	savedUID       uint
+	saved          bool
+	deleted        uint
+	consumed       bool
+	consumedEmail  string
+	verificationID string
 }
 
 func (r *transactionalAuthRepo) FindUserUidById(string) uint { return r.userUID }
@@ -57,13 +60,26 @@ func (r *transactionalAuthRepo) SaveVerificationCode(string, string) uint {
 	return r.savedUID
 }
 func (r *transactionalAuthRepo) DeleteVerificationCode(uid uint) { r.deleted = uid }
+func (r *transactionalAuthRepo) ConsumeVerificationCode(_ uint, _ string, expectedEmail string) (string, bool) {
+	r.consumedEmail = expectedEmail
+	if r.consumed {
+		return "", false
+	}
+	r.consumed = true
+	return r.verificationID, true
+}
 
 type transactionalUserRepo struct {
 	repositories.UserRepository
+	inserted int
 }
 
 func (transactionalUserRepo) IsEmailDuplicated(string) bool      { return false }
 func (transactionalUserRepo) IsNameDuplicated(string, uint) bool { return false }
+func (r *transactionalUserRepo) InsertNewUser(string, string, string) uint {
+	r.inserted++
+	return 7
+}
 
 type recordingMailer struct {
 	configured bool
@@ -93,7 +109,7 @@ func TestSignupRequiresConfiguredMailer(t *testing.T) {
 	mailer := &recordingMailer{configured: false}
 	service := newNuboAuthService(&repositories.Repository{
 		Auth: repo,
-		User: transactionalUserRepo{},
+		User: &transactionalUserRepo{},
 	}, mailer)
 
 	_, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"})
@@ -111,7 +127,7 @@ func TestSignupRendersTrustedServerTemplate(t *testing.T) {
 	mailer := &recordingMailer{configured: true}
 	service := newNuboAuthService(&repositories.Repository{
 		Auth: repo,
-		User: transactionalUserRepo{},
+		User: &transactionalUserRepo{},
 	}, mailer)
 
 	result, err := service.Signup(models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"})
@@ -132,7 +148,7 @@ func TestSignupRendersTrustedServerTemplate(t *testing.T) {
 func TestSignupModesBlockUnapprovedRegistration(t *testing.T) {
 	previous := configs.Env
 	t.Cleanup(func() { configs.Env = previous })
-	service := newNuboAuthService(&repositories.Repository{User: transactionalUserRepo{}}, &recordingMailer{configured: true})
+	service := newNuboAuthService(&repositories.Repository{User: &transactionalUserRepo{}}, &recordingMailer{configured: true})
 	param := models.SignupParam{ID: "member@example.com", Name: "member", Password: "Password!1"}
 
 	configs.Env.SignupMode = "disabled"
@@ -174,6 +190,30 @@ func TestResetPasswordDeletesCodeAfterDeliveryFailure(t *testing.T) {
 	}
 	if repo.deleted != 91 {
 		t.Fatalf("deleted verification uid = %d", repo.deleted)
+	}
+}
+
+func TestVerifyEmailBindsAddressAndConsumesCodeOnce(t *testing.T) {
+	previous := configs.Env
+	configs.Env.SignupMode = "verified_email"
+	t.Cleanup(func() { configs.Env = previous })
+	authRepo := &transactionalAuthRepo{verificationID: "member@example.com"}
+	userRepo := &transactionalUserRepo{}
+	service := newNuboAuthService(&repositories.Repository{Auth: authRepo, User: userRepo}, &recordingMailer{})
+	param := models.VerifyParam{
+		Target: 42, Code: "123456", ID: "member@example.com", Password: "Password!1", Name: "member",
+	}
+
+	ok, err := service.VerifyEmail(param)
+	if err != nil || !ok {
+		t.Fatalf("first VerifyEmail() = %v, %v", ok, err)
+	}
+	if authRepo.consumedEmail != param.ID || userRepo.inserted != 1 {
+		t.Fatalf("verification email/inserts = %q / %d", authRepo.consumedEmail, userRepo.inserted)
+	}
+	ok, err = service.VerifyEmail(param)
+	if err != nil || ok || userRepo.inserted != 1 {
+		t.Fatalf("replayed VerifyEmail() = %v, %v; inserts = %d", ok, err, userRepo.inserted)
 	}
 }
 
