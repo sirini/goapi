@@ -8,7 +8,7 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-대부분의 운영자는 이 저장소를 따로 설치할 필요가 없습니다. NUBO 저장소에 Linux용 `goapi-linux`가 포함되어 있으며, NUBO의 `.env`와 `env.sample`을 함께 사용합니다. 이 저장소는 GOAPI를 수정하거나 다른 운영체제·CPU용으로 직접 빌드하려는 경우에 사용하세요.
+대부분의 운영자는 이 저장소를 따로 설치할 필요가 없습니다. NUBO의 `npm run goapi:prepare`가 공식 통합 릴리스에서 Linux용 GOAPI와 libvips를 함께 내려받습니다. 이 저장소는 GOAPI를 수정하거나 다른 운영체제·CPU용으로 직접 빌드하려는 경우에 사용하세요.
 
 ## 담당 기능
 
@@ -37,12 +37,12 @@ GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v
 
 ## 가장 쉬운 사용법
 
-NUBO를 내려받아 포함된 바이너리를 실행합니다.
+NUBO를 내려받아 검증된 공식 바이너리를 준비한 뒤 실행합니다. 이 명령에는 `npm install`이 필요하지 않습니다.
 
 ```bash
 git clone https://github.com/sirini/nubo.git
 cd nubo
-chmod +x ./goapi-linux
+npm run goapi:prepare
 ./goapi-linux
 ```
 
@@ -86,7 +86,7 @@ go build -trimpath -o goapi-linux ./cmd
 
 ### 배포용 Ubuntu 22.04 호환 묶음
 
-NUBO에 포함할 공식 x86-64 Linux 바이너리는 호스트 운영체제에서 직접 빌드하지 않고 Docker의 Ubuntu 22.04 환경에서 만듭니다. sharp-libvips 기반 libvips를 함께 넣으므로 서버에 libvips 패키지를 별도로 설치할 필요가 없습니다.
+NUBO 공식 통합 릴리스에 넣을 x86-64 Linux 바이너리는 호스트 운영체제에서 직접 빌드하지 않고 Docker의 Ubuntu 22.04 환경에서 만듭니다. sharp-libvips 기반 libvips를 함께 넣으므로 서버에 libvips 패키지를 별도로 설치할 필요가 없습니다.
 
 Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세요.
 
@@ -94,16 +94,15 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
 ./scripts/build-ubuntu22.sh
 ```
 
-- README의 `git clone` 예시처럼 형제 경로에 `nubo` 디렉터리가 있으면 `../nubo/goapi-linux`를 자동으로 교체합니다.
-- NUBO 디렉터리가 없으면 `dist/goapi-linux`에 생성합니다.
-- NUBO를 다른 디렉터리 이름이나 위치에 clone했다면 첫 번째 인자로 바이너리 출력 경로를 지정합니다.
+- 기본 출력은 이 저장소의 `dist/nubo-runtime/bin/goapi`와 `dist/nubo-runtime/lib/`입니다. NUBO 소스 저장소를 자동으로 수정하지 않습니다.
+- NUBO 통합 릴리스 빌드는 첫 번째부터 세 번째 인자로 staging의 바이너리·라이브러리·라이선스 경로를 지정합니다.
 - x86-64 기본 호환판은 `lib/`, sharp 공식 x86-64-v2판은 `lib/glibc-hwcaps/x86-64-v2/`에 생성됩니다.
 - 라이선스와 호환판 빌드 출처는 `licenses/sharp-libvips/`에 생성됩니다. 두 번째와 세 번째 인자로 각 경로를 바꿀 수 있습니다.
 
 ```bash
-./scripts/build-ubuntu22.sh /path/to/nubo/goapi-linux \
-  /path/to/nubo/lib \
-  /path/to/nubo/licenses/sharp-libvips
+./scripts/build-ubuntu22.sh /path/to/release/bin/goapi \
+  /path/to/release/lib \
+  /path/to/release/licenses/sharp-libvips
 ```
 
 빌드 과정은 공식 npm 패키지와 sharp-libvips 소스의 고정 버전·SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. glibc는 CPU가 x86-64-v2를 만족하면 공식 최적화판을, 그렇지 않으면 `-march=x86-64` 호환판을 자동 선택합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04에서 두 변형을 시험하고, SSE4가 없는 QEMU `qemu64` CPU에서도 JPEG→WebP 변환을 검증합니다.
@@ -111,11 +110,11 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
 빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
 
 ```bash
-cp ./goapi-linux /var/www/nubo/bin/goapi-linux
-cp -a ./lib /var/www/nubo/lib
+cp ./dist/nubo-runtime/bin/goapi /var/www/nubo/bin/goapi
+cp -a ./dist/nubo-runtime/lib /var/www/nubo/lib
 cd /var/www/nubo
-./bin/goapi-linux install
-./bin/goapi-linux
+./bin/goapi install
+./bin/goapi
 ```
 
 Apple Silicon, ARM Linux 등에서는 해당 환경에서 직접 빌드하는 것이 가장 단순합니다. 교차 컴파일은 `libvips`와 CGO용 크로스 툴체인도 함께 준비해야 합니다.
