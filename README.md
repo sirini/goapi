@@ -8,7 +8,7 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-대부분의 운영자는 이 저장소를 따로 설치할 필요가 없습니다. NUBO의 `npm run goapi:prepare`가 공식 통합 릴리스에서 Linux용 GOAPI와 libvips를 함께 내려받습니다. 이 저장소는 GOAPI를 수정하거나 다른 운영체제·CPU용으로 직접 빌드하려는 경우에 사용하세요.
+대부분의 운영자는 이 저장소를 따로 설치할 필요가 없습니다. NUBO의 `npm run server:prepare`가 공식 통합 릴리스에서 Linux용 GOAPI와 libvips를 함께 내려받습니다. 이 저장소는 GOAPI를 수정하거나 다른 운영체제·CPU용으로 직접 빌드하려는 경우에 사용하세요.
 
 ## 담당 기능
 
@@ -42,7 +42,7 @@ NUBO를 내려받아 검증된 공식 바이너리를 준비한 뒤 실행합니
 ```bash
 git clone https://github.com/sirini/nubo.git
 cd nubo
-npm run goapi:prepare
+npm run server:prepare
 ./goapi-linux
 ```
 
