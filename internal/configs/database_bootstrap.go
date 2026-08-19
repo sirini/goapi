@@ -14,7 +14,7 @@ var tablePrefixPattern = regexp.MustCompile(`^[A-Za-z0-9_]*$`)
 
 var baseTableNames = []string{
 	"user", "user_token", "user_permission", "user_verification", "signup_invite",
-	"user_access_log", "user_blacklist", "report", "chat", "group", "board",
+	"user_access_log", "user_black_list", "report", "chat", "group", "board",
 	"skin_setting", "board_category", "point_history", "post", "hashtag",
 	"post_hashtag", "post_like", "comment", "comment_like", "file",
 	"file_thumbnail", "image", "notification", "exif", "image_description",

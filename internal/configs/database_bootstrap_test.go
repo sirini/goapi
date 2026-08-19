@@ -66,6 +66,22 @@ func TestBootstrapDatabaseRejectsUnsafePrefix(t *testing.T) {
 	}
 }
 
+// bootstrap 검증 목록은 실제 생성·조회에 쓰는 user_black_list 이름을 따른다.
+func TestBaseTableNamesUsesUserBlackListSchemaName(t *testing.T) {
+	found := false
+	for _, name := range baseTableNames {
+		if name == "user_blacklist" {
+			t.Fatal("실제 스키마에 없는 user_blacklist 이름을 검증하고 있습니다")
+		}
+		if name == "user_black_list" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("user_black_list가 필수 테이블 검증 목록에 없습니다")
+	}
+}
+
 var _ driver.Driver = (*bootstrapExecDriver)(nil)
 var _ driver.Conn = (*bootstrapExecConn)(nil)
 var _ driver.Execer = (*bootstrapExecConn)(nil)
