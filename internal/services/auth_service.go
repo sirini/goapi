@@ -46,6 +46,7 @@ type AuthService interface {
 	RevokeSignupInvite(uid uint) error
 	CanRegisterOAuthUser() bool
 	SaveTokensInCookie(c fiber.Ctx, userUid uint) (string, string, error)
+	RotateTokens(userUid uint, oldRefreshToken string) (models.AuthTokenPair, error)
 	RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error)
 	VerifyEmail(param models.VerifyParam) (bool, error)
 }
@@ -57,21 +58,32 @@ func (s *NuboAuthService) CanAuthenticate(userUid uint) bool {
 }
 
 func (s *NuboAuthService) RotateTokensInCookie(c fiber.Ctx, userUid uint, oldRefreshToken string) (string, error) {
+	tokens, err := s.RotateTokens(userUid, oldRefreshToken)
+	if err != nil {
+		return "", err
+	}
+	accessHours, refreshDays := configs.GetJWTAccessRefresh()
+	utils.SaveCookie(c, models.AUTH_TOKEN, tokens.Token, accessHours)
+	utils.SaveCookie(c, models.REFRESH_TOKEN, tokens.Refresh, refreshDays*24)
+	return tokens.Token, nil
+}
+
+// 저장된 리프레시 토큰이 유효할 때 새 토큰 쌍으로 원자적으로 교체한다.
+func (s *NuboAuthService) RotateTokens(userUid uint, oldRefreshToken string) (models.AuthTokenPair, error) {
+	tokens := models.AuthTokenPair{}
 	accessHours, refreshDays := configs.GetJWTAccessRefresh()
 	authToken, err := utils.GenerateAccessToken(userUid, accessHours)
 	if err != nil {
-		return "", err
+		return tokens, err
 	}
 	refreshToken, err := utils.GenerateRefreshToken(userUid, refreshDays)
 	if err != nil {
-		return "", err
+		return tokens, err
 	}
 	if !s.repos.Auth.RotateRefreshToken(userUid, oldRefreshToken, refreshToken) {
-		return "", fmt.Errorf("refresh token is no longer valid")
+		return tokens, fmt.Errorf("refresh token is no longer valid")
 	}
-	utils.SaveCookie(c, models.AUTH_TOKEN, authToken, accessHours)
-	utils.SaveCookie(c, models.REFRESH_TOKEN, refreshToken, refreshDays*24)
-	return authToken, nil
+	return models.AuthTokenPair{Token: authToken, Refresh: refreshToken}, nil
 }
 
 type NuboAuthService struct {

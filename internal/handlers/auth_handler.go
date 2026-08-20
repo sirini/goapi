@@ -19,6 +19,7 @@ type AuthHandler interface {
 	CheckNameHandler(c fiber.Ctx) error
 	LoadMyInfoHandler(c fiber.Ctx) error
 	LogoutHandler(c fiber.Ctx) error
+	MobileRefreshAccessTokenHandler(c fiber.Ctx) error
 	RequestResetPasswordHandler(c fiber.Ctx) error
 	RefreshAccessTokenHandler(c fiber.Ctx) error
 	SigninHandler(c fiber.Ctx) error
@@ -135,6 +136,25 @@ func (h *NuboAuthHandler) RefreshAccessTokenHandler(c fiber.Ctx) error {
 	}
 
 	return utils.Ok(c, newAuthToken)
+}
+
+// HTTP 쿠키를 유지할 수 없는 네이티브 앱의 토큰 쌍을 회전한다.
+func (h *NuboAuthHandler) MobileRefreshAccessTokenHandler(c fiber.Ctx) error {
+	param := models.MobileRefreshParam{}
+	if err := c.Bind().Body(&param); err != nil || strings.TrimSpace(param.Refresh) == "" {
+		return utils.Err(c, "Invalid refresh token", models.CODE_INVALID_PARAMETER)
+	}
+
+	userUid := utils.ExtractUserUidFrom(param.Refresh)
+	if userUid < 1 || !h.service.Auth.CanAuthenticate(uint(userUid)) {
+		return utils.Err(c, "Expired token", models.CODE_FAILED_OPERATION)
+	}
+
+	tokens, err := h.service.Auth.RotateTokens(uint(userUid), param.Refresh)
+	if err != nil {
+		return utils.Err(c, "Failed to rotate tokens: "+err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, tokens)
 }
 
 // 로그인 하기

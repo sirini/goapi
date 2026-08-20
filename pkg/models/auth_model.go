@@ -5,6 +5,17 @@ type ResetPasswordParam struct {
 	Email string `json:"email"`
 }
 
+// 네이티브 앱의 리프레시 토큰 회전에 필요한 파라미터다.
+type MobileRefreshParam struct {
+	Refresh string `json:"refresh"`
+}
+
+// 쿠키를 사용할 수 없는 네이티브 앱에 새 토큰 쌍을 전달한다.
+type AuthTokenPair struct {
+	Token   string `json:"token"`
+	Refresh string `json:"refresh"`
+}
+
 // 인증 완료하기 파라미터
 type VerifyParam struct {
 	Target   uint   `json:"target"`
