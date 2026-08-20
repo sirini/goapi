@@ -116,7 +116,7 @@ func NewNuboBoardViewRepository(db *sql.DB, board BoardRepository) *NuboBoardVie
 	return &NuboBoardViewRepository{db: db, board: board}
 }
 
-// 글작성자에게 차단당한 사용자인지 확인하기
+// 글 작성자와 열람자 사이에 어느 방향이든 차단 관계가 있는지 확인하기
 func (r *NuboBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid uint) bool {
 	var writerUid uint
 	query := fmt.Sprintf("SELECT user_uid FROM %s%s WHERE uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_POST)
@@ -125,10 +125,15 @@ func (r *NuboBoardViewRepository) CheckBannedByWriter(postUid uint, viewerUid ui
 		return false
 	}
 
-	var blackUid uint
-	query = fmt.Sprintf("SELECT black_uid FROM %s%s WHERE user_uid = ? AND black_uid = ? LIMIT 1", configs.Env.Prefix, models.TABLE_USER_BLOCK)
-	r.db.QueryRow(query, writerUid, viewerUid).Scan(&blackUid)
-	return blackUid > 0
+	var exists bool
+	query = fmt.Sprintf(`SELECT EXISTS(
+		SELECT 1 FROM %s%s
+		WHERE (user_uid = ? AND black_uid = ?) OR (user_uid = ? AND black_uid = ?)
+	)`, configs.Env.Prefix, models.TABLE_USER_BLOCK)
+	if err := r.db.QueryRow(query, writerUid, viewerUid, viewerUid, writerUid).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
 }
 
 // 게시판 목록들 가져오기 (게시글 이동 시 필요)

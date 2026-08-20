@@ -32,12 +32,16 @@ func (s *NuboChatService) GetChattingList(userUid uint, limit uint) ([]models.Ch
 
 // 상대방과의 대화내용 가져오기
 func (s *NuboChatService) GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
+	// 어느 한쪽이라도 상대를 차단한 경우 기존 대화를 노출하지 않는다.
+	if s.hasBlockRelation(actionUserUid, targetUserUid) {
+		return []models.ChatHistory{}, nil
+	}
 	return s.repos.Chat.LoadChatHistory(actionUserUid, targetUserUid, limit)
 }
 
 // 다른 사용자에게 쪽지 남기기
 func (s *NuboChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint {
-	if isBanned := s.repos.User.IsBannedByTarget(actionUserUid, targetUserUid); isBanned {
+	if s.hasBlockRelation(actionUserUid, targetUserUid) {
 		return 0
 	}
 	insertId := s.repos.Chat.InsertNewChat(actionUserUid, targetUserUid, utils.Escape(message))
@@ -52,4 +56,9 @@ func (s *NuboChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint
 		s.notifications.Save(parameter, false)
 	}
 	return insertId
+}
+
+func (s *NuboChatService) hasBlockRelation(actionUserUid uint, targetUserUid uint) bool {
+	return s.repos.User.IsBannedByTarget(actionUserUid, targetUserUid) ||
+		s.repos.User.IsBannedByTarget(targetUserUid, actionUserUid)
 }
