@@ -24,6 +24,7 @@ func (r *pushRepoStub) RemoveDevice(userUid uint, token string) error {
 }
 
 func (r *pushRepoStub) FindTokens(uint) ([]string, error) { return nil, nil }
+func (r *pushRepoStub) RemoveDevices([]string) error      { return nil }
 
 func TestRegisterPushDeviceNormalizesAndroidPlatform(t *testing.T) {
 	repo := &pushRepoStub{}

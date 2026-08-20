@@ -45,6 +45,7 @@ type BoardService interface {
 
 type NuboBoardService struct {
 	repos                  *repositories.Repository
+	notifications          *notificationPublisher
 	imageDescriptionConfig configs.ImageDescriptionConfig
 	imageDescriptionSlots  chan struct{}
 	describeImage          func(context.Context, string, string) (utils.ImageDescriptionResult, error)
@@ -62,6 +63,7 @@ func newNuboBoardService(
 ) *NuboBoardService {
 	return &NuboBoardService{
 		repos:                  repos,
+		notifications:          newNotificationPublisher(repos, disabledPushSender{}),
 		imageDescriptionConfig: config,
 		imageDescriptionSlots:  make(chan struct{}, config.MaxConcurrent),
 		describeImage:          describeImage,
@@ -378,6 +380,15 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
 		s.repos.BoardView.UpdateLikePost(param)
 	} else {
 		s.repos.BoardView.InsertLikePost(param)
+	}
+	if param.Liked {
+		targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
+		s.notifications.Save(models.InsertNotificationParam{
+			ActionUserUid: param.UserUid,
+			TargetUserUid: targetUserUid,
+			NotiType:      models.NOTI_LIKE_POST,
+			PostUid:       param.PostUid,
+		}, true)
 	}
 	return nil
 }

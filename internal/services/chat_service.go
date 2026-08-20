@@ -13,12 +13,16 @@ type ChatService interface {
 }
 
 type NuboChatService struct {
-	repos *repositories.Repository
+	repos         *repositories.Repository
+	notifications *notificationPublisher
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboChatService(repos *repositories.Repository) *NuboChatService {
-	return &NuboChatService{repos: repos}
+	return &NuboChatService{
+		repos:         repos,
+		notifications: newNotificationPublisher(repos, disabledPushSender{}),
+	}
 }
 
 // 쪽지 목록들 가져오기
@@ -45,7 +49,7 @@ func (s *NuboChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint
 		CommentUid:    0,
 	}
 	if insertId > 0 {
-		s.repos.Noti.InsertNotification(parameter)
+		s.notifications.Save(parameter, false)
 	}
 	return insertId
 }

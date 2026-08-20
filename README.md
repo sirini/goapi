@@ -290,12 +290,25 @@ OPENAI_IMAGE_DESCRIPTION_ENABLED=false
 OPENAI_IMAGE_DESCRIPTION_MODEL=gpt-5.6-luna
 OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST=3
 OPENAI_IMAGE_DESCRIPTION_CONCURRENCY=1
+FIREBASE_PROJECT_ID=
+FIREBASE_CREDENTIALS_FILE=
 ```
 
 - OAuth 키는 해당 소셜 로그인을 사용할 때만 필요합니다.
 - OAuth 제공자에는 `https://example.com/goapi/...` 형태의 콜백 경로를 정확히 등록해야 합니다.
 - OpenAI 키는 자격 증명일 뿐 기능 활성화 동의로 간주하지 않습니다. 이미지 설명은 키와 함께 `OPENAI_IMAGE_DESCRIPTION_ENABLED=true`를 설정해야 호출됩니다.
 - 이미지 설명은 기본적으로 게시글당 최대 3개, 서버 전체 동시 1개로 제한됩니다. 모델과 상한은 위 환경 변수로 변경할 수 있으며 API 사용료는 운영자가 부담합니다.
+
+### Android 실시간 푸시 알림
+
+Android 앱의 댓글·좋아요·1:1 대화 알림을 실시간으로 보내려면 Firebase 프로젝트에서 서비스 계정 JSON을 발급하고 서버 외부의 읽기 제한된 경로에 저장합니다. 저장소나 웹 공개 디렉터리에는 자격 증명을 두지 마세요.
+
+```dotenv
+FIREBASE_PROJECT_ID=my-firebase-project
+FIREBASE_CREDENTIALS_FILE=/etc/nubo/firebase-service-account.json
+```
+
+두 값을 비우면 푸시 발송만 안전하게 비활성화되며 기존 알림 목록은 계속 동작합니다. 앱은 Firebase 프로젝트 설정이 없을 때 주기 조회 방식으로 자동 대체합니다. `push_device` 테이블이 없는 기존 설치는 새 실행 파일로 `install` 명령을 한 번 실행해 재실행 가능한 스키마 업데이트를 적용하세요.
 
 ## 개발과 검증
 

@@ -13,12 +13,16 @@ type NotiService interface {
 }
 
 type NuboNotiService struct {
-	repos *repositories.Repository
+	repos     *repositories.Repository
+	publisher *notificationPublisher
 }
 
 // 리포지토리 묶음 주입받기
 func NewNuboNotiService(repos *repositories.Repository) *NuboNotiService {
-	return &NuboNotiService{repos: repos}
+	return &NuboNotiService{
+		repos:     repos,
+		publisher: newNotificationPublisher(repos, disabledPushSender{}),
+	}
 }
 
 // 모든 알람 확인 처리하기
@@ -38,9 +42,5 @@ func (s *NuboNotiService) GetUserNoti(userUid uint, limit uint) ([]models.Notifi
 
 // 새로운 알림 저장하기
 func (s *NuboNotiService) SaveNewNoti(param models.InsertNotificationParam) {
-	isDup := s.repos.Noti.IsNotiAdded(param)
-	if isDup || param.ActionUserUid == param.TargetUserUid {
-		return
-	}
-	s.repos.Noti.InsertNotification(param)
+	s.publisher.Save(param, true)
 }

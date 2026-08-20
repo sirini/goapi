@@ -21,8 +21,9 @@ type CommentService interface {
 }
 
 type NuboCommentService struct {
-	repos  *repositories.Repository
-	mailer utils.Mailer
+	repos         *repositories.Repository
+	mailer        utils.Mailer
+	notifications *notificationPublisher
 }
 
 // 리포지토리 묶음 주입받기
@@ -31,7 +32,11 @@ func NewNuboCommentService(repos *repositories.Repository) *NuboCommentService {
 }
 
 func newNuboCommentService(repos *repositories.Repository, mailer utils.Mailer) *NuboCommentService {
-	return &NuboCommentService{repos: repos, mailer: mailer}
+	return &NuboCommentService{
+		repos:         repos,
+		mailer:        mailer,
+		notifications: newNotificationPublisher(repos, disabledPushSender{}),
+	}
 }
 
 // 댓글에 좋아요 클릭하기
@@ -44,13 +49,13 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
 
 		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
 		if param.UserUid != targetUserUid {
-			s.repos.Noti.InsertNotification(models.InsertNotificationParam{
+			s.notifications.Save(models.InsertNotificationParam{
 				ActionUserUid: param.UserUid,
 				TargetUserUid: targetUserUid,
 				NotiType:      models.NOTI_LIKE_COMMENT,
 				PostUid:       postUid,
 				CommentUid:    param.CommentUid,
-			})
+			}, true)
 		}
 	} else {
 		s.repos.Comment.UpdateLikeComment(param)
@@ -172,13 +177,13 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 
 	targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
 	if param.UserUid != targetUserUid {
-		s.repos.Noti.InsertNotification(models.InsertNotificationParam{
+		s.notifications.Save(models.InsertNotificationParam{
 			ActionUserUid: param.UserUid,
 			TargetUserUid: targetUserUid,
 			NotiType:      models.NOTI_LEAVE_COMMENT,
 			PostUid:       param.PostUid,
 			CommentUid:    insertId,
-		})
+		}, false)
 
 		if s.mailer.Configured() {
 			writerInfo := s.repos.Auth.FindMyInfoByUid(targetUserUid)

@@ -1,9 +1,12 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -40,17 +43,31 @@ func applyPointChange(repo repositories.UserRepository, param models.UpdatePoint
 func NewService(repos *repositories.Repository) *Service {
 	user := NewNuboUserService(repos)
 	board := NewNuboBoardService(repos)
+	chat := NewNuboChatService(repos)
 	mailer := utils.NewResendMailer()
 	transactionalMailer := newTrackedMailer(mailer, repos.MailDelivery)
+	comment := newNuboCommentService(repos, transactionalMailer)
+	pushSender, err := newFirebasePushSender(
+		context.Background(),
+		configs.Env.FirebaseProjectID,
+		configs.Env.FirebaseCredentialsFile,
+	)
+	if err != nil {
+		log.Printf("push: Firebase sender disabled: %v", err)
+	}
+	notifications := newNotificationPublisher(repos, pushSender)
+	board.notifications = notifications
+	chat.notifications = notifications
+	comment.notifications = notifications
 	return &Service{
 		Admin:   newNuboAdminService(repos, user, mailer, mailer),
 		Auth:    newNuboAuthService(repos, transactionalMailer),
 		Board:   board,
 		Blog:    NewNuboBlogService(repos),
-		Chat:    NewNuboChatService(repos),
-		Comment: newNuboCommentService(repos, transactionalMailer),
+		Chat:    chat,
+		Comment: comment,
 		Home:    NewNuboHomeService(repos),
-		Noti:    NewNuboNotiService(repos),
+		Noti:    &NuboNotiService{repos: repos, publisher: notifications},
 		OAuth:   NewNuboOAuthService(repos),
 		Push:    NewNuboPushService(repos.Push),
 		Sync:    NewNuboSyncService(repos),

@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sirini/goapi/internal/configs"
@@ -12,6 +13,21 @@ type PushRepository interface {
 	SaveDevice(userUid uint, token string, platform string) error
 	RemoveDevice(userUid uint, token string) error
 	FindTokens(userUid uint) ([]string, error)
+	RemoveDevices(tokens []string) error
+}
+
+func (r *NuboPushRepository) RemoveDevices(tokens []string) error {
+	if len(tokens) == 0 {
+		return nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(tokens)), ",")
+	query := fmt.Sprintf("DELETE FROM %spush_device WHERE token IN (%s)", configs.Env.Prefix, placeholders)
+	args := make([]any, len(tokens))
+	for index, token := range tokens {
+		args[index] = token
+	}
+	_, err := r.db.Exec(query, args...)
+	return err
 }
 
 type NuboPushRepository struct {
