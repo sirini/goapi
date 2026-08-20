@@ -14,15 +14,50 @@ import (
 
 type UserService interface {
 	CheckReportStatus(actionUserUid uint, targetUserUid uint) models.UserCheckReportResult
+	BlockUser(actionUserUid uint, targetUserUid uint) error
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
 	ChangeUserInfo(info models.UpdateUserInfoParam) error
 	ChangeUserPermission(actionUserUid uint, param models.UserPermissionManageParam) error
 	ChangeUserProfile(userUid uint, profile *multipart.FileHeader, oldProfile string) error
+	DeleteAccount(userUid uint, confirmation string) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
 	GetUserLevelPoint(userUid uint) (int, int)
 	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionManageParam
 	ReportTargetUser(param models.UserReportParam) bool
+	UnblockUser(actionUserUid uint, targetUserUid uint) error
 	UpdateResponseToReport(actionUserUid uint, param models.UserPermissionManageParam) error
+}
+
+func (s *NuboUserService) BlockUser(actionUserUid uint, targetUserUid uint) error {
+	if actionUserUid < 1 || targetUserUid < 1 || actionUserUid == targetUserUid {
+		return fmt.Errorf("invalid block target")
+	}
+	return s.repos.User.InsertBlackList(actionUserUid, targetUserUid)
+}
+
+func (s *NuboUserService) UnblockUser(actionUserUid uint, targetUserUid uint) error {
+	if actionUserUid < 1 || targetUserUid < 1 || actionUserUid == targetUserUid {
+		return fmt.Errorf("invalid block target")
+	}
+	return s.repos.User.RemoveBlackList(actionUserUid, targetUserUid)
+}
+
+func (s *NuboUserService) DeleteAccount(userUid uint, confirmation string) error {
+	if userUid < 1 || strings.TrimSpace(confirmation) != "DELETE" {
+		return fmt.Errorf("invalid account deletion confirmation")
+	}
+	profile := s.repos.Auth.FindMyInfoByUid(userUid).Profile
+	paths, err := s.repos.User.DeleteAccount(userUid)
+	if err != nil {
+		return err
+	}
+	for _, path := range paths {
+		_ = utils.RemoveUploadFile(path)
+	}
+	if profile != "" {
+		_ = utils.RemoveUploadFile(profile)
+	}
+	return nil
 }
 
 type NuboUserService struct {

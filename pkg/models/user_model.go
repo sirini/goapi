@@ -138,6 +138,16 @@ type UserCheckReportResult struct {
 	IsBannedByMe bool `json:"isBannedByMe"`
 }
 
+// 사용자 차단 및 해제 요청
+type UserTargetParam struct {
+	TargetUserUid uint `json:"targetUserUid"`
+}
+
+// 본인 계정 삭제 요청은 실수 방지를 위한 명시 문자열을 요구한다.
+type UserDeleteAccountParam struct {
+	Confirmation string `json:"confirmation"`
+}
+
 // 새 비밀번호 지정에 필요한 파라미터 정의
 type UserChangePasswordParam struct {
 	Code     string `json:"code"`

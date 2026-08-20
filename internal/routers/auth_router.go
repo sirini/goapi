@@ -22,6 +22,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 
 	auth.Get("/load", middlewares.JWTMiddleware(h.CanAuthenticate), h.Auth.LoadMyInfoHandler)
 	auth.Patch("/update", middlewares.JWTMiddleware(h.CanAuthenticate), h.Auth.UpdateMyInfoHandler)
+	auth.Delete("/account", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.DeleteAccountHandler)
 
 	// OAuth용 라우터들
 	auth.Get("/google/request", h.OAuth2.GoogleOAuthRequestHandler)
@@ -42,4 +43,6 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	user.Get("/report", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.CheckReportedUserHandler)
 	user.Get("/permission", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.LoadUserPermissionHandler)
 	user.Post("/manage", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.ManageUserPermissionHandler)
+	user.Put("/block", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.BlockUserHandler)
+	user.Delete("/block", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.UnblockUserHandler)
 }

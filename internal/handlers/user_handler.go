@@ -10,16 +10,57 @@ import (
 )
 
 type UserHandler interface {
+	BlockUserHandler(c fiber.Ctx) error
 	ChangePasswordHandler(c fiber.Ctx) error
 	CheckReportedUserHandler(c fiber.Ctx) error
 	LoadUserInfoHandler(c fiber.Ctx) error
 	LoadUserPermissionHandler(c fiber.Ctx) error
 	ManageUserPermissionHandler(c fiber.Ctx) error
 	ReportUserHandler(c fiber.Ctx) error
+	UnblockUserHandler(c fiber.Ctx) error
+	DeleteAccountHandler(c fiber.Ctx) error
 }
 
 type NuboUserHandler struct {
 	service *services.Service
+}
+
+func (h *NuboUserHandler) BlockUserHandler(c fiber.Ctx) error {
+	return h.changeBlockStatus(c, true)
+}
+
+func (h *NuboUserHandler) UnblockUserHandler(c fiber.Ctx) error {
+	return h.changeBlockStatus(c, false)
+}
+
+func (h *NuboUserHandler) changeBlockStatus(c fiber.Ctx, blocked bool) error {
+	actionUserUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	param := models.UserTargetParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	var err error
+	if blocked {
+		err = h.service.User.BlockUser(actionUserUid, param.TargetUserUid)
+	} else {
+		err = h.service.User.UnblockUser(actionUserUid, param.TargetUserUid)
+	}
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
+}
+
+func (h *NuboUserHandler) DeleteAccountHandler(c fiber.Ctx) error {
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	param := models.UserDeleteAccountParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.User.DeleteAccount(userUid, param.Confirmation); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
 }
 
 // services.Service 주입 받기

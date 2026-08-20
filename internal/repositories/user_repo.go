@@ -13,10 +13,12 @@ import (
 
 type UserRepository interface {
 	ApplyPointChange(param models.UpdatePointParam) error
+	DeleteAccount(userUid uint) ([]string, error)
 	GetReportResponse(userUid uint) string
 	GetUserBlackList(userUid uint) []uint
 	GetUserLevelPoint(userUid uint) (int, int)
 	InsertBlackList(actionUserUid uint, targetUserUid uint) error
+	RemoveBlackList(actionUserUid uint, targetUserUid uint) error
 	InsertReportUser(param models.UserReportParam) error
 	InsertNewUser(id string, pw string, name string) uint
 	InsertUserPermission(userUid uint, perm models.UserPermissionResult) error
@@ -101,9 +103,114 @@ func (r *NuboUserRepository) InsertBlackList(actionUserUid uint, targetUserUid u
 	if err == sql.ErrNoRows {
 		query = fmt.Sprintf("INSERT INTO %s%s (user_uid, black_uid) VALUES (?, ?)",
 			configs.Env.Prefix, models.TABLE_USER_BLOCK)
-		r.db.Exec(query, actionUserUid, targetUserUid)
+		_, err = r.db.Exec(query, actionUserUid, targetUserUid)
 	}
-	return nil
+	return err
+}
+
+// 사용자를 내 차단 목록에서 제거한다.
+func (r *NuboUserRepository) RemoveBlackList(actionUserUid uint, targetUserUid uint) error {
+	query := fmt.Sprintf("DELETE FROM %s%s WHERE user_uid = ? AND black_uid = ?", configs.Env.Prefix, models.TABLE_USER_BLOCK)
+	_, err := r.db.Exec(query, actionUserUid, targetUserUid)
+	return err
+}
+
+// 작성 콘텐츠는 보존하되 인증·개인정보·기기 연결을 원자적으로 제거한다.
+func (r *NuboUserRepository) DeleteAccount(userUid uint) ([]string, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var email string
+	if err := tx.QueryRow(
+		fmt.Sprintf("SELECT id FROM %suser WHERE uid = ? LIMIT 1", configs.Env.Prefix),
+		userUid,
+	).Scan(&email); err != nil {
+		return nil, err
+	}
+	paths, err := collectAccountFilePaths(tx, userUid)
+	if err != nil {
+		return nil, err
+	}
+	postIDs := fmt.Sprintf("SELECT uid FROM %spost WHERE user_uid = ?", configs.Env.Prefix)
+	commentIDs := fmt.Sprintf(
+		"SELECT uid FROM %scomment WHERE user_uid = ? OR post_uid IN (%s)",
+		configs.Env.Prefix,
+		postIDs,
+	)
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{fmt.Sprintf("DELETE FROM %strade WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %scomment_like WHERE user_uid = ? OR comment_uid IN (%s)", configs.Env.Prefix, commentIDs), []any{userUid, userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %snotification WHERE to_uid = ? OR from_uid = ? OR post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid, userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %spost_like WHERE user_uid = ? OR post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %scomment WHERE uid IN (%s)", configs.Env.Prefix, commentIDs), []any{userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %sexif WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %simage_description WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %sfile_thumbnail WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %sfile WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %spost_hashtag WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %spoint_history WHERE user_uid = ?", configs.Env.Prefix), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %spost WHERE user_uid = ?", configs.Env.Prefix), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %simage WHERE user_uid = ?", configs.Env.Prefix), []any{userUid}},
+		{fmt.Sprintf("DELETE FROM %schat WHERE to_uid = ? OR from_uid = ?", configs.Env.Prefix), []any{userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %sreport WHERE to_uid = ? OR from_uid = ?", configs.Env.Prefix), []any{userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %suser_black_list WHERE user_uid = ? OR black_uid = ?", configs.Env.Prefix), []any{userUid, userUid}},
+		{fmt.Sprintf("DELETE FROM %smail_delivery WHERE recipient = ?", configs.Env.Prefix), []any{email}},
+		{fmt.Sprintf("DELETE FROM %suser_verification WHERE email = ?", configs.Env.Prefix), []any{email}},
+		{fmt.Sprintf("DELETE FROM %ssignup_invite WHERE email = ?", configs.Env.Prefix), []any{email}},
+	}
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement.query, statement.args...); err != nil {
+			return nil, err
+		}
+	}
+	for _, table := range []string{"push_device", "user_token", "user_permission", "user_access_log"} {
+		query := fmt.Sprintf("DELETE FROM %s%s WHERE user_uid = ?", configs.Env.Prefix, table)
+		if _, err := tx.Exec(query, userUid); err != nil {
+			return nil, err
+		}
+	}
+	query := fmt.Sprintf(`UPDATE %s%s SET id = '', name = '탈퇴한 사용자', password = '', profile = '',
+		level = 0, point = 0, signature = '', signup = 0, signin = 0, blocked = 1 WHERE uid = ? LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_USER)
+	if _, err := tx.Exec(query, userUid); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+func collectAccountFilePaths(tx *sql.Tx, userUid uint) ([]string, error) {
+	query := fmt.Sprintf(`SELECT f.path, COALESCE(ft.path, ''), COALESCE(ft.full_path, '')
+		FROM %sfile f JOIN %spost p ON p.uid = f.post_uid
+		LEFT JOIN %sfile_thumbnail ft ON ft.file_uid = f.uid WHERE p.user_uid = ?
+		UNION ALL SELECT path, '', '' FROM %simage WHERE user_uid = ?`,
+		configs.Env.Prefix, configs.Env.Prefix, configs.Env.Prefix, configs.Env.Prefix)
+	rows, err := tx.Query(query, userUid, userUid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	paths := make([]string, 0)
+	for rows.Next() {
+		var values [3]string
+		if err := rows.Scan(&values[0], &values[1], &values[2]); err != nil {
+			return nil, err
+		}
+		for _, path := range values {
+			if path != "" {
+				paths = append(paths, path)
+			}
+		}
+	}
+	return paths, rows.Err()
 }
 
 // 다른 사용자를 신고하기
