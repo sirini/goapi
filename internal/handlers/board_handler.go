@@ -48,6 +48,9 @@ func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
 // 게시글 목록 가져오기 핸들러
 func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 0 {
+		actionUserUid = 0
+	}
 	id := c.Query("id")
 	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {

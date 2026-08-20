@@ -30,6 +30,9 @@ func NewNuboCommentHandler(service *services.Service) *NuboCommentHandler {
 // 댓글 목록 가져오기 핸들러
 func (h *NuboCommentHandler) CommentListHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 0 {
+		actionUserUid = 0
+	}
 	param := models.CommentListParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)

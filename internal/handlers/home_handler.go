@@ -61,6 +61,9 @@ func (h *NuboHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
 func (h *NuboHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 0 {
+		actionUserUid = 0
+	}
 	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
 	if err != nil {
 		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
@@ -103,6 +106,9 @@ func (h *NuboHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 // 홈화면에서 지정된 게시판 ID에 해당하는 최근 게시글들 가져오기 핸들러
 func (h *NuboHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 0 {
+		actionUserUid = 0
+	}
 	id := c.Params("id")
 	limit, err := strconv.ParseUint(c.Query("limit"), 10, 32)
 	if err != nil || limit < 1 || limit > 100 {
