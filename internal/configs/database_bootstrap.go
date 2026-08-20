@@ -18,7 +18,7 @@ var baseTableNames = []string{
 	"skin_setting", "board_category", "point_history", "post", "hashtag",
 	"post_hashtag", "post_like", "comment", "comment_like", "file",
 	"file_thumbnail", "image", "notification", "exif", "image_description",
-	"trade", "mail_campaign", "mail_delivery",
+	"trade", "mail_campaign", "mail_delivery", "push_device",
 }
 
 // 지정한 이름의 DB가 없으면 utf8mb4 기본값으로 생성한다.

@@ -82,6 +82,15 @@ func TestBaseTableNamesUsesUserBlackListSchemaName(t *testing.T) {
 	}
 }
 
+func TestBaseTableNamesIncludesPushDevice(t *testing.T) {
+	for _, name := range baseTableNames {
+		if name == "push_device" {
+			return
+		}
+	}
+	t.Fatal("push_device가 필수 테이블 검증 목록에 없습니다")
+}
+
 var _ driver.Driver = (*bootstrapExecDriver)(nil)
 var _ driver.Conn = (*bootstrapExecConn)(nil)
 var _ driver.Execer = (*bootstrapExecConn)(nil)

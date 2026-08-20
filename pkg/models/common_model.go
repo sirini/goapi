@@ -30,6 +30,7 @@ const (
 	TABLE_POST          Table = "post"
 	TABLE_POST_HASHTAG  Table = "post_hashtag"
 	TABLE_POST_LIKE     Table = "post_like"
+	TABLE_PUSH_DEVICE   Table = "push_device"
 	TABLE_REPORT        Table = "report"
 	TABLE_SKIN_SETTING  Table = "skin_setting"
 	TABLE_TRADE         Table = "trade"

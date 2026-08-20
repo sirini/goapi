@@ -19,6 +19,7 @@ type Handler struct {
 	Home            HomeHandler
 	Noti            NotiHandler
 	OAuth2          OAuth2Handler
+	Push            PushHandler
 	Status          StatusHandler
 	Sync            SyncHandler
 	Trade           TradeHandler
@@ -39,6 +40,7 @@ func NewHandler(s *services.Service, db *sql.DB) *Handler {
 		Home:            NewNuboHomeHandler(s),
 		Noti:            NewNuboNotiHandler(s),
 		OAuth2:          NewNuboOAuth2Handler(s),
+		Push:            NewNuboPushHandler(s),
 		Status:          NewNuboStatusHandler(db),
 		Sync:            NewNuboSyncHandler(s),
 		Trade:           NewNuboTradeHandler(s),

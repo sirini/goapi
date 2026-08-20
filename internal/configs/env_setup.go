@@ -121,6 +121,9 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := createPushDeviceTable(db, prefix); err != nil {
+		return err
+	}
 	if err := createSignupInviteTable(db, prefix); err != nil {
 		return err
 	}
@@ -532,11 +535,29 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createFileThumbnailTable(db, dbInfo.Prefix)
 	createImageTable(db, dbInfo.Prefix)
 	createNotificationTable(db, dbInfo.Prefix)
+	_ = createPushDeviceTable(db, dbInfo.Prefix)
 	createExifTable(db, dbInfo.Prefix)
 	createImageDescriptionTable(db, dbInfo.Prefix)
 	createTradeTable(db, dbInfo.Prefix)
 	_ = createMailCampaignTable(db, dbInfo.Prefix)
 	_ = createMailDeliveryTable(db, dbInfo.Prefix)
+}
+
+// 사용자별 FCM 등록 토큰을 저장한다. 토큰은 계정 전환 시 한 사용자에게만 귀속된다.
+func createPushDeviceTable(db *sql.DB, prefix string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spush_device (
+  uid INT UNSIGNED NOT NULL auto_increment,
+  user_uid INT UNSIGNED NOT NULL,
+  token VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  platform VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'android',
+  updated BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_push_device_token (token),
+  KEY (user_uid),
+  CONSTRAINT fk_pdu FOREIGN KEY (user_uid) REFERENCES %suser(uid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+	_, err := db.Exec(query)
+	return err
 }
 
 // 기본 레코드들 추가하기

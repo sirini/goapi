@@ -16,6 +16,7 @@ type Repository struct {
 	MailDelivery MailDeliveryRepository
 	SignupInvite SignupInviteRepository
 	Noti         NotiRepository
+	Push         PushRepository
 	Sync         SyncRepository
 	Trade        TradeRepository
 	User         UserRepository
@@ -37,6 +38,7 @@ func NewRepository(db *sql.DB) *Repository {
 		MailDelivery: NewNuboMailDeliveryRepository(db),
 		SignupInvite: NewNuboSignupInviteRepository(db),
 		Noti:         NewNuboNotiRepository(db),
+		Push:         NewNuboPushRepository(db),
 		Sync:         NewNuboSyncRepository(db),
 		Trade:        NewNuboTradeRepository(db),
 		User:         NewNuboUserRepository(db),

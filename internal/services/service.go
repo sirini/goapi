@@ -20,6 +20,7 @@ type Service struct {
 	Home    HomeService
 	Noti    NotiService
 	OAuth   OAuthService
+	Push    PushService
 	Sync    SyncService
 	Trade   TradeService
 	User    UserService
@@ -51,6 +52,7 @@ func NewService(repos *repositories.Repository) *Service {
 		Home:    NewNuboHomeService(repos),
 		Noti:    NewNuboNotiService(repos),
 		OAuth:   NewNuboOAuthService(repos),
+		Push:    NewNuboPushService(repos.Push),
 		Sync:    NewNuboSyncService(repos),
 		Trade:   NewNuboTradeService(repos, board),
 		User:    user,

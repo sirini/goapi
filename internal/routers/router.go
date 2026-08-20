@@ -18,6 +18,7 @@ func RegisterRouters(api fiber.Router, h *handlers.Handler) {
 	RegisterCommentRouters(api, h)
 	RegisterEditorRouters(api, h)
 	RegisterHomeRouters(api, h)
+	RegisterPushRouters(api, h)
 	RegisterSyncRouters(api, h)
 	RegisterTradeRouters(api, h)
 }
