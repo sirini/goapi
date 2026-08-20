@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/services"
@@ -67,8 +69,11 @@ func (h *NuboChatHandler) SaveChatHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Invalid parameters", models.CODE_INVALID_PARAMETER)
 	}
 
-	message := utils.Escape(payload.Message)
+	message, valid := normalizeChatMessage(payload.Message)
 	targetUserUid := payload.TargetUserUid
+	if !valid || targetUserUid < 1 || targetUserUid == uint(actionUserUid) {
+		return utils.Err(c, "Invalid message or target user", models.CODE_INVALID_PARAMETER)
+	}
 
 	if isPerm := h.service.Auth.CheckUserPermission(uint(actionUserUid), models.USER_ACTION_SEND_CHAT); !isPerm {
 		return utils.Err(c, "You don't have permission to send a chat message", models.CODE_NO_PERMISSION)
@@ -79,4 +84,11 @@ func (h *NuboChatHandler) SaveChatHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to send a message", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, insertId)
+}
+
+// 채팅 메시지 앞뒤 공백을 정리하고 데이터베이스에 저장할 수 있는 길이인지 확인한다.
+func normalizeChatMessage(message string) (string, bool) {
+	normalized := strings.TrimSpace(message)
+	length := utf8.RuneCountInString(normalized)
+	return normalized, length > 0 && length <= 2000
 }
