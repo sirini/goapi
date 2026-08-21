@@ -44,6 +44,7 @@ type Config struct {
 	SignupMode              string
 	OAuthGoogleID           string
 	OAuthGoogleSecret       string
+	OAuthGoogleAndroidID    string
 	OAuthNaverID            string
 	OAuthNaverSecret        string
 	OAuthKakaoID            string
@@ -176,6 +177,7 @@ func LoadConfig() error {
 		SignupMode:              getEnv("SIGNUP_MODE", "verified_email"),
 		OAuthGoogleID:           getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
 		OAuthGoogleSecret:       getEnv("OAUTH_GOOGLE_SECRET", ""),
+		OAuthGoogleAndroidID:    getEnv("OAUTH_GOOGLE_ANDROID_CLIENT_ID", ""),
 		OAuthNaverID:            getEnv("OAUTH_NAVER_CLIENT_ID", ""),
 		OAuthNaverSecret:        getEnv("OAUTH_NAVER_SECRET", ""),
 		OAuthKakaoID:            getEnv("OAUTH_KAKAO_CLIENT_ID", ""),
@@ -191,6 +193,15 @@ func LoadConfig() error {
 		},
 	}
 	return nil
+}
+
+// GetGoogleAndroidClientID는 Android ID 토큰의 audience를 반환한다.
+// 전용 설정이 없는 기존 배포에서는 웹 OAuth client ID를 그대로 사용한다.
+func GetGoogleAndroidClientID() string {
+	if clientID := strings.TrimSpace(Env.OAuthGoogleAndroidID); clientID != "" {
+		return clientID
+	}
+	return strings.TrimSpace(Env.OAuthGoogleID)
 }
 
 // 숫자 형태로 반환이 필요한 항목 정의

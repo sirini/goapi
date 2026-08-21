@@ -27,7 +27,7 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	t.Cleanup(func() { Env = original })
 
 	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
-	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\nADMIN_ID=admin@example.com\nADMIN_PW=admin-password\n"
+	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\nADMIN_ID=admin@example.com\nADMIN_PW=admin-password\nOAUTH_GOOGLE_ANDROID_CLIENT_ID=android-web-client-id\n"
 	if err := os.WriteFile(environmentPath, []byte(contents), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -39,6 +39,7 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	unsetEnvironmentForTest(t, "NUBO_UPLOAD_DIR")
 	unsetEnvironmentForTest(t, "ADMIN_ID")
 	unsetEnvironmentForTest(t, "ADMIN_PW")
+	unsetEnvironmentForTest(t, "OAUTH_GOOGLE_ANDROID_CLIENT_ID")
 
 	if err := LoadConfig(); err != nil {
 		t.Fatal(err)
@@ -60,6 +61,24 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	}
 	if Env.AdminID != "admin@example.com" || Env.AdminPW != "admin-password" {
 		t.Fatalf("admin values were not loaded from the external environment file")
+	}
+	if Env.OAuthGoogleAndroidID != "android-web-client-id" {
+		t.Fatalf("Android Google client ID = %q, want file value", Env.OAuthGoogleAndroidID)
+	}
+}
+
+func TestGetGoogleAndroidClientID(t *testing.T) {
+	original := Env
+	t.Cleanup(func() { Env = original })
+
+	Env = Config{OAuthGoogleID: "web-client-id"}
+	if got := GetGoogleAndroidClientID(); got != "web-client-id" {
+		t.Fatalf("legacy Android Google client ID = %q, want web fallback", got)
+	}
+
+	Env.OAuthGoogleAndroidID = "android-web-client-id"
+	if got := GetGoogleAndroidClientID(); got != "android-web-client-id" {
+		t.Fatalf("Android Google client ID = %q, want dedicated value", got)
 	}
 }
 

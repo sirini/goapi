@@ -41,7 +41,8 @@ func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
 
 // 구글 안드로이드 앱 OAuth 콜백 핸들러
 func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
-	if configs.Env.OAuthGoogleID == "" {
+	androidClientID := configs.GetGoogleAndroidClientID()
+	if androidClientID == "" {
 		return utils.Err(c, "google oauth is not configured", models.CODE_FAILED_OPERATION)
 	}
 	idToken := c.FormValue("id_token")
@@ -60,7 +61,7 @@ func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
-	if !validGoogleIDTokenInfo(userInfo, configs.Env.OAuthGoogleID) {
+	if !validGoogleIDTokenInfo(userInfo, androidClientID) {
 		return utils.Err(c, "invalid google token claims", models.CODE_INVALID_TOKEN)
 	}
 
