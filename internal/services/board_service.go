@@ -16,6 +16,7 @@ import (
 
 type BoardService interface {
 	Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error)
+	GetOriginalImage(boardUid uint, fileUid uint, userUid uint) (models.BoardOriginalImageResult, error)
 	GetBoardConfig(boardUid uint) models.BoardConfig
 	GetBoardList(boardUid uint, userUid uint) ([]models.BoardItem, error)
 	GetBoardUid(id string) uint
@@ -41,6 +42,50 @@ type BoardService interface {
 	SaveThumbnail(fileUid uint, postUid uint, path string) models.BoardThumbnail
 	UploadInsertImage(boardUid uint, userUid uint, images []*multipart.FileHeader) ([]string, error)
 	WritePost(param models.EditorWriteParam) (uint, error)
+}
+
+// 원본 이미지는 첨부 다운로드 권한이 아니라 게시물 보기 권한을 따른다.
+// 실제 저장 경로는 핸들러 밖으로 노출하지 않고 토큰 기반 스트리밍에만 사용한다.
+func (s *NuboBoardService) GetOriginalImage(boardUid uint, fileUid uint, userUid uint) (models.BoardOriginalImageResult, error) {
+	result := models.BoardOriginalImageResult{}
+	if !s.repos.BoardView.IsFileInBoard(fileUid, boardUid) {
+		return result, fmt.Errorf("file does not belong to this board")
+	}
+	postUid := s.repos.BoardView.GetFilePostUid(fileUid, boardUid)
+	status := s.repos.Comment.GetPostStatus(postUid)
+	if postUid < 1 || status == models.CONTENT_REMOVED {
+		return result, fmt.Errorf("image is not available")
+	}
+	if s.repos.BoardView.CheckBannedByWriter(postUid, userUid) {
+		return result, fmt.Errorf("you have been blocked by writer")
+	}
+
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return result, fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return result, fmt.Errorf("not enough point")
+	}
+
+	if status == models.CONTENT_SECRET {
+		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+		isWriter := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+		if !isAdmin && !isWriter {
+			return result, fmt.Errorf("you have no permission to view this image")
+		}
+	}
+
+	file := s.repos.BoardView.GetDownloadInfo(fileUid)
+	if !utils.IsImage(file.Path) {
+		return result, fmt.Errorf("file is not an image")
+	}
+	if utils.GetFileSize(file.Path) < 1 {
+		return result, fmt.Errorf("image not found")
+	}
+	result.Path = file.Path
+	return result, nil
 }
 
 type NuboBoardService struct {

@@ -1,8 +1,11 @@
 package services
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 )
@@ -13,6 +16,10 @@ type ownershipBoardViewRepo struct {
 	fileBoard map[uint]uint
 	filePost  map[uint]uint
 	writers   map[uint]uint
+	banned    map[uint]bool
+	downloads map[uint]models.BoardViewDownloadResult
+	needLevel int
+	needPoint int
 }
 
 func (r ownershipBoardViewRepo) GetFileOwnership(fileUid uint) (uint, uint) {
@@ -37,6 +44,18 @@ func (r ownershipBoardViewRepo) GetFilePostUid(fileUid uint, _ uint) uint {
 
 func (r ownershipBoardViewRepo) IsWriter(table models.Table, targetUid uint, userUid uint) bool {
 	return table == models.TABLE_POST && r.writers[targetUid] == userUid
+}
+
+func (r ownershipBoardViewRepo) CheckBannedByWriter(postUid uint, _ uint) bool {
+	return r.banned[postUid]
+}
+
+func (r ownershipBoardViewRepo) GetDownloadInfo(fileUid uint) models.BoardViewDownloadResult {
+	return r.downloads[fileUid]
+}
+
+func (r ownershipBoardViewRepo) GetNeededLevelPoint(uint, models.BoardAction) (int, int) {
+	return r.needLevel, r.needPoint
 }
 
 type postStatusCommentRepo struct {
@@ -79,6 +98,14 @@ type boardConfigRepo struct {
 	repositories.BoardRepository
 	configs map[uint]models.BoardConfig
 }
+
+type levelPointUserRepo struct {
+	repositories.UserRepository
+	level int
+	point int
+}
+
+func (r levelPointUserRepo) GetUserLevelPoint(uint) (int, int) { return r.level, r.point }
 
 func (r boardConfigRepo) GetBoardConfig(boardUid uint) models.BoardConfig {
 	return r.configs[boardUid]
@@ -182,6 +209,9 @@ func TestBoardOperationsRejectCrossBoardIdentifiers(t *testing.T) {
 	if _, err := s.Download(2, 20, 3); err == nil {
 		t.Fatal("cross-board file download was accepted")
 	}
+	if _, err := s.GetOriginalImage(2, 20, 3); err == nil {
+		t.Fatal("cross-board original image was accepted")
+	}
 	if err := s.LikeThisPost(models.BoardViewLikeParam{BoardViewCommonParam: models.BoardViewCommonParam{BoardUid: 2, PostUid: 10}}); err == nil {
 		t.Fatal("cross-board post like was accepted")
 	}
@@ -278,5 +308,68 @@ func TestThumbnailRejectsNonOwner(t *testing.T) {
 	s := NewNuboBoardService(&repositories.Repository{Auth: denyAuthRepo{}, BoardView: boardView})
 	if _, err := s.GetThumbnailImage(20, 8); err == nil {
 		t.Fatal("attachment preview was returned to a non-owner")
+	}
+}
+
+func TestOriginalImageUsesPostViewAuthorization(t *testing.T) {
+	oldUploadDir := configs.Env.UploadDir
+	configs.Env.UploadDir = t.TempDir()
+	t.Cleanup(func() { configs.Env.UploadDir = oldUploadDir })
+
+	imagePath := "/upload/attachments/photo.jpg"
+	filePath := filepath.Join(configs.Env.UploadDir, "attachments", "photo.jpg")
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filePath, []byte("original-image"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	boardView := ownershipBoardViewRepo{
+		fileBoard: map[uint]uint{20: 1},
+		filePost:  map[uint]uint{20: 10},
+		writers:   map[uint]uint{10: 7},
+		banned:    map[uint]bool{},
+		downloads: map[uint]models.BoardViewDownloadResult{20: {Path: imagePath}},
+	}
+	statuses := map[uint]models.Status{10: models.CONTENT_NORMAL}
+	repos := &repositories.Repository{
+		Auth:      denyAuthRepo{},
+		BoardView: boardView,
+		Comment:   postStatusCommentRepo{statuses: statuses},
+		User:      levelPointUserRepo{level: 0, point: 0},
+	}
+	s := NewNuboBoardService(repos)
+
+	result, err := s.GetOriginalImage(1, 20, 0)
+	if err != nil || result.Path != imagePath {
+		t.Fatalf("public original image = %+v, %v", result, err)
+	}
+
+	statuses[10] = models.CONTENT_SECRET
+	if _, err := s.GetOriginalImage(1, 20, 8); err == nil {
+		t.Fatal("secret-post original image was returned to a non-owner")
+	}
+	if _, err := s.GetOriginalImage(1, 20, 7); err != nil {
+		t.Fatalf("secret-post original image was denied to its writer: %v", err)
+	}
+
+	statuses[10] = models.CONTENT_REMOVED
+	if _, err := s.GetOriginalImage(1, 20, 7); err == nil {
+		t.Fatal("removed-post original image was returned")
+	}
+
+	statuses[10] = models.CONTENT_NORMAL
+	boardView.banned[10] = true
+	s.repos.BoardView = boardView
+	if _, err := s.GetOriginalImage(1, 20, 8); err == nil {
+		t.Fatal("original image was returned to a viewer blocked by the writer")
+	}
+
+	boardView.banned[10] = false
+	boardView.needLevel = 2
+	s.repos.BoardView = boardView
+	if _, err := s.GetOriginalImage(1, 20, 0); err == nil {
+		t.Fatal("original image ignored the board view level")
 	}
 }

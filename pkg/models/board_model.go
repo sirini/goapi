@@ -285,7 +285,7 @@ type BoardExif struct {
 // 파일 기본 구조 정의
 type BoardFile struct {
 	Uid  uint   `json:"uid"`
-	Path string `json:"path"`
+	Path string `json:"-"`
 }
 
 // 게시글 이동에 필요한 게시판 목록 타입 정의
@@ -319,6 +319,12 @@ type BoardViewCommonParam struct {
 // 첨부파일 다운로드 결과 정의
 type BoardViewDownloadResult struct {
 	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+// 원본 이미지 접근 결과 정의. 서비스 내부에서는 업로드 경로를 담지만,
+// 핸들러가 권한 확인을 마친 뒤 짧은 수명의 스트리밍 URL로 교체한다.
+type BoardOriginalImageResult struct {
 	Path string `json:"path"`
 }
 

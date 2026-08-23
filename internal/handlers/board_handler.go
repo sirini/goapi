@@ -19,6 +19,8 @@ type BoardHandler interface {
 	BoardRecentTagListHandler(c fiber.Ctx) error
 	BoardViewHandler(c fiber.Ctx) error
 	DownloadHandler(c fiber.Ctx) error
+	OriginalImageHandler(c fiber.Ctx) error
+	OriginalImageTransferHandler(c fiber.Ctx) error
 	LatestUserContentHandler(c fiber.Ctx) error
 	LikePostHandler(c fiber.Ctx) error
 	ListForMoveHandler(c fiber.Ctx) error
@@ -34,15 +36,26 @@ type DownloadToken struct {
 	Expiry time.Time
 }
 
+type OriginalImageToken struct {
+	Path   string
+	Expiry time.Time
+}
+
 type NuboBoardHandler struct {
 	service              *services.Service
 	downloadTokenMu      sync.Mutex
 	downloadTokenStorage map[string]DownloadToken
+	originalImageTokenMu sync.Mutex
+	originalImageTokens  map[string]OriginalImageToken
 }
 
 // services.Service 주입 받기
 func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
-	return &NuboBoardHandler{service: service, downloadTokenStorage: make(map[string]DownloadToken)}
+	return &NuboBoardHandler{
+		service:              service,
+		downloadTokenStorage: make(map[string]DownloadToken),
+		originalImageTokens:  make(map[string]OriginalImageToken),
+	}
 }
 
 // 게시글 목록 가져오기 핸들러
@@ -170,6 +183,37 @@ func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 	return utils.Ok(c, result)
 }
 
+// 게시물 보기 권한을 확인한 뒤 실제 저장 경로 대신 짧은 수명의 원본 스트리밍 URL을 발급한다.
+func (h *NuboBoardHandler) OriginalImageHandler(c fiber.Ctx) error {
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	if actionUserUid < 0 {
+		actionUserUid = 0
+	}
+	if actionUserUid > 0 && !h.service.Auth.CanAuthenticate(uint(actionUserUid)) {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+	boardUid, err := strconv.ParseUint(c.Query("boardUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid board uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+	fileUid, err := strconv.ParseUint(c.Query("fileUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, "Invalid file uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	}
+	result, err := h.service.Board.GetOriginalImage(uint(boardUid), uint(fileUid), uint(actionUserUid))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+
+	token := uuid.New().String()
+	h.storeOriginalImageToken(token, OriginalImageToken{
+		Path:   result.Path,
+		Expiry: time.Now().Add(2 * time.Minute),
+	})
+	result.Path = fmt.Sprintf("/board/original/transfer?token=%s", token)
+	return utils.Ok(c, result)
+}
+
 // 특정 사용자의 최근 활동(글, 댓글)들 가져오기
 func (h *NuboBoardHandler) LatestUserContentHandler(c fiber.Ctx) error {
 	uid, err := strconv.ParseUint(c.FormValue("targetUserUid"), 10, 32)
@@ -289,6 +333,46 @@ func (h *NuboBoardHandler) consumeDownloadToken(token string, now time.Time) (Do
 	}
 	delete(h.downloadTokenStorage, token)
 	return data, true
+}
+
+func (h *NuboBoardHandler) storeOriginalImageToken(token string, data OriginalImageToken) {
+	h.originalImageTokenMu.Lock()
+	defer h.originalImageTokenMu.Unlock()
+	h.cleanupOriginalImageTokensLocked(time.Now())
+	h.originalImageTokens[token] = data
+}
+
+func (h *NuboBoardHandler) originalImageToken(token string, now time.Time) (OriginalImageToken, bool) {
+	h.originalImageTokenMu.Lock()
+	defer h.originalImageTokenMu.Unlock()
+	h.cleanupOriginalImageTokensLocked(now)
+	data, exists := h.originalImageTokens[token]
+	return data, exists
+}
+
+func (h *NuboBoardHandler) cleanupOriginalImageTokensLocked(now time.Time) {
+	for token, data := range h.originalImageTokens {
+		if !now.Before(data.Expiry) {
+			delete(h.originalImageTokens, token)
+		}
+	}
+}
+
+// 원본은 브라우저 안에서 표시하며 byte range 요청을 허용한다.
+// 토큰은 만료 전까지 재사용해 브라우저의 추가 range 요청도 처리한다.
+func (h *NuboBoardHandler) OriginalImageTransferHandler(c fiber.Ctx) error {
+	data, exists := h.originalImageToken(c.Query("token"), time.Now())
+	if !exists {
+		return c.Status(fiber.StatusForbidden).SendString("invalid token for viewing an image")
+	}
+	filePath, err := utils.UploadFilePath(data.Path)
+	if err != nil || !utils.IsImage(filePath) {
+		return c.Status(fiber.StatusNotFound).SendString("image not found")
+	}
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	c.Set(fiber.HeaderContentDisposition, "inline")
+	c.Set("X-Content-Type-Options", "nosniff")
+	return c.SendFile(filePath, fiber.SendFile{ByteRange: true})
 }
 
 // 일회용 토큰 값으로 파일 다운로드 하기
