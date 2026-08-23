@@ -1,12 +1,17 @@
 # GOAPI for NUBO
 
 <p align="center">
+  <img src="https://img.shields.io/github/v/tag/sirini/goapi?style=flat-square&color=E07A5F" alt="version">
   <img src="https://img.shields.io/github/license/sirini/goapi?style=flat-square&color=5D6D7E" alt="license">
   <img src="https://img.shields.io/github/stars/sirini/goapi?style=flat-square&color=F4D03F" alt="stars">
   <img src="https://img.shields.io/github/last-commit/sirini/goapi?style=flat-square&color=2ECC71" alt="last commit">
 </p>
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
+
+> 문서 기준: 2026-08-23 · 최신 통합 버전: NUBO/GOAPI 1.2.26
+
+GOAPI는 NUBO와 별도 제품으로 배포하지 않습니다. v1.2.26부터 두 저장소의 공개 버전을 동일하게 맞추고, NUBO 릴리스 manifest가 실제 구성 요소 commit과 API contract를 고정합니다. 운영자는 GOAPI 버전을 따로 선택하거나 교체하지 않습니다.
 
 Ubuntu 22.04 이상 x86-64 서버에서 NUBO를 운영한다면 **이 저장소를 따로 clone하거나 Go를 설치해
 빌드하지 마세요.** NUBO 저장소의 `npm run server:install`이 Nuxt와 GOAPI, libvips, `nuboctl`,
@@ -18,6 +23,7 @@ systemd unit을 하나의 검증된 릴리스로 설치합니다. 이 저장소�
 - 회원가입, 로그인, JWT 갱신 및 권한 관리
 - 게시판·게시물·댓글·알림·채팅 데이터 처리
 - 업로드 이미지 리사이즈 및 메타데이터 처리
+- 게시물 권한과 파일 소유 관계를 다시 검사하는 단기 원본 이미지 스트리밍과 HTTP byte range 처리
 - Resend 기반 가입 인증, 비밀번호 초기화, 댓글 알림
 - Resend Broadcast 기반 관리자 단체 메일
 - 이메일 인증·초대 전용·가입 중지 정책
@@ -62,10 +68,12 @@ sudo journalctl -u nubo-goapi -u nubo-web -f
 DB와 업로드를 외부에 백업한 뒤 NUBO 저장소에서 공식 설치를 업데이트합니다.
 
 ```bash
-git pull --ff-only
-npm run server:update -- --dry-run
-npm run server:update
+nuboctl update --dry-run
+nuboctl update
+nuboctl status
 ```
+
+`nuboctl update`가 checkout의 안전한 fast-forward, 통합 asset 검증, 필요한 DB migration, 원자적 전환과 readiness 확인을 한 번에 수행합니다. GOAPI 변경이 포함되면 실행 전에 DB·업로드 외부 백업을 확인합니다.
 
 기존 소스·PM2 설치를 systemd 기반 prebuilt로 전환하는 `server:adopt` 절차까지 포함한 운영 안내는
 [NUBO README](https://github.com/sirini/nubo#readme)를 따르세요. GOAPI만 따로 교체하거나
@@ -200,7 +208,7 @@ GOAPI_BASE=goapi
 GOAPI_PORT=3006
 GOAPI_DOMAIN=https://example.com
 GOAPI_TITLE=My NUBO
-GOAPI_VERSION=1.2.8
+GOAPI_VERSION=1.2.26
 
 DB_HOST=localhost
 DB_PORT=3306
@@ -215,6 +223,10 @@ DB_UNIX_SOCKET=
 - TCP로 DB에 연결하면 `DB_HOST`와 `DB_PORT`를 사용합니다.
 - Unix socket을 지정하면 `DB_UNIX_SOCKET`이 우선합니다.
 - `DB_TABLE_PREFIX`는 SQL 식별자의 일부이므로 설치 후 임의로 바꾸지 마세요.
+
+### 원본 이미지 스트리밍
+
+`/board/original`은 게시물 보기 레벨·포인트 잔액, 비밀글, 삭제글, 작성자 차단과 file–board 소유 관계를 검사한 뒤 2분짜리 전송 토큰만 발급합니다. `/board/original/transfer`는 토큰을 소비해 원본을 인라인으로 전송하고 byte range를 지원합니다. 실제 파일시스템 경로는 게시글 JSON이나 브라우저 URL에 노출하지 않으며, 게시물 열람 때 처리한 보기 포인트를 다시 차감하지 않습니다.
 
 ### 보안 키
 
@@ -259,7 +271,7 @@ RESEND_REPLY_TO_EMAIL=admin@example.com
 - 관리자 단체 메일은 Resend의 연락처·세그먼트·Broadcast API를 사용하므로 API 키에 해당 작업 권한이 필요합니다. 간단하게 운영하려면 Full Access 키를 사용할 수 있습니다.
 - `.env`에 키를 넣어도 Resend 도메인 인증이 끝나지 않았거나 발신 주소의 도메인이 다르면 실제 발송은 실패합니다.
 
-회원가입 인증, 비밀번호 초기화, 댓글 알림의 발송 요청은 `mail_delivery` 테이블에도 기록됩니다. 최근 30일 요약과 전체 페이지 목록은 관리자 메일 화면에서 확인할 수 있으며, 이 조회 기능은 Resend API나 웹훅에 접속하지 않습니다. 수신자·유형·제목·제공자 응답 ID·성공 또는 실패 상태만 저장하고 메일 본문과 인증 코드는 저장하지 않습니다. 공식 서버 설치는 NUBO의 `server:update`가 필요한 migration을 적용합니다. 직접 빌드한 개발 환경에서는 새 실행 파일로 `./goapi-local install`을 실행해 테이블을 추가할 수 있습니다.
+회원가입 인증, 비밀번호 초기화, 댓글 알림의 발송 요청은 `mail_delivery` 테이블에도 기록됩니다. 최근 30일 요약과 전체 페이지 목록은 관리자 메일 화면에서 확인할 수 있으며, 이 조회 기능은 Resend API나 웹훅에 접속하지 않습니다. 수신자·유형·제목·제공자 응답 ID·성공 또는 실패 상태만 저장하고 메일 본문과 인증 코드는 저장하지 않습니다. 공식 서버 설치는 NUBO의 `nuboctl update`가 필요한 migration을 적용합니다. 직접 빌드한 개발 환경에서는 새 실행 파일로 `./goapi-local install`을 실행해 테이블을 추가할 수 있습니다.
 
 ## 가입 정책
 
@@ -334,7 +346,7 @@ go test ./pkg/imageprocessor -run '^$' -bench BenchmarkGovipsProcessorVariants -
 - DB 접속 실패: `DB_HOST`, `DB_PORT`, socket 경로와 DB 계정 권한을 확인합니다.
 - 이미지 처리 실패: 공식 릴리스의 `lib/libvips-cpp.so.8.18.3`과 `lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3` 파일을 확인합니다.
 - 메일 설정은 보이지만 발송 실패: Resend 도메인 인증 상태와 `RESEND_FROM_EMAIL` 도메인을 확인합니다.
-- 업데이트 후 테이블/컬럼 오류: 공식 서버는 NUBO의 `server:update` 로그와 `nubo-goapi` journal을 확인합니다. 직접 빌드한 개발 환경만 `./goapi-local install`을 실행합니다.
+- 업데이트 후 테이블/컬럼 오류: 공식 서버는 NUBO의 `nuboctl update` 로그와 `nubo-goapi` journal을 확인합니다. 직접 빌드한 개발 환경만 `./goapi-local install`을 실행합니다.
 - 더 필요한 안내는 [NUBO README](https://github.com/sirini/nubo#readme) 또는 [nubohub.org](https://nubohub.org)를 참고하세요.
 
 ## 관련 프로젝트
