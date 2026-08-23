@@ -551,10 +551,13 @@ func (s *NuboAdminService) ModifyExistBoard(param models.AdminBoardModifyParam) 
 	if param.Type > models.BOARD_TRADE {
 		return fmt.Errorf("invalid board type")
 	}
+	boardUid := s.repos.Board.GetBoardUidById(param.Id)
+	if err := validateBoardModifyTarget(param, boardUid, s.repos.Admin.IsGroupUid(param.GroupUid)); err != nil {
+		return err
+	}
 	if param.Type == models.BOARD_TRADE && (param.SkinKey == "" || param.SkinKey == "nubo-basic-board") {
 		param.SkinKey = "nubo-basic-trade"
 	}
-	boardUid := s.repos.Board.GetBoardUidById(param.Id)
 	oldCats := s.repos.Admin.GetOldCategories(boardUid)
 
 	// 이전에 쓴 분류명이 없어진 경우 삭제 처리
@@ -574,6 +577,16 @@ func (s *NuboAdminService) ModifyExistBoard(param models.AdminBoardModifyParam) 
 
 	err := s.repos.Admin.ModifyBoard(param)
 	return err
+}
+
+func validateBoardModifyTarget(param models.AdminBoardModifyParam, boardUid uint, groupExists bool) error {
+	if boardUid < 1 || boardUid != param.BoardUid {
+		return fmt.Errorf("board does not match")
+	}
+	if param.GroupUid < 1 || !groupExists {
+		return fmt.Errorf("group does not exist")
+	}
+	return nil
 }
 
 // 사용자 정보 수정하기

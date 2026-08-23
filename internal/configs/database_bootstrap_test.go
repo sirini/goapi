@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 type bootstrapExecDriver struct {
@@ -63,6 +65,30 @@ func TestBootstrapDatabaseRejectsUnsafePrefix(t *testing.T) {
 	err := BootstrapDatabase(nil, "nubo_; DROP TABLE user", AdminInfo{})
 	if err == nil || !strings.Contains(err.Error(), "DB_TABLE_PREFIX") {
 		t.Fatalf("unsafe prefix error = %v", err)
+	}
+}
+
+func TestEnsureGroupRowReusesExistingCustomGroup(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT uid FROM nubo_group WHERE id = 'boards'").
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT uid FROM nubo_group ORDER BY uid LIMIT 1").
+		WillReturnRows(sqlmock.NewRows([]string{"uid"}).AddRow(17))
+
+	uid, err := ensureGroupRow(db, "nubo_", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uid != 17 {
+		t.Fatalf("group uid = %d, want 17", uid)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
 	}
 }
 

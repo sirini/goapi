@@ -53,6 +53,7 @@ type AdminRepository interface {
 	InsertCategory(boardUid uint, name string) uint
 	IsAdded(table models.Table, boardId string) bool
 	IsAddedCategory(boardUid uint, name string) bool
+	IsGroupUid(groupUid uint) bool
 	ModifyBoard(param models.AdminBoardModifyParam) error
 	ModifyUser(param models.AdminUserModifyParam) error
 	RemoveBoard(boardUid uint) error
@@ -1029,6 +1030,16 @@ func (r *NuboAdminRepository) IsAdded(table models.Table, boardId string) bool {
 	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE id = ?)", configs.Env.Prefix, table)
 	err := r.db.QueryRow(query, boardId).Scan(&exists)
 	if err != nil {
+		return false
+	}
+	return exists
+}
+
+// 게시판 이동 대상 그룹이 실제로 존재하는지 검사하기
+func (r *NuboAdminRepository) IsGroupUid(groupUid uint) bool {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE uid = ?)", configs.Env.Prefix, models.TABLE_GROUP)
+	if err := r.db.QueryRow(query, groupUid).Scan(&exists); err != nil {
 		return false
 	}
 	return exists

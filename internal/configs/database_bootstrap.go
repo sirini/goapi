@@ -121,10 +121,17 @@ func ensureAdminRow(db *sql.DB, prefix string, admin AdminInfo) (uint64, error) 
 	return uint64(inserted), err
 }
 
-// 기본 그룹이 없을 때 관리자 소유로 생성한다.
+// 기존 그룹을 재사용하고, 그룹이 하나도 없을 때만 기본 그룹을 생성한다.
 func ensureGroupRow(db *sql.DB, prefix string, adminUID uint64) (uint64, error) {
 	var uid uint64
 	err := db.QueryRow(fmt.Sprintf("SELECT uid FROM %sgroup WHERE id = 'boards' ORDER BY uid LIMIT 1", prefix)).Scan(&uid)
+	if err == nil {
+		return uid, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, err
+	}
+	err = db.QueryRow(fmt.Sprintf("SELECT uid FROM %sgroup ORDER BY uid LIMIT 1", prefix)).Scan(&uid)
 	if err == nil {
 		return uid, nil
 	}
