@@ -9,7 +9,7 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-> 문서 기준: 2026-08-23 · 최신 통합 버전: NUBO/GOAPI 1.2.26
+> 문서 기준: 2026-08-25 · 최신 통합 버전: NUBO/GOAPI 1.2.27
 
 GOAPI는 NUBO와 별도 제품으로 배포하지 않습니다. v1.2.26부터 두 저장소의 공개 버전을 동일하게 맞추고, NUBO 릴리스 manifest가 실제 구성 요소 commit과 API contract를 고정합니다. 운영자는 GOAPI 버전을 따로 선택하거나 교체하지 않습니다.
 
@@ -208,7 +208,7 @@ GOAPI_BASE=goapi
 GOAPI_PORT=3006
 GOAPI_DOMAIN=https://example.com
 GOAPI_TITLE=My NUBO
-GOAPI_VERSION=1.2.26
+GOAPI_VERSION=1.2.27
 
 DB_HOST=localhost
 DB_PORT=3306
