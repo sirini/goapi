@@ -143,7 +143,7 @@ func LoadConfig() error {
 	}
 
 	Env = Config{
-		Version:                 getEnv("GOAPI_VERSION", "1.2.1"),
+		Version:                 getEnv("GOAPI_VERSION", "1.3.0"),
 		GoapiBase:               getEnv("GOAPI_BASE", "goapi"),
 		GoHost:                  getEnv("GOAPI_HOST", "0.0.0.0"),
 		GoPort:                  getEnv("GOAPI_PORT", "3006"),

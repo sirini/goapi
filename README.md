@@ -9,12 +9,12 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-> 문서 기준: 2026-08-25 · 최신 통합 버전: NUBO/GOAPI 1.2.30
+> 문서 기준: 2026-08-27 · 최신 통합 버전: NUBO/GOAPI 1.3.0
 
 GOAPI는 NUBO와 별도 제품으로 배포하지 않습니다. v1.2.26부터 두 저장소의 공개 버전을 동일하게 맞추고, NUBO 릴리스 manifest가 실제 구성 요소 commit과 API contract를 고정합니다. 운영자는 GOAPI 버전을 따로 선택하거나 교체하지 않습니다.
 
 Ubuntu 22.04 이상 x86-64 서버에서 NUBO를 운영한다면 **이 저장소를 따로 clone하거나 Go를 설치해
-빌드하지 마세요.** NUBO 저장소의 `npm run server:install`이 Nuxt와 GOAPI, libvips, `nuboctl`,
+빌드하지 마세요.** NUBO 저장소의 설치 절차가 Nuxt와 GOAPI, libvips, `nuboctl`,
 systemd unit을 하나의 검증된 릴리스로 설치합니다. 이 저장소는 GOAPI를 수정하거나 macOS·다른 Linux
 배포판·다른 CPU에서 소스를 직접 빌드해 시험하려는 경우에 사용합니다.
 
@@ -53,7 +53,6 @@ systemd unit을 하나의 검증된 릴리스로 설치합니다. 이 저장소�
 git clone --depth=1 https://github.com/sirini/nubo.git
 cd nubo
 npm run server:install
-sudo /opt/nubo/current/nuboctl activate-nginx
 ```
 
 설치 과정은 통합 릴리스와 SHA-256을 검증하고 외부 환경 파일, 데이터베이스와 최초 관리자, 업로드 경로,
@@ -65,15 +64,15 @@ sudo systemctl restart nubo
 sudo journalctl -u nubo-goapi -u nubo-web -f
 ```
 
-DB와 업로드를 외부에 백업한 뒤 NUBO 저장소에서 공식 설치를 업데이트합니다.
+공식 릴리스를 준비한 뒤 경로를 명시해 적용합니다. GOAPI 변경이 포함되면 DB와 업로드를 먼저 외부에 백업합니다.
 
 ```bash
-nuboctl update --dry-run
-nuboctl update
+sudo nuboctl apply /opt/nubo/releases/nubo-1.3.0-linux-amd64 --dry-run
+sudo nuboctl apply /opt/nubo/releases/nubo-1.3.0-linux-amd64
 nuboctl status
 ```
 
-`nuboctl update`가 checkout의 안전한 fast-forward, 통합 asset 검증, 필요한 DB migration, 원자적 전환과 readiness 확인을 한 번에 수행합니다. GOAPI 변경이 포함되면 실행 전에 DB·업로드 외부 백업을 확인합니다.
+`nuboctl apply`는 준비된 통합 asset을 다시 검증하고 필요한 DB migration, 원자적 전환과 readiness 확인만 수행합니다. 소스 갱신과 빌드는 별도 단계입니다.
 
 기존 소스·PM2 설치를 systemd 기반 prebuilt로 전환하는 `server:adopt` 절차까지 포함한 운영 안내는
 [NUBO README](https://github.com/sirini/nubo#readme)를 따르세요. GOAPI만 따로 교체하거나
@@ -208,7 +207,7 @@ GOAPI_BASE=goapi
 GOAPI_PORT=3006
 GOAPI_DOMAIN=https://example.com
 GOAPI_TITLE=My NUBO
-GOAPI_VERSION=1.2.30
+GOAPI_VERSION=1.3.0
 
 DB_HOST=localhost
 DB_PORT=3306
