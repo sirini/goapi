@@ -22,6 +22,12 @@ import (
 
 var defaultImageProcessor imageprocessor.Processor = newDefaultImageProcessor()
 
+const (
+	imageDescriptionMaxCompletionTokens = 220
+	imageDescriptionMaxRunes            = 500
+	imageDescriptionPrompt              = `사진 접근성 설명과 사이트 검색 색인을 작성해 주세요. 이미지에서 직접 확인되는 사실만 한국어 평문 2~3문장, 350자 이내로 설명하세요. 주요 대상, 장소나 환경, 행동, 시간대, 날씨와 색감을 포함하고 마지막에 "검색어: " 다음으로 검색에 유용한 단순 명사 5~10개를 쉼표로 적으세요. 핵심어와 사용자가 찾을 법한 일상 동의어를 함께 쓰세요(예: 해안, 해변). 제목, 마크다운, 목록 기호는 사용하지 마세요.`
+)
+
 type ImageDescriptionResult struct {
 	Description  string
 	Model        string
@@ -58,11 +64,11 @@ func AskImageDescription(ctx context.Context, path, model string) (ImageDescript
 					URL:    encoded,
 					Detail: "low",
 				}),
-				openai.TextContentPart("이 이미지가 무엇인지 한국어로 자세히 설명해줘."),
+				openai.TextContentPart(imageDescriptionPrompt),
 			}),
 		},
 		Model:               model,
-		MaxCompletionTokens: openai.Int(300),
+		MaxCompletionTokens: openai.Int(imageDescriptionMaxCompletionTokens),
 		ReasoningEffort:     openai.ReasoningEffortNone,
 	}
 	resp, err := client.Chat.Completions.New(tc, cc)
@@ -72,7 +78,7 @@ func AskImageDescription(ctx context.Context, path, model string) (ImageDescript
 	if len(resp.Choices) == 0 {
 		return ImageDescriptionResult{}, fmt.Errorf("image description response has no choices")
 	}
-	description := strings.TrimSpace(resp.Choices[0].Message.Content)
+	description := normalizeImageDescription(resp.Choices[0].Message.Content)
 	if description == "" {
 		return ImageDescriptionResult{}, fmt.Errorf("image description response is empty")
 	}
@@ -82,6 +88,15 @@ func AskImageDescription(ctx context.Context, path, model string) (ImageDescript
 		InputTokens:  resp.Usage.PromptTokens,
 		OutputTokens: resp.Usage.CompletionTokens,
 	}, nil
+}
+
+func normalizeImageDescription(description string) string {
+	description = strings.Join(strings.Fields(description), " ")
+	runes := []rune(description)
+	if len(runes) <= imageDescriptionMaxRunes {
+		return description
+	}
+	return string(runes[:imageDescriptionMaxRunes-1]) + "…"
 }
 
 // URL로부터 이미지 경로를 받아서 지정된 크기로 줄이고 .webp 형식으로 저장

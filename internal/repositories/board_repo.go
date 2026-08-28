@@ -339,10 +339,10 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 	var count uint
 	prefix := configs.Env.Prefix
 
-	whereClauses := []string{"board_uid = ?"}
+	whereClauses := []string{"p.board_uid = ?"}
 	args := []any{param.BoardUid}
 
-	whereClauses = append(whereClauses, "status IN (?, ?)")
+	whereClauses = append(whereClauses, "p.status IN (?, ?)")
 	args = append(args, models.CONTENT_NORMAL, models.CONTENT_SECRET)
 
 	if len(param.Keyword) > 0 {
@@ -350,7 +350,7 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 		case models.SEARCH_IMAGE_DESC:
 			whereClauses = append(whereClauses, fmt.Sprintf(`EXISTS (
 				SELECT 1 FROM %s%s AS d 
-				WHERE d.post_uid = uid AND d.%s LIKE ?
+				WHERE d.post_uid = p.uid AND d.%s LIKE ?
 			)`, prefix, models.TABLE_IMAGE_DESC, param.Option.String()))
 			args = append(args, "%"+param.Keyword+"%")
 
@@ -361,7 +361,7 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 			}
 			whereClauses = append(whereClauses, fmt.Sprintf(`EXISTS (
 				SELECT 1 FROM %s%s AS ph
-				WHERE ph.post_uid = uid AND ph.hashtag_uid IN (%s)
+				WHERE ph.post_uid = p.uid AND ph.hashtag_uid IN (%s)
 			)`, prefix, models.TABLE_POST_HASHTAG, tagUidStr))
 
 		case models.SEARCH_WRITER, models.SEARCH_CATEGORY:
@@ -370,16 +370,16 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 				table = models.TABLE_BOARD_CAT
 			}
 			uid := r.GetUidByTable(table, param.Keyword)
-			whereClauses = append(whereClauses, fmt.Sprintf("%s = ?", param.Option.String()))
+			whereClauses = append(whereClauses, fmt.Sprintf("p.%s = ?", param.Option.String()))
 			args = append(args, uid)
 
 		default:
-			whereClauses = append(whereClauses, fmt.Sprintf("%s LIKE ?", param.Option.String()))
+			whereClauses = append(whereClauses, fmt.Sprintf("p.%s LIKE ?", param.Option.String()))
 			args = append(args, "%"+param.Keyword+"%")
 		}
 	}
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s WHERE %s",
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s AS p WHERE %s",
 		prefix, models.TABLE_POST, strings.Join(whereClauses, " AND "))
 
 	err := r.db.QueryRow(query, args...).Scan(&count)
