@@ -228,7 +228,7 @@ func (r *NuboBoardRepository) GetMaxUid(table models.Table) uint {
 
 // 스페이스로 구분된 태그 이름들을 가져와서 태그 고유번호 문자열로 변환
 func (r *NuboBoardRepository) GetTagUids(keyword string) (string, int) {
-	tags := strings.Split(keyword, " ")
+	tags := strings.Fields(keyword)
 	var strUids []string
 
 	query := fmt.Sprintf("SELECT uid FROM %s%s WHERE name = ? LIMIT 1",
@@ -240,6 +240,10 @@ func (r *NuboBoardRepository) GetTagUids(keyword string) (string, int) {
 	defer stmt.Close()
 
 	for _, tag := range tags {
+		tag = strings.TrimPrefix(tag, "#")
+		if tag == "" {
+			continue
+		}
 		var uid uint
 		if err := stmt.QueryRow(tag).Scan(&uid); err != nil {
 			continue
@@ -352,8 +356,11 @@ func (r *NuboBoardRepository) GetTotalCount(param models.BoardListParam) uint {
 
 		case models.SEARCH_TAG:
 			tagUidStr, _ := r.GetTagUids(param.Keyword)
+			if tagUidStr == "" {
+				return 0
+			}
 			whereClauses = append(whereClauses, fmt.Sprintf(`EXISTS (
-				SELECT 1 FROM %s%s AS ph 
+				SELECT 1 FROM %s%s AS ph
 				WHERE ph.post_uid = uid AND ph.hashtag_uid IN (%s)
 			)`, prefix, models.TABLE_POST_HASHTAG, tagUidStr))
 
@@ -408,6 +415,9 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 
 		case models.SEARCH_TAG:
 			tagUids, _ := r.GetTagUids(param.Keyword)
+			if tagUids == "" {
+				return items, nil
+			}
 			subQuery = fmt.Sprintf(`
             SELECT DISTINCT ph.post_uid as uid FROM %s%s AS ph
             JOIN %s%s AS p2 ON ph.post_uid = p2.uid

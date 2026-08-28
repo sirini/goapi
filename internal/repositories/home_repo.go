@@ -131,6 +131,9 @@ func (r *NuboHomeRepository) FindLatestPostsByTag(param models.HomePostParam) ([
 		whereBoard = fmt.Sprintf("AND p.board_uid = %d", param.BoardUid)
 	}
 	tagUidStr, tagCount := r.board.GetTagUids(param.Keyword)
+	if tagUidStr == "" {
+		return []models.HomePostItem{}, nil
+	}
 	query := fmt.Sprintf(`SELECT p.uid, p.board_uid, p.user_uid, p.category_uid, 
 												p.title, p.content, p.submitted, p.modified, p.hit, p.status 
 												FROM %s%s AS p JOIN %s%s AS ph ON p.uid = ph.post_uid 
