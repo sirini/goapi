@@ -9,14 +9,14 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-> 문서 기준: 2026-08-27 · 최신 통합 버전: NUBO/GOAPI 1.3.0
+> 문서 기준: 2026-08-30 · 최신 통합 버전: NUBO/GOAPI 1.3.1
 
 GOAPI는 NUBO와 별도 제품으로 배포하지 않습니다. v1.2.26부터 두 저장소의 공개 버전을 동일하게 맞추고, NUBO 릴리스 manifest가 실제 구성 요소 commit과 API contract를 고정합니다. 운영자는 GOAPI 버전을 따로 선택하거나 교체하지 않습니다.
 
 Ubuntu 22.04 이상 x86-64 서버에서 NUBO를 운영한다면 **이 저장소를 따로 clone하거나 Go를 설치해
-빌드하지 마세요.** NUBO 저장소의 설치 절차가 Nuxt와 GOAPI, libvips, `nuboctl`,
-systemd unit을 하나의 검증된 릴리스로 설치합니다. 이 저장소는 GOAPI를 수정하거나 macOS·다른 Linux
-배포판·다른 CPU에서 소스를 직접 빌드해 시험하려는 경우에 사용합니다.
+빌드하지 마세요.** NUBO source checkout의 `./bin/nubo download`가 현재 frontend contract와 맞는
+GOAPI·libvips runtime을 검증해 `bin/`과 `lib/`에 준비합니다. 이 저장소는 GOAPI를 수정하거나
+macOS·다른 Linux 배포판·다른 CPU에서 소스를 직접 빌드해 시험하려는 경우에 사용합니다.
 
 ## 담당 기능
 
@@ -46,37 +46,31 @@ systemd unit을 하나의 검증된 릴리스로 설치합니다. 이 저장소�
 
 ## Ubuntu 서버에서 NUBO 운영
 
-공식 prebuilt 운영 범위는 Ubuntu 22.04 이상 x86-64입니다. NUBO 저장소만 내려받아 설치하세요.
-`npm install`, GOAPI 저장소, Go toolchain, `libvips-dev`는 필요하지 않습니다.
+공식 runtime 범위는 Ubuntu 22.04 이상 x86-64입니다. NUBO 저장소만 내려받으세요. GOAPI 저장소,
+Go toolchain과 `libvips-dev`는 필요하지 않습니다.
 
 ```bash
-git clone --depth=1 https://github.com/sirini/nubo.git
+git clone https://github.com/sirini/nubo.git
 cd nubo
-npm run server:install
+cp env.sample .env
+./bin/nubo download --dry-run
+./bin/nubo download
 ```
 
-설치 과정은 통합 릴리스와 SHA-256을 검증하고 외부 환경 파일, 데이터베이스와 최초 관리자, 업로드 경로,
-systemd 서비스를 준비합니다. 설치 후 두 프로세스는 하나의 대표 service로 관리합니다.
+`download`는 checkout descriptor가 고정한 GOAPI commit, API contract, 외부 archive와 모든 내부 파일의
+SHA-256을 확인합니다. Git, DB, Nuxt build와 실행 중인 프로세스는 변경하지 않습니다.
 
 ```bash
-sudo systemctl status nubo nubo-goapi nubo-web
-sudo systemctl restart nubo
-sudo journalctl -u nubo-goapi -u nubo-web -f
+./bin/goapi install # 새 DB 또는 명시된 migration에서만 실행
+npm install
+npm run build
+./bin/goapi
+# 별도 tmux/PM2 프로세스: node --env-file=.env .output/server/index.mjs
 ```
 
-공식 릴리스를 준비한 뒤 경로를 명시해 적용합니다. GOAPI 변경이 포함되면 DB와 업로드를 먼저 외부에 백업합니다.
-
-```bash
-sudo nuboctl apply /opt/nubo/releases/nubo-1.3.0-linux-amd64 --dry-run
-sudo nuboctl apply /opt/nubo/releases/nubo-1.3.0-linux-amd64
-nuboctl status
-```
-
-`nuboctl apply`는 준비된 통합 asset을 다시 검증하고 필요한 DB migration, 원자적 전환과 readiness 확인만 수행합니다. 소스 갱신과 빌드는 별도 단계입니다.
-
-기존 소스·PM2 설치를 systemd 기반 prebuilt로 전환하는 `server:adopt` 절차까지 포함한 운영 안내는
-[NUBO README](https://github.com/sirini/nubo#readme)를 따르세요. GOAPI만 따로 교체하거나
-`./goapi-linux install`을 수동 실행하는 방식은 공식 서버 업데이트 절차가 아닙니다.
+runtime 갱신 뒤 DB migration, `npm run build`와 tmux·PM2 재시작은 운영자가 명시적으로 수행합니다.
+기존 사이트에서 `./bin/goapi install`을 실행하기 전에는 DB와 업로드를 서버 밖에 백업하고 릴리스 안내를
+확인하세요. 전체 운영 계약은 [NUBO README](https://github.com/sirini/nubo#readme)를 따릅니다.
 
 ## 소스에서 직접 빌드하기
 
@@ -106,8 +100,8 @@ go build -trimpath -o goapi-local ./cmd
 
 위 패키지는 GOAPI 소스를 호스트에서 직접 빌드하는 개발자에게만 필요합니다. NUBO 공식 릴리스 사용자는 `libvips-dev`나 `libvips42`를 설치하지 않습니다.
 
-ARM Linux에서도 같은 네이티브 빌드 방식을 시험할 수 있습니다. 다만 공식 prebuilt, `nuboctl` 운영 자동화,
-릴리스 QA의 지원 범위에는 포함되지 않습니다. CGO와 libvips 때문에 단순한 `GOOS`/`GOARCH` 교차
+ARM Linux에서도 같은 네이티브 빌드 방식을 시험할 수 있습니다. 다만 공식 runtime과 릴리스 QA의 지원
+범위에는 포함되지 않습니다. CGO와 libvips 때문에 단순한 `GOOS`/`GOARCH` 교차
 컴파일보다 대상 환경에서 직접 빌드하는 편이 안전합니다.
 
 ### macOS
@@ -145,9 +139,9 @@ npm install
 
 ### Windows
 
-Windows에서는 WSL2에 Ubuntu 22.04 이상을 설치하는 방법을 권장합니다. WSL2 안에서는 앞의 공식
-`server:install` 또는 Linux 소스 빌드 절차를 그대로 사용하고 Windows 브라우저에서 localhost로
-접속할 수 있습니다. systemd 기반 공식 설치를 사용할 때는 WSL의 systemd가 활성화되어 있어야 합니다.
+Windows에서는 WSL2에 Ubuntu 22.04 이상을 설치하는 방법을 권장합니다. WSL2 안에서는 NUBO의 Source
+Mode와 `./bin/nubo download` 또는 Linux 소스 빌드 절차를 사용하고 Windows 브라우저에서 localhost로
+접속할 수 있습니다.
 
 네이티브 Windows는 govips가 권장 빌드 환경이나 정기 CI를 제공하지 않으며 NUBO도 검증하지 않습니다.
 직접 시도하려면 Go 1.25 이상, CGO를 지원하는 C toolchain, pkg-config와 호환되는 libvips 개발 파일을
@@ -195,7 +189,7 @@ Apple Silicon, ARM Linux 등에서는 위와 같이 해당 환경에서 직접 �
 기본값은 현재 디렉터리의 `.env`이며 기존 설치 방식은 그대로 동작합니다. 외부 설정을 사용할 때는 실행 전에 경로를 명시합니다.
 
 ```bash
-NUBO_ENV_FILE=/etc/nubo/nubo.env ./goapi-linux
+NUBO_ENV_FILE=/etc/nubo/nubo.env ./bin/goapi
 ```
 
 GOAPI는 프로세스 환경, 지정한 파일, 코드 기본값 순서로 설정을 선택합니다. 따라서 systemd 같은 프로세스 관리자가 직접 제공한 값이 파일보다 우선합니다. 같은 파일을 prebuilt Nuxt의 `node --env-file=/etc/nubo/nubo.env`에도 전달할 수 있도록 `NUXT_*` 값은 `${...}` 참조 없이 최종값으로 작성해야 합니다.
@@ -207,7 +201,7 @@ GOAPI_BASE=goapi
 GOAPI_PORT=3006
 GOAPI_DOMAIN=https://example.com
 GOAPI_TITLE=My NUBO
-GOAPI_VERSION=1.3.0
+GOAPI_VERSION=1.3.1
 
 DB_HOST=localhost
 DB_PORT=3306
@@ -270,7 +264,7 @@ RESEND_REPLY_TO_EMAIL=admin@example.com
 - 관리자 단체 메일은 Resend의 연락처·세그먼트·Broadcast API를 사용하므로 API 키에 해당 작업 권한이 필요합니다. 간단하게 운영하려면 Full Access 키를 사용할 수 있습니다.
 - `.env`에 키를 넣어도 Resend 도메인 인증이 끝나지 않았거나 발신 주소의 도메인이 다르면 실제 발송은 실패합니다.
 
-회원가입 인증, 비밀번호 초기화, 댓글 알림의 발송 요청은 `mail_delivery` 테이블에도 기록됩니다. 최근 30일 요약과 전체 페이지 목록은 관리자 메일 화면에서 확인할 수 있으며, 이 조회 기능은 Resend API나 웹훅에 접속하지 않습니다. 수신자·유형·제목·제공자 응답 ID·성공 또는 실패 상태만 저장하고 메일 본문과 인증 코드는 저장하지 않습니다. 공식 서버 설치는 NUBO의 `nuboctl update`가 필요한 migration을 적용합니다. 직접 빌드한 개발 환경에서는 새 실행 파일로 `./goapi-local install`을 실행해 테이블을 추가할 수 있습니다.
+회원가입 인증, 비밀번호 초기화, 댓글 알림의 발송 요청은 `mail_delivery` 테이블에도 기록됩니다. 최근 30일 요약과 전체 페이지 목록은 관리자 메일 화면에서 확인할 수 있으며, 이 조회 기능은 Resend API나 웹훅에 접속하지 않습니다. 수신자·유형·제목·제공자 응답 ID·성공 또는 실패 상태만 저장하고 메일 본문과 인증 코드는 저장하지 않습니다. 새 runtime에 migration이 명시된 경우 운영자는 외부 백업 뒤 NUBO 작업 공간에서 `./bin/goapi install`을 실행합니다. 직접 빌드한 개발 환경에서는 `./goapi-local install`을 사용합니다.
 
 ## 가입 정책
 
@@ -346,7 +340,8 @@ go test ./pkg/imageprocessor -run '^$' -bench BenchmarkGovipsProcessorVariants -
 - DB 접속 실패: `DB_HOST`, `DB_PORT`, socket 경로와 DB 계정 권한을 확인합니다.
 - 이미지 처리 실패: 공식 릴리스의 `lib/libvips-cpp.so.8.18.3`과 `lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3` 파일을 확인합니다.
 - 메일 설정은 보이지만 발송 실패: Resend 도메인 인증 상태와 `RESEND_FROM_EMAIL` 도메인을 확인합니다.
-- 업데이트 후 테이블/컬럼 오류: 공식 서버는 NUBO의 `nuboctl update` 로그와 `nubo-goapi` journal을 확인합니다. 직접 빌드한 개발 환경만 `./goapi-local install`을 실행합니다.
+- 업데이트 후 테이블/컬럼 오류: 적용한 NUBO release 안내와 `.nubo/runtime.json`을 확인합니다. 외부 백업이
+  확인된 운영 runtime은 `./bin/goapi install`, 직접 빌드한 개발 환경은 `./goapi-local install`을 실행합니다.
 - 더 필요한 안내는 [NUBO README](https://github.com/sirini/nubo#readme) 또는 [nubohub.org](https://nubohub.org)를 참고하세요.
 
 ## 관련 프로젝트
