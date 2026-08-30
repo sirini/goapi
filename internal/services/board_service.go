@@ -26,6 +26,7 @@ type BoardService interface {
 	GetListItem(param models.BoardListParam) (models.BoardListResult, error)
 	GetMaxUid() uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
+	GetStudio(param models.BoardStudioParam) (models.BoardStudioResult, error)
 	GetSuggestionTags(input string, bunch uint) []models.EditorTagItem
 	GetSuggestionTitles(input string, bunch uint) []string
 	GetThumbnailImage(fileUid uint, userUid uint) (string, error)
@@ -305,6 +306,11 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 // 최근 사용된 해시태그 가져오기
 func (s *NuboBoardService) GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error) {
 	return s.repos.Board.GetRecentTags(boardUid, limit)
+}
+
+// 사용자와 게시판으로 범위를 명시한 작품 스튜디오를 반환한다.
+func (s *NuboBoardService) GetStudio(param models.BoardStudioParam) (models.BoardStudioResult, error) {
+	return s.repos.Board.GetStudio(param)
 }
 
 // 유사 제목들 가져오기

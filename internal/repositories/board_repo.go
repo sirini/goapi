@@ -23,6 +23,7 @@ type BoardRepository interface {
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetMaxUid(table models.Table) uint
 	GetRecentTags(boardUid uint, limit uint) ([]models.BoardTag, error)
+	GetStudio(param models.BoardStudioParam) (models.BoardStudioResult, error)
 	GetTagUids(names string) (string, int)
 	GetUidByTable(table models.Table, name string) uint
 	GetWriterInfo(userUid uint) models.BoardWriter

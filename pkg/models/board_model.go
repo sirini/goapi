@@ -213,6 +213,63 @@ type BoardListResult struct {
 	IsAdmin        bool            `json:"isAdmin"`
 }
 
+// 사용자 작품 스튜디오 정렬 방식 정의
+type BoardStudioSort string
+
+const (
+	BOARD_STUDIO_SORT_RECENT   BoardStudioSort = "recent"
+	BOARD_STUDIO_SORT_VIEWS    BoardStudioSort = "views"
+	BOARD_STUDIO_SORT_LIKES    BoardStudioSort = "likes"
+	BOARD_STUDIO_SORT_COMMENTS BoardStudioSort = "comments"
+)
+
+// 사용자 작품 스튜디오 조회 파라미터 정의
+type BoardStudioParam struct {
+	BoardUid uint
+	UserUid  uint
+	Page     uint
+	Limit    uint
+	Sort     BoardStudioSort
+}
+
+// 사용자 작품 스튜디오 누적 성과 정의
+type BoardStudioSummary struct {
+	PostCount    uint64 `json:"postCount"`
+	PhotoCount   uint64 `json:"photoCount"`
+	ViewCount    uint64 `json:"viewCount"`
+	LikeCount    uint64 `json:"likeCount"`
+	CommentCount uint64 `json:"commentCount"`
+}
+
+// 사용자 작품 스튜디오 게시글 정의
+type BoardStudioPostItem struct {
+	Uid        uint   `json:"uid"`
+	Title      string `json:"title"`
+	Cover      string `json:"cover"`
+	Submitted  uint64 `json:"submitted"`
+	Modified   uint64 `json:"modified"`
+	Status     Status `json:"status"`
+	ImageCount uint64 `json:"imageCount"`
+	Hit        uint64 `json:"hit"`
+	Like       uint64 `json:"like"`
+	Comment    uint64 `json:"comment"`
+}
+
+// 사용자 작품 스튜디오 페이지 정의
+type BoardStudioPosts struct {
+	Page       uint                  `json:"page"`
+	Limit      uint                  `json:"limit"`
+	TotalCount uint64                `json:"totalCount"`
+	HasNext    bool                  `json:"hasNext"`
+	Items      []BoardStudioPostItem `json:"items"`
+}
+
+// 사용자 작품 스튜디오 반환값 정의
+type BoardStudioResult struct {
+	Summary BoardStudioSummary `json:"summary"`
+	Posts   BoardStudioPosts   `json:"posts"`
+}
+
 // 사용자의 포인트 변경하기에 필요한 파라미터 정의
 type ChangeUserPointParam struct {
 	BoardUid uint

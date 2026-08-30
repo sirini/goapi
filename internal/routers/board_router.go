@@ -19,6 +19,7 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 
 	protected := board.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))
 	protected.Get("/download", h.Board.DownloadHandler)
+	protected.Get("/my/studio", h.Board.MyStudioHandler)
 	protected.Get("/move/list", h.Board.ListForMoveHandler)
 	protected.Patch("/like", h.Board.LikePostHandler)
 	protected.Post("/move/apply", h.Board.MovePostHandler)

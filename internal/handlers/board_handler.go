@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type BoardHandler interface {
 	LikePostHandler(c fiber.Ctx) error
 	ListForMoveHandler(c fiber.Ctx) error
 	MovePostHandler(c fiber.Ctx) error
+	MyStudioHandler(c fiber.Ctx) error
 	RemovePostHandler(c fiber.Ctx) error
 	TransferHandler(c fiber.Ctx) error
 }
@@ -98,6 +100,54 @@ func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
 	}
 
 	result, err := h.service.Board.GetListItem(parameter)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
+}
+
+// JWT 사용자 자신의 게시판 작품과 누적 성과를 가져오는 핸들러
+func (h *NuboBoardHandler) MyStudioHandler(c fiber.Ctx) error {
+	id := strings.TrimSpace(c.Query("id"))
+	if id == "" {
+		return utils.Err(c, "Invalid board id", models.CODE_INVALID_PARAMETER)
+	}
+
+	page, err := strconv.ParseUint(c.Query("page", "1"), 10, 32)
+	if err != nil || page < 1 {
+		return utils.Err(c, "Invalid page, expected an integer of at least 1", models.CODE_INVALID_PARAMETER)
+	}
+	limit, err := strconv.ParseUint(c.Query("limit", "20"), 10, 32)
+	if err != nil || limit < 1 || limit > 50 {
+		return utils.Err(c, "Invalid limit, expected an integer from 1 to 50", models.CODE_INVALID_PARAMETER)
+	}
+
+	var sort models.BoardStudioSort
+	switch c.Query("sort", string(models.BOARD_STUDIO_SORT_RECENT)) {
+	case string(models.BOARD_STUDIO_SORT_RECENT):
+		sort = models.BOARD_STUDIO_SORT_RECENT
+	case string(models.BOARD_STUDIO_SORT_VIEWS):
+		sort = models.BOARD_STUDIO_SORT_VIEWS
+	case string(models.BOARD_STUDIO_SORT_LIKES):
+		sort = models.BOARD_STUDIO_SORT_LIKES
+	case string(models.BOARD_STUDIO_SORT_COMMENTS):
+		sort = models.BOARD_STUDIO_SORT_COMMENTS
+	default:
+		return utils.Err(c, "Invalid sort", models.CODE_INVALID_PARAMETER)
+	}
+
+	boardUid := h.service.Board.GetBoardUid(id)
+	if boardUid < 1 {
+		return utils.Err(c, "Invalid board id, cannot find a board", models.CODE_INVALID_PARAMETER)
+	}
+	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
+	result, err := h.service.Board.GetStudio(models.BoardStudioParam{
+		BoardUid: boardUid,
+		UserUid:  uint(actionUserUid),
+		Page:     uint(page),
+		Limit:    uint(limit),
+		Sort:     sort,
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
