@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -14,6 +15,7 @@ import (
 )
 
 type UserService interface {
+	AcknowledgeAchievements(userUid uint, badgeKeys []string) error
 	CheckReportStatus(actionUserUid uint, targetUserUid uint) models.UserCheckReportResult
 	BlockUser(actionUserUid uint, targetUserUid uint) error
 	ChangePassword(verifyUid uint, userCode string, newPassword string) bool
@@ -22,11 +24,39 @@ type UserService interface {
 	ChangeUserProfile(userUid uint, profile *multipart.FileHeader, oldProfile string) error
 	DeleteAccount(userUid uint, confirmation string) error
 	GetUserInfo(userUid uint) (models.UserInfoResult, error)
+	GetUnannouncedAchievements(userUid uint) ([]models.UserBadge, error)
 	GetUserLevelPoint(userUid uint) (int, int)
 	GetUserPermission(actionUserUid uint, targetUserUid uint) models.UserPermissionManageParam
 	ReportTargetUser(param models.UserReportParam) bool
 	UnblockUser(actionUserUid uint, targetUserUid uint) error
 	UpdateResponseToReport(actionUserUid uint, param models.UserPermissionManageParam) error
+}
+
+func (s *NuboUserService) GetUnannouncedAchievements(userUid uint) ([]models.UserBadge, error) {
+	if userUid < 1 {
+		return nil, fmt.Errorf("invalid user")
+	}
+	return s.repos.Badge.FindUnannouncedForUser(userUid, 10)
+}
+
+func (s *NuboUserService) AcknowledgeAchievements(userUid uint, badgeKeys []string) error {
+	if userUid < 1 || len(badgeKeys) == 0 || len(badgeKeys) > 10 {
+		return fmt.Errorf("invalid achievements")
+	}
+	seen := make(map[string]struct{}, len(badgeKeys))
+	keys := make([]string, 0, len(badgeKeys))
+	for _, key := range badgeKeys {
+		key = strings.TrimSpace(key)
+		if key == "" || len(key) > 80 {
+			return fmt.Errorf("invalid achievement key")
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	return s.repos.Badge.MarkAnnounced(userUid, keys, uint64(time.Now().UnixMilli()))
 }
 
 func (s *NuboUserService) BlockUser(actionUserUid uint, targetUserUid uint) error {

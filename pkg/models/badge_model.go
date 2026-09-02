@@ -48,6 +48,10 @@ type AdminBadgeGrantParam struct {
 	BadgeKey string `json:"badgeKey"`
 }
 
+type BadgeAcknowledgeParam struct {
+	Keys []string `json:"keys"`
+}
+
 // BadgeAwardParam records the evidence for an idempotent achievement grant.
 // GrantedBy is zero for automatic grants and reserved for a future administrator grant UI.
 type BadgeAwardParam struct {

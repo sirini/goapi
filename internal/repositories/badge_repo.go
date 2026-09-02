@@ -15,9 +15,50 @@ type BadgeRepository interface {
 	CreateDefinition(definition models.BadgeDefinition) error
 	FindForUser(userUid uint, inlineOnly bool) ([]models.UserBadge, error)
 	FindFeaturedForUsers(userUids []uint) (map[uint][]models.UserBadge, error)
+	FindUnannouncedForUser(userUid uint, limit uint) ([]models.UserBadge, error)
 	ListDefinitions() ([]models.BadgeDefinition, error)
+	MarkAnnounced(userUid uint, badgeKeys []string, announcedAt uint64) error
 	RecordPostOrigin(param models.PostOriginParam) error
 	UpdateDefinition(definition models.BadgeDefinition) (bool, error)
+}
+
+func (r *NuboBadgeRepository) FindUnannouncedForUser(userUid uint, limit uint) ([]models.UserBadge, error) {
+	badges := make([]models.UserBadge, 0)
+	query := fmt.Sprintf(`SELECT d.badge_key, d.name, d.description, d.icon_key, ub.qualified_at
+		FROM %s%s AS ub JOIN %s%s AS d ON d.badge_key = ub.badge_key
+		WHERE ub.user_uid = ? AND ub.announced_at = 0 AND d.active = 1
+		ORDER BY ub.awarded_at ASC, d.sort_order ASC, d.badge_key ASC LIMIT ?`,
+		configs.Env.Prefix, models.TABLE_USER_BADGE, configs.Env.Prefix, models.TABLE_BADGE)
+	rows, err := r.db.Query(query, userUid, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		badge := models.UserBadge{}
+		if err := rows.Scan(&badge.Key, &badge.Name, &badge.Description, &badge.IconKey, &badge.EarnedAt); err != nil {
+			return nil, err
+		}
+		badges = append(badges, badge)
+	}
+	return badges, rows.Err()
+}
+
+func (r *NuboBadgeRepository) MarkAnnounced(userUid uint, badgeKeys []string, announcedAt uint64) error {
+	if len(badgeKeys) == 0 {
+		return nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(badgeKeys)), ",")
+	args := make([]any, 0, len(badgeKeys)+2)
+	args = append(args, announcedAt, userUid)
+	for _, key := range badgeKeys {
+		args = append(args, key)
+	}
+	query := fmt.Sprintf(`UPDATE %s%s SET announced_at = ?
+		WHERE user_uid = ? AND announced_at = 0 AND badge_key IN (%s)`,
+		configs.Env.Prefix, models.TABLE_USER_BADGE, placeholders)
+	_, err := r.db.Exec(query, args...)
+	return err
 }
 
 type NuboBadgeRepository struct {

@@ -121,3 +121,34 @@ func TestUpdateDefinitionOnlyTargetsManualAchievements(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestUnannouncedAchievementsCanBeAcknowledgedByOwner(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	oldPrefix := configs.Env.Prefix
+	configs.Env.Prefix = "nubo_"
+	defer func() { configs.Env.Prefix = oldPrefix }()
+
+	mock.ExpectQuery(`ub.announced_at = 0`).
+		WithArgs(uint(7), uint(10)).
+		WillReturnRows(sqlmock.NewRows([]string{"badge_key", "name", "description", "icon_key", "qualified_at"}).
+			AddRow("manual-summer", "여름 사진전 우수상", "좋은 사진을 공유했습니다.", "trophy", 1000))
+
+	badges, err := NewNuboBadgeRepository(db).FindUnannouncedForUser(7, 10)
+	if err != nil || len(badges) != 1 {
+		t.Fatalf("unannounced badges = %#v, err = %v", badges, err)
+	}
+
+	mock.ExpectExec(`SET announced_at = \?`).
+		WithArgs(uint64(2000), uint(7), "manual-summer").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	if err := NewNuboBadgeRepository(db).MarkAnnounced(7, []string{"manual-summer"}, 2000); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

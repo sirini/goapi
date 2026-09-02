@@ -15,6 +15,9 @@ func TestBadgeSchemaAndBuiltInsAreReRunnable(t *testing.T) {
 
 	mock.ExpectExec(`CREATE TABLE IF NOT EXISTS nubo_badge_definition`).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectExec(`CREATE TABLE IF NOT EXISTS nubo_user_badge`).WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM information_schema.COLUMNS`).
+		WithArgs("nubo_user_badge").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectExec(`CREATE TABLE IF NOT EXISTS nubo_post_origin`).WillReturnResult(sqlmock.NewResult(0, 0))
 	if err := createBadgeTables(db, "nubo_"); err != nil {
 		t.Fatal(err)
@@ -37,6 +40,29 @@ func TestBadgeSchemaAndBuiltInsAreReRunnable(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 	if err := backfillBuiltInBadges(db, "nubo_"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBadgeAnnouncementMigrationAcknowledgesExistingAchievements(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM information_schema.COLUMNS`).
+		WithArgs("nubo_user_badge").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	mock.ExpectExec(`ALTER TABLE nubo_user_badge ADD COLUMN announced_at`).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`UPDATE nubo_user_badge SET announced_at = awarded_at`).
+		WillReturnResult(sqlmock.NewResult(0, 12))
+
+	if err := ensureBadgeAnnouncementColumn(db, "nubo_"); err != nil {
 		t.Fatal(err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

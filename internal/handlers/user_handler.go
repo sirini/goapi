@@ -10,15 +10,38 @@ import (
 )
 
 type UserHandler interface {
+	AcknowledgeAchievementsHandler(c fiber.Ctx) error
 	BlockUserHandler(c fiber.Ctx) error
 	ChangePasswordHandler(c fiber.Ctx) error
 	CheckReportedUserHandler(c fiber.Ctx) error
 	LoadUserInfoHandler(c fiber.Ctx) error
+	LoadUnannouncedAchievementsHandler(c fiber.Ctx) error
 	LoadUserPermissionHandler(c fiber.Ctx) error
 	ManageUserPermissionHandler(c fiber.Ctx) error
 	ReportUserHandler(c fiber.Ctx) error
 	UnblockUserHandler(c fiber.Ctx) error
 	DeleteAccountHandler(c fiber.Ctx) error
+}
+
+func (h *NuboUserHandler) LoadUnannouncedAchievementsHandler(c fiber.Ctx) error {
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	badges, err := h.service.User.GetUnannouncedAchievements(userUid)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, badges)
+}
+
+func (h *NuboUserHandler) AcknowledgeAchievementsHandler(c fiber.Ctx) error {
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	param := models.BadgeAcknowledgeParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if err := h.service.User.AcknowledgeAchievements(userUid, param.Keys); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, nil)
 }
 
 type NuboUserHandler struct {

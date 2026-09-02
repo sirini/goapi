@@ -580,6 +580,7 @@ func createBadgeTables(db *sql.DB, prefix string) error {
   badge_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   qualified_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
   awarded_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  announced_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
   grant_source VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'system',
   granted_by INT UNSIGNED NOT NULL DEFAULT 0,
   evidence_type VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
@@ -590,6 +591,9 @@ func createBadgeTables(db *sql.DB, prefix string) error {
   CONSTRAINT fk_ub_badge FOREIGN KEY (badge_key) REFERENCES %sbadge_definition(badge_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
 	if _, err := db.Exec(userBadgeQuery); err != nil {
+		return err
+	}
+	if err := ensureBadgeAnnouncementColumn(db, prefix); err != nil {
 		return err
 	}
 
@@ -603,6 +607,25 @@ func createBadgeTables(db *sql.DB, prefix string) error {
   CONSTRAINT fk_po_post FOREIGN KEY (post_uid) REFERENCES %spost(uid) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
 	_, err := db.Exec(postOriginQuery)
+	return err
+}
+
+func ensureBadgeAnnouncementColumn(db *sql.DB, prefix string) error {
+	table := prefix + "user_badge"
+	var count uint
+	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'announced_at'`, table).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN announced_at BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER awarded_at", table)); err != nil {
+		return err
+	}
+	// Achievements earned before this feature existed must not appear as newly acquired.
+	_, err = db.Exec(fmt.Sprintf("UPDATE %s SET announced_at = awarded_at WHERE announced_at = 0", table))
 	return err
 }
 
@@ -648,10 +671,10 @@ func backfillBuiltInBadges(db *sql.DB, prefix string) error {
 			continue
 		}
 		backfillQuery := fmt.Sprintf(`INSERT IGNORE INTO %suser_badge
-		(user_uid, badge_key, qualified_at, awarded_at, grant_source, evidence_type, evidence_uid)
-		SELECT source.user_uid, ?, MIN(source.submitted), ?, 'backfill', ?, MIN(source.uid)
+		(user_uid, badge_key, qualified_at, awarded_at, announced_at, grant_source, evidence_type, evidence_uid)
+		SELECT source.user_uid, ?, MIN(source.submitted), ?, ?, 'backfill', ?, MIN(source.uid)
 		FROM %s%s AS source WHERE source.user_uid > 0 GROUP BY source.user_uid`, prefix, prefix, badge.sourceTable)
-		if _, err := db.Exec(backfillQuery, badge.key, now, badge.evidenceType); err != nil {
+		if _, err := db.Exec(backfillQuery, badge.key, now, now, badge.evidenceType); err != nil {
 			return err
 		}
 		completeQuery := fmt.Sprintf(`UPDATE %sbadge_definition SET backfilled_at = ?, updated = ? WHERE badge_key = ?`, prefix)

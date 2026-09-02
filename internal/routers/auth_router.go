@@ -38,6 +38,8 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	// 사용자 관련 라우터들
 	user := auth.Group("/user")
 	user.Get("/info", h.User.LoadUserInfoHandler)
+	user.Get("/achievements", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.LoadUnannouncedAchievementsHandler)
+	user.Patch("/achievements", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.AcknowledgeAchievementsHandler)
 	user.Post("/change-password", h.User.ChangePasswordHandler)
 	user.Post("/report", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.ReportUserHandler)
 	user.Get("/report", middlewares.JWTMiddleware(h.CanAuthenticate), h.User.CheckReportedUserHandler)
