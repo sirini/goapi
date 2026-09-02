@@ -117,6 +117,20 @@ func TestBaseTableNamesIncludesPushDevice(t *testing.T) {
 	t.Fatal("push_device가 필수 테이블 검증 목록에 없습니다")
 }
 
+func TestBaseTableNamesIncludesAchievementTables(t *testing.T) {
+	want := map[string]bool{"badge_definition": false, "user_badge": false, "post_origin": false}
+	for _, name := range baseTableNames {
+		if _, ok := want[name]; ok {
+			want[name] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Fatalf("%s가 필수 테이블 검증 목록에 없습니다", name)
+		}
+	}
+}
+
 var _ driver.Driver = (*bootstrapExecDriver)(nil)
 var _ driver.Conn = (*bootstrapExecConn)(nil)
 var _ driver.Execer = (*bootstrapExecConn)(nil)

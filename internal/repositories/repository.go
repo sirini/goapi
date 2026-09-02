@@ -6,6 +6,7 @@ import "database/sql"
 type Repository struct {
 	Admin        AdminRepository
 	Auth         AuthRepository
+	Badge        BadgeRepository
 	Board        BoardRepository
 	BoardEdit    BoardEditRepository
 	BoardView    BoardViewRepository
@@ -28,6 +29,7 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{
 		Admin:        NewNuboAdminRepository(db),
 		Auth:         NewNuboAuthRepository(db),
+		Badge:        NewNuboBadgeRepository(db),
 		Board:        board,
 		BoardEdit:    NewNuboBoardEditRepository(db, board),
 		BoardView:    NewNuboBoardViewRepository(db, board),

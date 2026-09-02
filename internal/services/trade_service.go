@@ -175,6 +175,7 @@ func (s *NuboTradeService) WriteTradePost(param models.TradeWriteParam) (models.
 	}); err != nil {
 		return result, err
 	}
+	grantAchievement(s.repos.Badge, param.UserUid, models.BADGE_FIRST_POST, "post", postUid)
 	result.PostUid = postUid
 	return result, nil
 }

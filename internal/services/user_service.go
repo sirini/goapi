@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"mime/multipart"
 	"os"
 	"strings"
@@ -175,7 +176,20 @@ func (s *NuboUserService) ChangeUserProfile(userUid uint, profile *multipart.Fil
 
 // 사용자의 공개 정보 조회
 func (s *NuboUserService) GetUserInfo(userUid uint) (models.UserInfoResult, error) {
-	return s.repos.Auth.FindUserInfoByUid(userUid)
+	info, err := s.repos.Auth.FindUserInfoByUid(userUid)
+	if err != nil {
+		return info, err
+	}
+	if s.repos.Badge == nil {
+		return info, nil
+	}
+	badges, badgeErr := s.repos.Badge.FindForUser(userUid, false)
+	if badgeErr != nil {
+		log.Printf("badge: failed to load profile achievements for user %d: %v", userUid, badgeErr)
+		return info, nil
+	}
+	info.Badges = badges
+	return info, nil
 }
 
 // 사용자의 레벨과 보유 포인트 가져오기

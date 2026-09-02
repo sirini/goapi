@@ -174,6 +174,7 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 	if err != nil {
 		return models.FAILED, err
 	}
+	grantAchievement(s.repos.Badge, param.UserUid, models.BADGE_FIRST_COMMENT, "comment", insertId)
 
 	targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
 	if param.UserUid != targetUserUid {

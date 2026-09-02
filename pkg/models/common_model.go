@@ -15,6 +15,7 @@ type Table string
 const (
 	TABLE_BOARD         Table = "board"
 	TABLE_BOARD_CAT     Table = "board_category"
+	TABLE_BADGE         Table = "badge_definition"
 	TABLE_CHAT          Table = "chat"
 	TABLE_COMMENT       Table = "comment"
 	TABLE_COMMENT_LIKE  Table = "comment_like"
@@ -30,6 +31,7 @@ const (
 	TABLE_POST          Table = "post"
 	TABLE_POST_HASHTAG  Table = "post_hashtag"
 	TABLE_POST_LIKE     Table = "post_like"
+	TABLE_POST_ORIGIN   Table = "post_origin"
 	TABLE_PUSH_DEVICE   Table = "push_device"
 	TABLE_REPORT        Table = "report"
 	TABLE_SKIN_SETTING  Table = "skin_setting"
@@ -40,6 +42,7 @@ const (
 	TABLE_USER_PERM     Table = "user_permission"
 	TABLE_USER_TOKEN    Table = "user_token"
 	TABLE_USER_VERIFY   Table = "user_verification"
+	TABLE_USER_BADGE    Table = "user_badge"
 	TABLE_MAIL_CAMPAIGN Table = "mail_campaign"
 	TABLE_MAIL_DELIVERY Table = "mail_delivery"
 	TABLE_SIGNUP_INVITE Table = "signup_invite"

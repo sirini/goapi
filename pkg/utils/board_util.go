@@ -89,6 +89,12 @@ func CheckWriteParams(c fiber.Ctx) (models.EditorWriteParam, error) {
 		Tags:        tagArr,
 		IsNotice:    isNotice,
 		IsSecret:    isSecret,
+		ClientKey:   strings.ToLower(strings.TrimSpace(c.Get(models.CLIENT_HEADER))),
+		AppVersion:  CutString(strings.TrimSpace(c.Get(models.APP_VERSION_HEADER)), 40),
+	}
+	if result.ClientKey != models.CLIENT_SENSTA_ANDROID {
+		result.ClientKey = ""
+		result.AppVersion = ""
 	}
 	return result, nil
 }

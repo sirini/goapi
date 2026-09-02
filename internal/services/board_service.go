@@ -7,12 +7,22 @@ import (
 	"mime/multipart"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
+
+func containsImage(files []*multipart.FileHeader) bool {
+	for _, file := range files {
+		if file != nil && utils.IsImage(file.Filename) {
+			return true
+		}
+	}
+	return false
+}
 
 type BoardService interface {
 	Download(boardUid uint, fileUid uint, userUid uint) (models.BoardViewDownloadResult, error)
@@ -291,6 +301,7 @@ func (s *NuboBoardService) GetListItem(param models.BoardListParam) (models.Boar
 	if err != nil {
 		return result, err
 	}
+	s.attachFeaturedBadges(notices, posts)
 
 	result = models.BoardListResult{
 		TotalPostCount: totalPostCount,
@@ -363,6 +374,9 @@ func (s *NuboBoardService) GetViewItem(param models.BoardViewParam) (models.Boar
 	if err != nil {
 		return result, err
 	}
+	postItems := []models.BoardListItem{post}
+	s.attachFeaturedBadges(postItems)
+	post = postItems[0]
 
 	config := s.repos.Board.GetBoardConfig(param.BoardUid)
 	result.Config = config
@@ -945,12 +959,30 @@ func (s *NuboBoardService) WritePost(param models.EditorWriteParam) (uint, error
 	if err != nil {
 		return postUid, err
 	}
-	s.SaveTags(param.BoardUid, postUid, param.Tags)
-	s.SaveAttachments(models.EditorSaveAttachedParam{
+	if err := s.SaveTags(param.BoardUid, postUid, param.Tags); err != nil {
+		log.Printf("board: failed to save tags for post %d: %v", postUid, err)
+	}
+	attachmentsSaved := true
+	if err := s.SaveAttachments(models.EditorSaveAttachedParam{
 		Context:  param.Context,
 		BoardUid: param.BoardUid,
 		PostUid:  postUid,
 		Files:    param.Files,
-	})
+	}); err != nil {
+		attachmentsSaved = false
+		log.Printf("board: failed to save attachments for post %d: %v", postUid, err)
+	}
+	grantAchievement(s.repos.Badge, param.UserUid, models.BADGE_FIRST_POST, "post", postUid)
+
+	if param.ClientKey == models.CLIENT_SENSTA_ANDROID && attachmentsSaved && containsImage(param.Files) && s.repos.Badge != nil {
+		now := uint64(time.Now().UnixMilli())
+		if err := s.repos.Badge.RecordPostOrigin(models.PostOriginParam{
+			PostUid: postUid, ClientKey: param.ClientKey, AppVersion: param.AppVersion, RecordedAt: now,
+		}); err != nil {
+			log.Printf("badge: failed to record post %d origin: %v", postUid, err)
+		} else {
+			grantAchievement(s.repos.Badge, param.UserUid, models.BADGE_SENSTA_APP, "post", postUid)
+		}
+	}
 	return postUid, nil
 }

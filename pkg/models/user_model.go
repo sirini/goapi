@@ -7,15 +7,16 @@ const AUTH_KEY = "Authorization"
 
 // (공개된) 사용자 정보
 type UserInfoResult struct {
-	Uid       uint   `json:"uid"`
-	Name      string `json:"name"`
-	Profile   string `json:"profile"`
-	Level     uint   `json:"level"`
-	Signature string `json:"signature"`
-	Signup    uint64 `json:"signup"`
-	Signin    uint64 `json:"signin"`
-	Admin     bool   `json:"admin"`
-	Blocked   bool   `json:"blocked"`
+	Uid       uint        `json:"uid"`
+	Name      string      `json:"name"`
+	Profile   string      `json:"profile"`
+	Level     uint        `json:"level"`
+	Signature string      `json:"signature"`
+	Signup    uint64      `json:"signup"`
+	Signin    uint64      `json:"signin"`
+	Admin     bool        `json:"admin"`
+	Blocked   bool        `json:"blocked"`
+	Badges    []UserBadge `json:"badges,omitempty"`
 }
 
 // (로그인 한) 내 정보

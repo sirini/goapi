@@ -121,6 +121,15 @@ func Update(db *sql.DB, prefix string) {
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
 	createSkinSettingTable(db, prefix)
+	if err := createBadgeTables(db, prefix); err != nil {
+		return err
+	}
+	if err := seedBuiltInBadges(db, prefix); err != nil {
+		return err
+	}
+	if err := backfillBuiltInBadges(db, prefix); err != nil {
+		return err
+	}
 	if err := createPushDeviceTable(db, prefix); err != nil {
 		return err
 	}
@@ -531,6 +540,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createPostLikeTable(db, dbInfo.Prefix)
 	createCommentTable(db, dbInfo.Prefix)
 	createCommentLikeTable(db, dbInfo.Prefix)
+	_ = createBadgeTables(db, dbInfo.Prefix)
 	createFileTable(db, dbInfo.Prefix)
 	createFileThumbnailTable(db, dbInfo.Prefix)
 	createImageTable(db, dbInfo.Prefix)
@@ -541,6 +551,115 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createTradeTable(db, dbInfo.Prefix)
 	_ = createMailCampaignTable(db, dbInfo.Prefix)
 	_ = createMailDeliveryTable(db, dbInfo.Prefix)
+}
+
+// 배지 정의와 획득 내역은 업적만 다룬다. 관리자 여부 같은 현재 상태는 기존 권한 응답으로 유지한다.
+func createBadgeTables(db *sql.DB, prefix string) error {
+	definitionQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %sbadge_definition (
+  badge_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  name VARCHAR(100) NOT NULL DEFAULT '',
+  description VARCHAR(300) NOT NULL DEFAULT '',
+  icon_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'award',
+  rule_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  active TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  show_inline TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  backfilled_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (badge_key),
+  KEY (active),
+  KEY (show_inline)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	if _, err := db.Exec(definitionQuery); err != nil {
+		return err
+	}
+
+	userBadgeQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_badge (
+  user_uid INT UNSIGNED NOT NULL,
+  badge_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  qualified_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  awarded_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  grant_source VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'system',
+  granted_by INT UNSIGNED NOT NULL DEFAULT 0,
+  evidence_type VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  evidence_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_uid, badge_key),
+  KEY (badge_key),
+  CONSTRAINT fk_ub_user FOREIGN KEY (user_uid) REFERENCES %suser(uid) ON DELETE CASCADE,
+  CONSTRAINT fk_ub_badge FOREIGN KEY (badge_key) REFERENCES %sbadge_definition(badge_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)
+	if _, err := db.Exec(userBadgeQuery); err != nil {
+		return err
+	}
+
+	postOriginQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spost_origin (
+  post_uid INT UNSIGNED NOT NULL,
+  client_key VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  app_version VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  recorded_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (post_uid),
+  KEY (client_key),
+  CONSTRAINT fk_po_post FOREIGN KEY (post_uid) REFERENCES %spost(uid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+	_, err := db.Exec(postOriginQuery)
+	return err
+}
+
+func seedBuiltInBadges(db *sql.DB, prefix string) error {
+	now := time.Now().UnixMilli()
+	query := fmt.Sprintf(`INSERT IGNORE INTO %sbadge_definition
+		(badge_key, name, description, icon_key, rule_key, active, show_inline, sort_order, created, updated)
+		VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`, prefix)
+	badges := []struct {
+		key, name, description, icon, rule string
+		inline                             uint8
+		order                              uint
+	}{
+		{"first-post", "첫 발자국", "첫 게시글을 작성했습니다.", "notebook-pen", "first-post", 0, 10},
+		{"first-comment", "첫 대화", "첫 댓글을 작성했습니다.", "message-circle", "first-comment", 0, 20},
+		{"sensta-app", "SENSTA 앱 포토그래퍼", "SENSTA 앱으로 사진을 공유한 사용자입니다.", "aperture", "sensta-app", 1, 30},
+	}
+	for _, badge := range badges {
+		if _, err := db.Exec(query, badge.key, badge.name, badge.description, badge.icon, badge.rule,
+			badge.inline, badge.order, now, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 기존 콘텐츠를 원본으로 삼아 최초 도입 시의 업적만 한 번 소급한다.
+func backfillBuiltInBadges(db *sql.DB, prefix string) error {
+	now := time.Now().UnixMilli()
+	badges := []struct {
+		key, evidenceType, sourceTable string
+	}{
+		{"first-post", "post", "post"},
+		{"first-comment", "comment", "comment"},
+	}
+	for _, badge := range badges {
+		var backfilledAt uint64
+		definitionQuery := fmt.Sprintf(`SELECT backfilled_at FROM %sbadge_definition WHERE badge_key = ?`, prefix)
+		if err := db.QueryRow(definitionQuery, badge.key).Scan(&backfilledAt); err != nil {
+			return err
+		}
+		if backfilledAt > 0 {
+			continue
+		}
+		backfillQuery := fmt.Sprintf(`INSERT IGNORE INTO %suser_badge
+		(user_uid, badge_key, qualified_at, awarded_at, grant_source, evidence_type, evidence_uid)
+		SELECT source.user_uid, ?, MIN(source.submitted), ?, 'backfill', ?, MIN(source.uid)
+		FROM %s%s AS source WHERE source.user_uid > 0 GROUP BY source.user_uid`, prefix, prefix, badge.sourceTable)
+		if _, err := db.Exec(backfillQuery, badge.key, now, badge.evidenceType); err != nil {
+			return err
+		}
+		completeQuery := fmt.Sprintf(`UPDATE %sbadge_definition SET backfilled_at = ?, updated = ? WHERE badge_key = ?`, prefix)
+		if _, err := db.Exec(completeQuery, now, now, badge.key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // 사용자별 FCM 등록 토큰을 저장한다. 토큰은 계정 전환 시 한 사용자에게만 귀속된다.

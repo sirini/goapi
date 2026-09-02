@@ -75,6 +75,14 @@ func (s *NuboHomeService) GetLatestPosts(param models.HomePostParam) ([]models.B
 		item.Liked = s.repos.Board.CheckLikedPost(post.Uid, param.UserUid)
 		items = append(items, item)
 	}
+	userUids := make([]uint, 0, len(items))
+	for _, item := range items {
+		userUids = append(userUids, item.Writer.UserUid)
+	}
+	badges := loadFeaturedBadges(s.repos.Badge, userUids)
+	for i := range items {
+		items[i].Writer.Badges = badges[items[i].Writer.UserUid]
+	}
 	return items, nil
 }
 

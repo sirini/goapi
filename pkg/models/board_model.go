@@ -424,7 +424,8 @@ type BoardMovePostParam struct {
 // 게시글 작성자 타입 정의
 type BoardWriter struct {
 	UserBasicInfo
-	Signature string `json:"signature"`
+	Signature string      `json:"signature"`
+	Badges    []UserBadge `json:"badges,omitempty"`
 }
 
 // 게시글 작성자의 최근 글/댓글 공통 요소 정의
@@ -545,6 +546,8 @@ type EditorWriteParam struct {
 	Tags        []string
 	IsNotice    bool
 	IsSecret    bool
+	ClientKey   string
+	AppVersion  string
 }
 
 // 갤러리 그리드형 반환타입 정의
