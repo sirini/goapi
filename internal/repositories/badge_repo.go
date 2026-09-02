@@ -12,9 +12,12 @@ import (
 
 type BadgeRepository interface {
 	Award(param models.BadgeAwardParam) (bool, error)
+	CreateDefinition(definition models.BadgeDefinition) error
 	FindForUser(userUid uint, inlineOnly bool) ([]models.UserBadge, error)
 	FindFeaturedForUsers(userUids []uint) (map[uint][]models.UserBadge, error)
+	ListDefinitions() ([]models.BadgeDefinition, error)
 	RecordPostOrigin(param models.PostOriginParam) error
+	UpdateDefinition(definition models.BadgeDefinition) (bool, error)
 }
 
 type NuboBadgeRepository struct {
@@ -34,6 +37,50 @@ func (r *NuboBadgeRepository) Award(param models.BadgeAwardParam) (bool, error) 
 		param.UserUid, param.QualifiedAt, time.Now().UnixMilli(), param.GrantSource, param.GrantedBy,
 		param.EvidenceType, param.EvidenceUid, param.BadgeKey,
 	)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows > 0, err
+}
+
+func (r *NuboBadgeRepository) CreateDefinition(definition models.BadgeDefinition) error {
+	query := fmt.Sprintf(`INSERT INTO %s%s
+		(badge_key, name, description, icon_key, rule_key, active, show_inline, sort_order, created, updated)
+		VALUES (?, ?, ?, ?, '', 1, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_BADGE)
+	_, err := r.db.Exec(query, definition.Key, definition.Name, definition.Description, definition.IconKey,
+		definition.ShowInline, definition.SortOrder, definition.Created, definition.Updated)
+	return err
+}
+
+func (r *NuboBadgeRepository) ListDefinitions() ([]models.BadgeDefinition, error) {
+	definitions := make([]models.BadgeDefinition, 0)
+	query := fmt.Sprintf(`SELECT badge_key, name, description, icon_key, active, show_inline,
+		sort_order, rule_key <> '', created, updated FROM %s%s
+		ORDER BY sort_order ASC, created ASC, badge_key ASC`, configs.Env.Prefix, models.TABLE_BADGE)
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		definition := models.BadgeDefinition{}
+		if err := rows.Scan(&definition.Key, &definition.Name, &definition.Description, &definition.IconKey,
+			&definition.Active, &definition.ShowInline, &definition.SortOrder, &definition.System,
+			&definition.Created, &definition.Updated); err != nil {
+			return nil, err
+		}
+		definitions = append(definitions, definition)
+	}
+	return definitions, rows.Err()
+}
+
+func (r *NuboBadgeRepository) UpdateDefinition(definition models.BadgeDefinition) (bool, error) {
+	query := fmt.Sprintf(`UPDATE %s%s SET name = ?, description = ?, icon_key = ?,
+		show_inline = ?, sort_order = ?, updated = ? WHERE badge_key = ? AND rule_key = '' LIMIT 1`,
+		configs.Env.Prefix, models.TABLE_BADGE)
+	result, err := r.db.Exec(query, definition.Name, definition.Description, definition.IconKey,
+		definition.ShowInline, definition.SortOrder, definition.Updated, definition.Key)
 	if err != nil {
 		return false, err
 	}

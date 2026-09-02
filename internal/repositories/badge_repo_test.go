@@ -63,3 +63,61 @@ func TestFindFeaturedBadgesBatchesWriters(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCreateManualBadgeDefinition(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	oldPrefix := configs.Env.Prefix
+	configs.Env.Prefix = "nubo_"
+	defer func() { configs.Env.Prefix = oldPrefix }()
+
+	definition := models.BadgeDefinition{
+		Key: "manual-test", Name: "사진전 우수상", Description: "2026년 여름 사진전",
+		IconKey: "trophy", ShowInline: true, SortOrder: 50, Created: 1000, Updated: 1000,
+	}
+	mock.ExpectExec(`INSERT INTO nubo_badge_definition`).
+		WithArgs(definition.Key, definition.Name, definition.Description, definition.IconKey,
+			definition.ShowInline, definition.SortOrder, definition.Created, definition.Updated).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := NewNuboBadgeRepository(db).CreateDefinition(definition); err != nil {
+		t.Fatal(err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpdateDefinitionOnlyTargetsManualAchievements(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	oldPrefix := configs.Env.Prefix
+	configs.Env.Prefix = "nubo_"
+	defer func() { configs.Env.Prefix = oldPrefix }()
+
+	definition := models.BadgeDefinition{
+		Key: "manual-test", Name: "사진전 대상", Description: "수정된 설명",
+		IconKey: "crown", ShowInline: true, SortOrder: 40, Updated: 2000,
+	}
+	mock.ExpectExec(`WHERE badge_key = \? AND rule_key = '' LIMIT 1`).
+		WithArgs(definition.Name, definition.Description, definition.IconKey, definition.ShowInline,
+			definition.SortOrder, definition.Updated, definition.Key).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	updated, err := NewNuboBadgeRepository(db).UpdateDefinition(definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("manual achievement was not updated")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

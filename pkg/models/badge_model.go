@@ -19,6 +19,35 @@ type UserBadge struct {
 	EarnedAt    uint64 `json:"earnedAt"`
 }
 
+// BadgeDefinition describes a permanent achievement that can be awarded to users.
+// System definitions are rule-backed and cannot be edited from the administrator UI.
+type BadgeDefinition struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IconKey     string `json:"iconKey"`
+	Active      bool   `json:"active"`
+	ShowInline  bool   `json:"showInline"`
+	SortOrder   uint   `json:"sortOrder"`
+	System      bool   `json:"system"`
+	Created     uint64 `json:"created"`
+	Updated     uint64 `json:"updated"`
+}
+
+type AdminBadgeDefinitionParam struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IconKey     string `json:"iconKey"`
+	ShowInline  bool   `json:"showInline"`
+	SortOrder   uint   `json:"sortOrder"`
+}
+
+type AdminBadgeGrantParam struct {
+	UserUid  uint   `json:"userUid"`
+	BadgeKey string `json:"badgeKey"`
+}
+
 // BadgeAwardParam records the evidence for an idempotent achievement grant.
 // GrantedBy is zero for automatic grants and reserved for a future administrator grant UI.
 type BadgeAwardParam struct {

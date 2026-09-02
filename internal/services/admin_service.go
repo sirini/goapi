@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
@@ -23,6 +25,8 @@ type AdminService interface {
 	CreateNewBoard(param models.AdminBoardCreateParam) (uint, error)
 	CreateNewGroup(newGroupId string) (models.AdminGroupConfig, error)
 	CreateNewUser(param models.AdminUserCreateParam) (uint, error)
+	CreateBadgeDefinition(param models.AdminBadgeDefinitionParam) (models.BadgeDefinition, error)
+	GrantBadge(param models.AdminBadgeGrantParam, grantedBy uint) (bool, error)
 	GetBoardAdminCandidates(name string, bunch uint) ([]models.BoardWriter, error)
 	GetBoardList(groupUid uint) ([]models.AdminGroupBoardItem, error)
 	GetDashboardUploadUsage(path string) uint64
@@ -32,6 +36,7 @@ type AdminService interface {
 	GetExistGroupIds(groupId string, bunch uint) []models.Pair
 	GetGroupConfig(groupId string) models.AdminGroupConfig
 	GetGroupList() []models.AdminGroupConfig
+	GetBadgeDefinitions() ([]models.BadgeDefinition, error)
 	GetMailStatus() models.MailStatus
 	GetMailDeliveries(param models.MailDeliveryListParam) (models.MailDeliveryListResult, error)
 	GetMailCampaign(uid uint) (models.MailCampaign, error)
@@ -46,17 +51,41 @@ type AdminService interface {
 	GetSearchedReports(param models.AdminReportSearchParam) models.AdminReportListResult
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
+	GetUserBadges(userUid uint) ([]models.UserBadge, error)
 	GetSkinSettings() models.SkinSettings
 	SetSkinSetting(param models.AdminSkinSettingParam) error
 	ResolveReport(param models.AdminReportResolveParam) error
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
 	ModifyUserAccount(param models.AdminUserModifyParam) error
+	ModifyBadgeDefinition(param models.AdminBadgeDefinitionParam) (models.BadgeDefinition, error)
 	RemoveBoardCategory(boardUid uint, catUid uint) error
 	RemoveBoard(boardUid uint) error
 	RemoveComment(commentUid uint) error
 	RemoveGroup(groupUid uint) error
 	RemovePost(postUid uint) error
 	RemoveUser(userUid uint) error
+}
+
+var adminBadgeIconKeys = map[string]struct{}{
+	"aperture": {}, "award": {}, "camera": {}, "crown": {}, "medal": {},
+	"message-circle": {}, "notebook-pen": {}, "ribbon": {}, "sparkles": {},
+	"star": {}, "trophy": {},
+}
+
+func validateBadgeDefinition(param *models.AdminBadgeDefinitionParam) error {
+	param.Name = strings.TrimSpace(param.Name)
+	param.Description = strings.TrimSpace(param.Description)
+	param.IconKey = strings.TrimSpace(param.IconKey)
+	if utf8.RuneCountInString(param.Name) < 2 || utf8.RuneCountInString(param.Name) > 100 {
+		return fmt.Errorf("badge name must be between 2 and 100 characters")
+	}
+	if utf8.RuneCountInString(param.Description) > 300 {
+		return fmt.Errorf("badge description must be 300 characters or fewer")
+	}
+	if _, allowed := adminBadgeIconKeys[param.IconKey]; !allowed {
+		return fmt.Errorf("unsupported badge icon")
+	}
+	return nil
 }
 
 type NuboAdminService struct {
@@ -544,6 +573,84 @@ func (s *NuboAdminService) GetUserList(param models.AdminUserParam) models.Admin
 // 사용자 정보 가져오기
 func (s *NuboAdminService) GetUserInfo(userUid uint) models.AdminUserInfo {
 	return s.repos.Admin.GetUserInfo(userUid)
+}
+
+func (s *NuboAdminService) GetBadgeDefinitions() ([]models.BadgeDefinition, error) {
+	return s.repos.Badge.ListDefinitions()
+}
+
+func (s *NuboAdminService) GetUserBadges(userUid uint) ([]models.UserBadge, error) {
+	if userUid < 1 || s.repos.Admin.GetUserInfo(userUid).UserUid < 1 {
+		return nil, fmt.Errorf("user does not exist")
+	}
+	return s.repos.Badge.FindForUser(userUid, false)
+}
+
+func (s *NuboAdminService) CreateBadgeDefinition(param models.AdminBadgeDefinitionParam) (models.BadgeDefinition, error) {
+	if err := validateBadgeDefinition(&param); err != nil {
+		return models.BadgeDefinition{}, err
+	}
+	now := uint64(time.Now().UnixMilli())
+	definition := models.BadgeDefinition{
+		Key:         "manual-" + uuid.NewString(),
+		Name:        param.Name,
+		Description: param.Description,
+		IconKey:     param.IconKey,
+		Active:      true,
+		ShowInline:  param.ShowInline,
+		SortOrder:   param.SortOrder,
+		System:      false,
+		Created:     now,
+		Updated:     now,
+	}
+	if err := s.repos.Badge.CreateDefinition(definition); err != nil {
+		return models.BadgeDefinition{}, err
+	}
+	return definition, nil
+}
+
+func (s *NuboAdminService) ModifyBadgeDefinition(param models.AdminBadgeDefinitionParam) (models.BadgeDefinition, error) {
+	if param.Key == "" {
+		return models.BadgeDefinition{}, fmt.Errorf("badge key is required")
+	}
+	if err := validateBadgeDefinition(&param); err != nil {
+		return models.BadgeDefinition{}, err
+	}
+	definition := models.BadgeDefinition{
+		Key:         param.Key,
+		Name:        param.Name,
+		Description: param.Description,
+		IconKey:     param.IconKey,
+		ShowInline:  param.ShowInline,
+		SortOrder:   param.SortOrder,
+		Updated:     uint64(time.Now().UnixMilli()),
+	}
+	updated, err := s.repos.Badge.UpdateDefinition(definition)
+	if err != nil {
+		return models.BadgeDefinition{}, err
+	}
+	if !updated {
+		return models.BadgeDefinition{}, fmt.Errorf("system achievement cannot be modified")
+	}
+	definition.Active = true
+	return definition, nil
+}
+
+func (s *NuboAdminService) GrantBadge(param models.AdminBadgeGrantParam, grantedBy uint) (bool, error) {
+	if param.UserUid < 1 || s.repos.Admin.GetUserInfo(param.UserUid).UserUid < 1 {
+		return false, fmt.Errorf("user does not exist")
+	}
+	if strings.TrimSpace(param.BadgeKey) == "" {
+		return false, fmt.Errorf("badge key is required")
+	}
+	now := uint64(time.Now().UnixMilli())
+	return s.repos.Badge.Award(models.BadgeAwardParam{
+		UserUid:     param.UserUid,
+		BadgeKey:    param.BadgeKey,
+		QualifiedAt: now,
+		GrantSource: "manual",
+		GrantedBy:   grantedBy,
+	})
 }
 
 // 게시판 설정 수정하기

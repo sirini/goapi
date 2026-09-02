@@ -13,6 +13,10 @@ import (
 )
 
 type AdminHandler interface {
+	BadgeDefinitionCreateHandler(c fiber.Ctx) error
+	BadgeDefinitionListHandler(c fiber.Ctx) error
+	BadgeDefinitionModifyHandler(c fiber.Ctx) error
+	BadgeGrantHandler(c fiber.Ctx) error
 	BoardGeneralLoadHandler(c fiber.Ctx) error
 	ChangeGroupAdminHandler(c fiber.Ctx) error
 	ChangeGroupIdHandler(c fiber.Ctx) error
@@ -49,6 +53,7 @@ type AdminHandler interface {
 	ShowSimilarBoardIdHandler(c fiber.Ctx) error
 	ShowSimilarGroupIdHandler(c fiber.Ctx) error
 	UserInfoLoadHandler(c fiber.Ctx) error
+	UserBadgeListHandler(c fiber.Ctx) error
 	UserInfoModifyHandler(c fiber.Ctx) error
 	UserListLoadHandler(c fiber.Ctx) error
 	SkinSettingsLoadHandler(c fiber.Ctx) error
@@ -591,6 +596,63 @@ func (h *NuboAdminHandler) UserInfoLoadHandler(c fiber.Ctx) error {
 
 	info := h.service.Admin.GetUserInfo(uint(userUid))
 	return utils.Ok(c, info)
+}
+
+func (h *NuboAdminHandler) BadgeDefinitionListHandler(c fiber.Ctx) error {
+	definitions, err := h.service.Admin.GetBadgeDefinitions()
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, definitions)
+}
+
+func (h *NuboAdminHandler) BadgeDefinitionCreateHandler(c fiber.Ctx) error {
+	param := models.AdminBadgeDefinitionParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	definition, err := h.service.Admin.CreateBadgeDefinition(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, definition)
+}
+
+func (h *NuboAdminHandler) BadgeDefinitionModifyHandler(c fiber.Ctx) error {
+	param := models.AdminBadgeDefinitionParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	definition, err := h.service.Admin.ModifyBadgeDefinition(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, definition)
+}
+
+func (h *NuboAdminHandler) UserBadgeListHandler(c fiber.Ctx) error {
+	userUid, err := strconv.ParseUint(c.Query("userUid"), 10, 32)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	badges, err := h.service.Admin.GetUserBadges(uint(userUid))
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, badges)
+}
+
+func (h *NuboAdminHandler) BadgeGrantHandler(c fiber.Ctx) error {
+	param := models.AdminBadgeGrantParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	actionUserUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	granted, err := h.service.Admin.GrantBadge(param, actionUserUid)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	return utils.Ok(c, granted)
 }
 
 // 사용자 정보 수정하는 핸들러

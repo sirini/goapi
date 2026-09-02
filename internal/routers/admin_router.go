@@ -16,6 +16,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	latest := admin.Group("/latest")
 	mail := admin.Group("/mail")
 	report := admin.Group("/report")
+	badge := admin.Group("/badge")
 	user := admin.Group("/user")
 	skin := admin.Group("/skin")
 	system := admin.Group("/system")
@@ -57,6 +58,12 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 
 	report.Get("/reports", h.Admin.ReportListSearchHandler)
 	report.Put("/resolve", h.Admin.ReportResolveHandler)
+
+	badge.Get("/definitions", h.Admin.BadgeDefinitionListHandler)
+	badge.Post("/definition", h.Admin.BadgeDefinitionCreateHandler)
+	badge.Put("/definition", h.Admin.BadgeDefinitionModifyHandler)
+	badge.Get("/user", h.Admin.UserBadgeListHandler)
+	badge.Post("/grant", h.Admin.BadgeGrantHandler)
 
 	user.Post("/create", h.Admin.CreateUserHandler)
 	user.Get("/list", h.Admin.UserListLoadHandler)
