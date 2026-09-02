@@ -72,3 +72,14 @@ func (s *NuboBoardService) attachFeaturedBadges(groups ...[]models.BoardListItem
 		}
 	}
 }
+
+func attachFeaturedBadgesToComments(repo repositories.BadgeRepository, comments []models.CommentItem) {
+	userUids := make([]uint, 0, len(comments))
+	for _, comment := range comments {
+		userUids = append(userUids, comment.Writer.UserUid)
+	}
+	badges := loadFeaturedBadges(repo, userUids)
+	for i := range comments {
+		comments[i].Writer.Badges = badges[comments[i].Writer.UserUid]
+	}
+}

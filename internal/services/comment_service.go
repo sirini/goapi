@@ -93,6 +93,7 @@ func (s *NuboCommentService) List(param models.CommentListParam) (models.Comment
 	if err != nil {
 		return result, err
 	}
+	attachFeaturedBadgesToComments(s.repos.Badge, comments)
 	result.Comments = comments
 	return result, nil
 }
