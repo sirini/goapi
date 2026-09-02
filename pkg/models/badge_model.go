@@ -53,7 +53,7 @@ type BadgeAcknowledgeParam struct {
 }
 
 // BadgeAwardParam records the evidence for an idempotent achievement grant.
-// GrantedBy is zero for automatic grants and reserved for a future administrator grant UI.
+// GrantedBy is zero for automatic grants and the acting administrator UID for manual grants.
 type BadgeAwardParam struct {
 	UserUid      uint
 	BadgeKey     string

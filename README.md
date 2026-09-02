@@ -9,7 +9,7 @@
 
 GOAPI는 [NUBO](https://github.com/sirini/nubo)의 백엔드입니다. GoFiber v3로 HTTP API를 제공하고 MySQL/MariaDB의 회원·게시물·알림 데이터를 처리하며, 이미지 변환과 Resend 메일 발송도 담당합니다.
 
-> 문서 기준: 2026-08-30 · 최신 통합 버전: NUBO/GOAPI 1.3.1
+> 문서 기준: 2026-09-03 · 최신 통합 버전: NUBO/GOAPI 1.3.1
 
 GOAPI는 NUBO와 별도 제품으로 배포하지 않습니다. v1.2.26부터 두 저장소의 공개 버전을 동일하게 맞추고, NUBO 릴리스 manifest가 실제 구성 요소 commit과 API contract를 고정합니다. 운영자는 GOAPI 버전을 따로 선택하거나 교체하지 않습니다.
 
@@ -22,6 +22,7 @@ macOS·다른 Linux 배포판·다른 CPU에서 소스를 직접 빌드해 시�
 
 - 회원가입, 로그인, JWT 갱신 및 권한 관리
 - 게시판·게시물·댓글·알림·채팅 데이터 처리
+- 영구 업적 정의·멱등 수여·최초 소급, 관리자 수동 수여와 새 업적 알림
 - 업로드 이미지 리사이즈 및 메타데이터 처리
 - 게시물 권한과 파일 소유 관계를 다시 검사하는 단기 원본 이미지 스트리밍과 HTTP byte range 처리
 - Resend 기반 가입 인증, 비밀번호 초기화, 댓글 알림
@@ -220,6 +221,30 @@ DB_UNIX_SOCKET=
 ### 원본 이미지 스트리밍
 
 `/board/original`은 게시물 보기 레벨·포인트 잔액, 비밀글, 삭제글, 작성자 차단과 file–board 소유 관계를 검사한 뒤 2분짜리 전송 토큰만 발급합니다. `/board/original/transfer`는 토큰을 소비해 원본을 인라인으로 전송하고 byte range를 지원합니다. 실제 파일시스템 경로는 게시글 JSON이나 브라우저 URL에 노출하지 않으며, 게시물 열람 때 처리한 보기 포인트를 다시 차감하지 않습니다.
+
+### 영구 업적 배지
+
+GOAPI의 배지는 한 번 획득하면 계속 유지되는 업적만 다룹니다. 만료·구독·활성 사용자 같은 현재 상태는
+배지로 추적하지 않으며, 관리자 표시는 기존 권한 응답을 사용합니다.
+
+- `badge_definition`은 업적 이름·설명·아이콘과 작성자 이름 옆 표시 여부를, `user_badge`는 사용자별
+  획득 시각·수여 출처·확인 시각을 저장합니다. `(user_uid, badge_key)`가 유일하므로 자동·수동 수여는
+  반복 호출해도 중복되지 않습니다.
+- 내장 업적은 `first-post`, `first-comment`, `sensta-app`입니다. 첫 글과 첫 댓글은 설치 시 기존 활동을
+  한 번만 소급하며, Sensta 앱 업적은 사진 첨부 저장에 성공한 새 게시물의 출처를 `post_origin`에 남긴
+  뒤 수여합니다.
+- Sensta Android는 `X-Nubo-Client: sensta-android`와 `X-Nubo-App-Version`을 보냅니다. 이 헤더는 앱
+  출처 표식일 뿐 인증 수단이 아니며, 실제 사용자는 JWT로 판정합니다.
+- 공개 프로필은 활성 업적 전체를 반환하고 게시물·댓글 작성자는 `show_inline` 업적만 반환합니다.
+  클라이언트는 특정 배지 key나 달성 규칙을 다시 판정하지 않습니다.
+- `GET|PATCH /auth/user/achievements`는 최대 10개의 미확인 업적 조회와 확인 저장에 사용합니다.
+  `GET /admin/badge/definitions`, `POST|PUT /admin/badge/definition`, `GET /admin/badge/user`,
+  `POST /admin/badge/grant`는 정의 관리와 사용자별 영구 수여에 사용합니다. 내장 자동 업적은 관리 화면에서
+  수정할 수 없으며 현재 최소 계약에는 수여 취소가 없습니다.
+
+기존 사이트에 이 기능을 배포할 때는 DB를 먼저 백업하고 새 runtime을 시작하기 전에
+`./bin/goapi install`을 실행합니다. 설치 과정은 세 테이블과 `announced_at`을 반복 실행 가능하게 준비하고,
+기존 획득·소급분은 확인 완료로 기록해 배포 직후 과거 업적 축하 알림이 한꺼번에 나타나지 않게 합니다.
 
 ### 보안 키
 
