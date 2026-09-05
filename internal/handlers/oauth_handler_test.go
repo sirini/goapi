@@ -1,11 +1,27 @@
 package handlers
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/sirini/goapi/pkg/models"
 	"google.golang.org/api/idtoken"
 )
+
+func TestPublicAppleVerificationErrorOnlyExposesSafeCategories(t *testing.T) {
+	for _, message := range []string{
+		"Apple token audience is not allowed",
+		"Apple token nonce does not match",
+		"Apple email is not verified",
+	} {
+		if got := publicAppleVerificationError(errors.New(message)); got != message {
+			t.Fatalf("public Apple error = %q, want %q", got, message)
+		}
+	}
+	if got := publicAppleVerificationError(errors.New("dial tcp 10.0.0.1: secret")); got != "invalid Apple identity token" {
+		t.Fatalf("internal verifier error was exposed: %q", got)
+	}
+}
 
 func TestValidGoogleIDTokenInfo(t *testing.T) {
 	valid := models.GoogleUser{

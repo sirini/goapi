@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -177,10 +178,26 @@ func (h *NuboOAuth2Handler) verifyAppleRequest(c fiber.Ctx) (models.AppleAuthPar
 	defer cancel()
 	identity, err := h.appleVerifier.Verify(ctx, param.IdentityToken, param.Nonce, configs.GetAppleClientIDs())
 	if err != nil {
-		_ = utils.Err(c, "invalid Apple identity token", models.CODE_INVALID_TOKEN)
+		// 토큰 원문·subject·email은 남기지 않고 검증 단계만 운영 로그와 앱에 구분한다.
+		log.Printf("apple oauth: identity token verification failed: %v", err)
+		_ = utils.Err(c, publicAppleVerificationError(err), models.CODE_INVALID_TOKEN)
 		return param, models.AppleIdentity{}, false
 	}
 	return param, identity, true
+}
+
+func publicAppleVerificationError(err error) string {
+	message := err.Error()
+	for _, allowed := range []string{
+		"Apple token audience is not allowed",
+		"Apple token nonce does not match",
+		"Apple email is not verified",
+	} {
+		if strings.Contains(message, allowed) {
+			return allowed
+		}
+	}
+	return "invalid Apple identity token"
 }
 
 func (h *NuboOAuth2Handler) appleDisplayName(raw, subject string) string {

@@ -78,7 +78,10 @@ func (v *AppleTokenVerifier) Verify(ctx context.Context, identityToken, nonce st
 		}
 		return v.publicKey(ctx, keyID)
 	})
-	if err != nil || !token.Valid {
+	if err != nil {
+		return models.AppleIdentity{}, fmt.Errorf("invalid Apple identity token: %w", err)
+	}
+	if !token.Valid {
 		return models.AppleIdentity{}, errors.New("invalid Apple identity token")
 	}
 
