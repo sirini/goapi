@@ -195,7 +195,7 @@ func LoadConfig() error {
 	return nil
 }
 
-// GetGoogleAndroidClientID는 Android ID 토큰의 audience를 반환한다.
+// GetGoogleAndroidClientID는 기존 환경 변수 이름을 유지하며 모바일 ID 토큰의 audience를 반환한다.
 // 전용 설정이 없는 기존 배포에서는 웹 OAuth client ID를 그대로 사용한다.
 func GetGoogleAndroidClientID() string {
 	if clientID := strings.TrimSpace(Env.OAuthGoogleAndroidID); clientID != "" {

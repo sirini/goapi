@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/sirini/goapi/pkg/models"
+	"google.golang.org/api/idtoken"
 )
 
 func TestValidGoogleIDTokenInfo(t *testing.T) {
@@ -26,5 +27,37 @@ func TestValidGoogleIDTokenInfo(t *testing.T) {
 	unverified.EmailVerified = "false"
 	if validGoogleIDTokenInfo(unverified, "android-client-id") {
 		t.Fatal("Google ID token with an unverified email was accepted")
+	}
+}
+
+func TestGoogleUserFromIDTokenPayload(t *testing.T) {
+	user := googleUserFromIDTokenPayload(&idtoken.Payload{
+		Audience: "mobile-server-client-id",
+		Subject:  "google-subject",
+		Claims: map[string]interface{}{
+			"email":          "user@example.com",
+			"email_verified": true,
+			"name":           "Google User",
+			"picture":        "https://example.com/profile.jpg",
+		},
+	})
+	if user.ID != "google-subject" || user.Audience != "mobile-server-client-id" ||
+		user.Email != "user@example.com" || user.EmailVerified != "true" ||
+		user.Name != "Google User" || user.Picture != "https://example.com/profile.jpg" {
+		t.Fatalf("unexpected Google payload conversion: %+v", user)
+	}
+
+	invalid := googleUserFromIDTokenPayload(&idtoken.Payload{
+		Audience: "mobile-server-client-id",
+		Claims: map[string]interface{}{
+			"email":          "user@example.com",
+			"email_verified": "true",
+		},
+	})
+	if validGoogleIDTokenInfo(invalid, "mobile-server-client-id") {
+		t.Fatal("non-boolean email verification claim was accepted")
+	}
+	if user := googleUserFromIDTokenPayload(nil); user.Email != "" {
+		t.Fatal("nil payload produced a populated Google user")
 	}
 }

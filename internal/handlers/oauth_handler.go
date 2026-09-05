@@ -16,6 +16,7 @@ import (
 	"github.com/sirini/goapi/pkg/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/idtoken"
 )
 
 type OAuth2Handler interface {
@@ -39,7 +40,7 @@ func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
 	return &NuboOAuth2Handler{service: service}
 }
 
-// 구글 안드로이드 앱 OAuth 콜백 핸들러
+// 기존 Android 경로를 유지하면서 Android와 iOS의 Google ID 토큰을 검증한다.
 func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 	androidClientID := configs.GetGoogleAndroidClientID()
 	if androidClientID == "" {
@@ -50,17 +51,13 @@ func (h *NuboOAuth2Handler) AndroidGoogleOAuthHandler(c fiber.Ctx) error {
 		return utils.Err(c, "id_token is empty", models.CODE_INVALID_PARAMETER)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	payload, err := idtoken.Validate(ctx, idToken, androidClientID)
+	if err != nil {
 		return utils.Err(c, "invalid google token", models.CODE_INVALID_TOKEN)
 	}
-	defer resp.Body.Close()
-
-	var userInfo models.GoogleUser
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
-	}
+	userInfo := googleUserFromIDTokenPayload(payload)
 	if !validGoogleIDTokenInfo(userInfo, androidClientID) {
 		return utils.Err(c, "invalid google token claims", models.CODE_INVALID_TOKEN)
 	}
@@ -327,4 +324,23 @@ func kakaoOAuthConfig() oauth2.Config {
 
 func validGoogleIDTokenInfo(user models.GoogleUser, clientID string) bool {
 	return clientID != "" && user.Audience == clientID && user.Email != "" && user.EmailVerified == "true"
+}
+
+func googleUserFromIDTokenPayload(payload *idtoken.Payload) models.GoogleUser {
+	if payload == nil {
+		return models.GoogleUser{}
+	}
+	claim := func(key string) string {
+		value, _ := payload.Claims[key].(string)
+		return value
+	}
+	verified, _ := payload.Claims["email_verified"].(bool)
+	return models.GoogleUser{
+		ID:            payload.Subject,
+		Audience:      payload.Audience,
+		Email:         claim("email"),
+		EmailVerified: fmt.Sprintf("%t", verified),
+		Name:          claim("name"),
+		Picture:       claim("picture"),
+	}
 }

@@ -334,7 +334,7 @@ SIGNUP_MODE=verified_email
 ```dotenv
 OAUTH_GOOGLE_CLIENT_ID=
 OAUTH_GOOGLE_SECRET=
-# Android 앱이 발급받은 Google ID 토큰의 audience(Web application client ID). 미설정 시 위 client ID 사용
+# Android·iOS 앱이 발급받은 Google ID 토큰의 audience(Web application client ID). 미설정 시 위 client ID 사용
 OAUTH_GOOGLE_ANDROID_CLIENT_ID=
 OAUTH_NAVER_CLIENT_ID=
 OAUTH_NAVER_SECRET=

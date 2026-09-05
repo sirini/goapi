@@ -32,7 +32,7 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Get("/kakao/request", h.OAuth2.KakaoOAuthRequestHandler)
 	auth.Get("/kakao/callback", h.OAuth2.KakaoOAuthCallbackHandler)
 
-	// Android OAuth용 라우터
+	// 배포된 Android와 새 iOS가 공유하는 기존 모바일 OAuth 라우터
 	auth.Post("/android/google", h.OAuth2.AndroidGoogleOAuthHandler)
 
 	// 사용자 관련 라우터들
