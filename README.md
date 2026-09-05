@@ -171,17 +171,40 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
 
 빌드 과정은 공식 npm 패키지와 sharp-libvips 소스의 고정 버전·SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. glibc는 CPU가 x86-64-v2를 만족하면 공식 최적화판을, 그렇지 않으면 `-march=x86-64` 호환판을 자동 선택합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04에서 호스트 CPU에 맞는 변형을 시험하고, QEMU `qemu64`와 `max` CPU에서 각각 호환판·최적화판의 자동 선택과 JPEG→WebP 변환을 검증합니다. 빌드 호스트가 x86-64-v2를 지원하지 않는 VM이어도 이 검증을 수행할 수 있습니다.
 
-빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
+처음 설치할 때는 빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
 
 ```bash
+mkdir -p /var/www/nubo/bin /var/www/nubo/lib /var/www/nubo/licenses
 cp ./dist/nubo-runtime/bin/goapi /var/www/nubo/bin/goapi
-cp -a ./dist/nubo-runtime/lib /var/www/nubo/lib
+cp -a ./dist/nubo-runtime/lib/. /var/www/nubo/lib/
+cp -a ./dist/nubo-runtime/licenses/. /var/www/nubo/licenses/
 cd /var/www/nubo
 ./bin/goapi install
 ./bin/goapi
 ```
 
-Apple Silicon, ARM Linux 등에서는 위와 같이 해당 환경에서 직접 빌드하는 것이 가장 단순합니다. 교차 컴파일은 `libvips`와 CGO용 크로스 툴체인도 함께 준비해야 합니다.
+기존 서버를 업데이트할 때는 `bin/`, `lib/`, `licenses/`를 함께 별도 staging 디렉터리에 업로드합니다. 기존 파일을 백업하고 GOAPI를 중지한 다음 교체하고 재시작하세요. 실행 중인 바이너리나 공유 라이브러리를 SFTP로 직접 덮어쓰지 않습니다. SFTP가 실행 권한을 보존하지 않았다면 `chmod 755 bin/goapi`를 적용합니다.
+
+#### Apple Silicon Mac에서 Linux 배포 파일 만들기
+
+Homebrew의 Docker CLI와 Buildx, Colima를 사용할 수 있습니다. 호스트에 설치한 Go나 libvips 버전은 이 컨테이너 빌드에 사용하지 않습니다.
+
+```bash
+brew install docker docker-buildx colima
+```
+
+`brew info docker-buildx`의 안내에 따라 `~/.docker/config.json`의 `cliPluginsExtraDirs`에 `/opt/homebrew/lib/docker/cli-plugins`를 추가합니다. 기존 인증 정보나 다른 설정은 유지합니다. Rosetta가 설치된 Apple Silicon Mac에서는 다음과 같이 시작합니다.
+
+```bash
+colima start --vm-type vz --vz-rosetta --cpu 6 --memory 8 --disk 60
+docker buildx version
+docker run --rm --platform linux/amd64 ubuntu:22.04 uname -m
+./scripts/build-ubuntu22.sh
+```
+
+CPU·메모리·디스크 값은 Mac의 여유 자원에 맞게 조정합니다. 디스크 값은 VM의 최대 용량입니다. 출력은 동일한 `dist/nubo-runtime/`이며, 실행 대상은 macOS가 아닌 Linux amd64입니다. 첫 빌드는 libvips·코덱을 소스에서 만들어 오래 걸릴 수 있습니다. 이후에는 캐시를 재사용합니다.
+
+재부팅 후에는 `colima start`로 저장된 설정을 다시 사용하고 스크립트를 실행하면 됩니다. 빌드를 마친 뒤 `colima stop`으로 VM의 CPU·메모리 사용을 중지해도 디스크의 빌드 캐시는 유지됩니다.
 
 ## `.env` 핵심 설정
 
