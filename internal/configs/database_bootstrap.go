@@ -20,6 +20,7 @@ var baseTableNames = []string{
 	"file_thumbnail", "image", "notification", "exif", "image_description",
 	"trade", "mail_campaign", "mail_delivery", "push_device", "badge_definition",
 	"user_badge", "post_origin",
+	"user_oauth_identity", "oauth_nonce",
 }
 
 // 지정한 이름의 DB가 없으면 utf8mb4 기본값으로 생성한다.

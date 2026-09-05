@@ -131,6 +131,20 @@ func TestBaseTableNamesIncludesAchievementTables(t *testing.T) {
 	}
 }
 
+func TestBaseTableNamesIncludesOAuthSecurityTables(t *testing.T) {
+	want := map[string]bool{"user_oauth_identity": false, "oauth_nonce": false}
+	for _, name := range baseTableNames {
+		if _, ok := want[name]; ok {
+			want[name] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Fatalf("%s가 필수 테이블 검증 목록에 없습니다", name)
+		}
+	}
+}
+
 var _ driver.Driver = (*bootstrapExecDriver)(nil)
 var _ driver.Conn = (*bootstrapExecConn)(nil)
 var _ driver.Execer = (*bootstrapExecConn)(nil)

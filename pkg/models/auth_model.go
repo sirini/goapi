@@ -16,6 +16,30 @@ type AuthTokenPair struct {
 	Refresh string `json:"refresh"`
 }
 
+// Apple 로그인 전에 서버가 발급하는 일회성 nonce다.
+type AppleNonceResult struct {
+	Nonce string `json:"nonce"`
+}
+
+// Apple ID 토큰 로그인과 기존 계정 연결에 공통으로 쓰는 요청이다.
+type AppleAuthParam struct {
+	IdentityToken string `json:"identityToken"`
+	Nonce         string `json:"nonce"`
+	Name          string `json:"name"`
+}
+
+// 서버에서 검증을 마친 Apple ID 토큰의 계정 식별 정보다.
+type AppleIdentity struct {
+	Subject       string
+	Audience      string
+	Email         string
+	EmailVerified bool
+}
+
+type OAuthIdentityStatus struct {
+	Linked bool `json:"linked"`
+}
+
 // 인증 완료하기 파라미터
 type VerifyParam struct {
 	Target   uint   `json:"target"`

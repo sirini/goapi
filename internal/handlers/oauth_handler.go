@@ -2,15 +2,19 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
+	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
@@ -21,6 +25,11 @@ import (
 
 type OAuth2Handler interface {
 	AndroidGoogleOAuthHandler(c fiber.Ctx) error
+	AppleNonceHandler(c fiber.Ctx) error
+	AppleSignInHandler(c fiber.Ctx) error
+	AppleLinkNonceHandler(c fiber.Ctx) error
+	AppleLinkHandler(c fiber.Ctx) error
+	AppleStatusHandler(c fiber.Ctx) error
 	GoogleOAuthRequestHandler(c fiber.Ctx) error
 	GoogleOAuthCallbackHandler(c fiber.Ctx) error
 	NaverOAuthRequestHandler(c fiber.Ctx) error
@@ -32,12 +41,171 @@ type OAuth2Handler interface {
 }
 
 type NuboOAuth2Handler struct {
-	service *services.Service
+	service       *services.Service
+	appleVerifier services.AppleTokenVerifying
 }
 
 // services.Service 주입 받기
 func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
-	return &NuboOAuth2Handler{service: service}
+	return &NuboOAuth2Handler{service: service, appleVerifier: services.NewAppleTokenVerifier()}
+}
+
+const appleNonceSignIn = "signin"
+const appleNonceLink = "link"
+
+// AppleNonceHandler는 로그인 요청에 묶을 짧은 수명의 일회성 nonce를 발급한다.
+func (h *NuboOAuth2Handler) AppleNonceHandler(c fiber.Ctx) error {
+	if len(configs.GetAppleClientIDs()) == 0 {
+		return utils.Err(c, "apple oauth is not configured", models.CODE_FAILED_OPERATION)
+	}
+	nonce, err := h.service.OAuth.IssueAppleNonce(appleNonceSignIn, 0)
+	if err != nil {
+		return utils.Err(c, "failed to issue an Apple nonce", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, models.AppleNonceResult{Nonce: nonce})
+}
+
+// AppleSignInHandler는 Apple ID 토큰과 일회성 nonce를 검증한 뒤 로그인한다.
+func (h *NuboOAuth2Handler) AppleSignInHandler(c fiber.Ctx) error {
+	param, identity, ok := h.verifyAppleRequest(c)
+	if !ok {
+		return nil
+	}
+	consumed, err := h.service.OAuth.ConsumeAppleNonce(appleNonceSignIn, 0, param.Nonce)
+	if err != nil {
+		return utils.Err(c, "failed to consume the Apple nonce", models.CODE_FAILED_OPERATION)
+	}
+	if !consumed {
+		return utils.Err(c, "invalid or expired Apple nonce", models.CODE_INVALID_TOKEN)
+	}
+
+	userUid, linked, err := h.service.OAuth.FindAppleUser(identity.Subject)
+	if err != nil {
+		return utils.Err(c, "failed to find the Apple account", models.CODE_FAILED_OPERATION)
+	}
+	if linked {
+		if !h.service.Auth.CanAuthenticate(userUid) {
+			return utils.Err(c, "this account is not allowed to sign in", models.CODE_NO_PERMISSION)
+		}
+		if err := h.service.OAuth.TouchAppleIdentity(identity.Subject); err != nil {
+			return utils.Err(c, "failed to update the Apple account", models.CODE_FAILED_OPERATION)
+		}
+		return h.finishMobileLogin(c, userUid)
+	}
+
+	identity.Email = strings.ToLower(strings.TrimSpace(identity.Email))
+	if identity.Email == "" || !identity.EmailVerified || !utils.IsValidEmail(identity.Email) {
+		return utils.Err(c, "Apple did not provide a verified email for registration", models.CODE_INVALID_TOKEN)
+	}
+	if h.service.Auth.CheckEmailExists(identity.Email) {
+		return utils.Err(c, "sign in to the existing account and link Apple ID", models.CODE_ACCOUNT_LINK_REQUIRED)
+	}
+	if !h.service.Auth.CanRegisterOAuthUser() {
+		return utils.Err(c, "new account registration is disabled", models.CODE_SIGNUP_DISABLED)
+	}
+	name := h.appleDisplayName(param.Name, identity.Subject)
+	userUid, err = h.service.OAuth.RegisterAppleUser(identity, name)
+	if errors.Is(err, repositories.ErrOAuthAccountLinkRequired) {
+		return utils.Err(c, "sign in to the existing account and link Apple ID", models.CODE_ACCOUNT_LINK_REQUIRED)
+	}
+	if errors.Is(err, repositories.ErrOAuthIdentityConflict) {
+		return utils.Err(c, "Apple ID is already linked", models.CODE_DUPLICATED_VALUE)
+	}
+	if errors.Is(err, repositories.ErrOAuthNameConflict) {
+		name = h.appleDisplayName("", identity.Subject+time.Now().String())
+		userUid, err = h.service.OAuth.RegisterAppleUser(identity, name)
+	}
+	if err != nil || userUid < 1 {
+		return utils.Err(c, "failed to register the Apple account", models.CODE_FAILED_OPERATION)
+	}
+	return h.finishMobileLogin(c, userUid)
+}
+
+// AppleLinkNonceHandler는 로그인한 사용자에게만 계정 연결용 nonce를 발급한다.
+func (h *NuboOAuth2Handler) AppleLinkNonceHandler(c fiber.Ctx) error {
+	if len(configs.GetAppleClientIDs()) == 0 {
+		return utils.Err(c, "apple oauth is not configured", models.CODE_FAILED_OPERATION)
+	}
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	nonce, err := h.service.OAuth.IssueAppleNonce(appleNonceLink, userUid)
+	if err != nil {
+		return utils.Err(c, "failed to issue an Apple link nonce", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, models.AppleNonceResult{Nonce: nonce})
+}
+
+// AppleLinkHandler는 현재 SENSTA 계정과 Apple 계정을 각각 증명한 뒤 연결한다.
+func (h *NuboOAuth2Handler) AppleLinkHandler(c fiber.Ctx) error {
+	param, identity, ok := h.verifyAppleRequest(c)
+	if !ok {
+		return nil
+	}
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	consumed, err := h.service.OAuth.ConsumeAppleNonce(appleNonceLink, userUid, param.Nonce)
+	if err != nil {
+		return utils.Err(c, "failed to consume the Apple link nonce", models.CODE_FAILED_OPERATION)
+	}
+	if !consumed {
+		return utils.Err(c, "invalid or expired Apple link nonce", models.CODE_INVALID_TOKEN)
+	}
+	identity.Email = strings.ToLower(strings.TrimSpace(identity.Email))
+	if err := h.service.OAuth.LinkAppleIdentity(userUid, identity); err != nil {
+		if errors.Is(err, repositories.ErrOAuthIdentityConflict) {
+			return utils.Err(c, "Apple ID is already linked", models.CODE_DUPLICATED_VALUE)
+		}
+		return utils.Err(c, "failed to link the Apple account", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, models.OAuthIdentityStatus{Linked: true})
+}
+
+func (h *NuboOAuth2Handler) AppleStatusHandler(c fiber.Ctx) error {
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	linked, err := h.service.OAuth.AppleLinked(userUid)
+	if err != nil {
+		return utils.Err(c, "failed to load the Apple account status", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, models.OAuthIdentityStatus{Linked: linked})
+}
+
+func (h *NuboOAuth2Handler) verifyAppleRequest(c fiber.Ctx) (models.AppleAuthParam, models.AppleIdentity, bool) {
+	param := models.AppleAuthParam{}
+	if err := c.Bind().Body(&param); err != nil || len(param.IdentityToken) > 20000 || len(param.Nonce) > 256 {
+		_ = utils.Err(c, "invalid Apple sign in request", models.CODE_INVALID_PARAMETER)
+		return param, models.AppleIdentity{}, false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	identity, err := h.appleVerifier.Verify(ctx, param.IdentityToken, param.Nonce, configs.GetAppleClientIDs())
+	if err != nil {
+		_ = utils.Err(c, "invalid Apple identity token", models.CODE_INVALID_TOKEN)
+		return param, models.AppleIdentity{}, false
+	}
+	return param, identity, true
+}
+
+func (h *NuboOAuth2Handler) appleDisplayName(raw, subject string) string {
+	name := strings.TrimSpace(utils.Escape(raw))
+	runes := []rune(name)
+	if len(runes) > 30 {
+		name = string(runes[:30])
+	}
+	if len([]rune(name)) >= 2 && !h.service.Auth.CheckNameExists(name, 0) {
+		return name
+	}
+	digest := sha256.Sum256([]byte(subject))
+	return fmt.Sprintf("Apple 사용자 %x", digest[:4])
+}
+
+func (h *NuboOAuth2Handler) finishMobileLogin(c fiber.Ctx, userUid uint) error {
+	auth, refresh := h.service.OAuth.GenerateTokens(userUid)
+	if auth == "" || refresh == "" {
+		return utils.Err(c, "failed to generate account tokens", models.CODE_FAILED_OPERATION)
+	}
+	h.service.OAuth.SaveRefreshToken(userUid, refresh)
+	user := h.service.OAuth.GetUserInfo(userUid)
+	user.Token = auth
+	user.Refresh = refresh
+	return utils.Ok(c, user)
 }
 
 // 기존 Android 경로를 유지하면서 Android와 iOS의 Google ID 토큰을 검증한다.

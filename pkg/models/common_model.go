@@ -43,8 +43,10 @@ const (
 	TABLE_USER_TOKEN    Table = "user_token"
 	TABLE_USER_VERIFY   Table = "user_verification"
 	TABLE_USER_BADGE    Table = "user_badge"
+	TABLE_USER_OAUTH    Table = "user_oauth_identity"
 	TABLE_MAIL_CAMPAIGN Table = "mail_campaign"
 	TABLE_MAIL_DELIVERY Table = "mail_delivery"
+	TABLE_OAUTH_NONCE   Table = "oauth_nonce"
 	TABLE_SIGNUP_INVITE Table = "signup_invite"
 )
 

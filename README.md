@@ -336,6 +336,8 @@ OAUTH_GOOGLE_CLIENT_ID=
 OAUTH_GOOGLE_SECRET=
 # Android·iOS 앱이 발급받은 Google ID 토큰의 audience(Web application client ID). 미설정 시 위 client ID 사용
 OAUTH_GOOGLE_ANDROID_CLIENT_ID=
+# 쉼표로 구분한 Sign in with Apple audience(bundle ID 또는 Services ID)
+OAUTH_APPLE_CLIENT_IDS=
 OAUTH_NAVER_CLIENT_ID=
 OAUTH_NAVER_SECRET=
 OAUTH_KAKAO_CLIENT_ID=
@@ -351,6 +353,10 @@ FIREBASE_CREDENTIALS_FILE=
 
 - OAuth 키는 해당 소셜 로그인을 사용할 때만 필요합니다.
 - OAuth 제공자에는 `https://example.com/goapi/...` 형태의 콜백 경로를 정확히 등록해야 합니다.
+- Apple 로그인은 서버 발급 일회성 nonce와 Apple 공개 키로 ID 토큰을 검증합니다. 같은 이메일의 기존
+  계정은 자동 병합하지 않으며, 기존 방식으로 로그인한 뒤 인증된 `/auth/apple/link` 흐름에서 명시적으로
+  연결해야 합니다. Apple 연동을 처음 적용할 때는 서버 재시작 전에 `./bin/goapi install`로
+  `user_oauth_identity`, `oauth_nonce` 테이블을 생성하세요.
 - OpenAI 키는 자격 증명일 뿐 기능 활성화 동의로 간주하지 않습니다. 이미지 설명은 키와 함께 `OPENAI_IMAGE_DESCRIPTION_ENABLED=true`를 설정해야 호출됩니다.
 - 이미지 설명은 기본적으로 게시글당 최대 3개, 서버 전체 동시 1개로 제한됩니다. 모델과 상한은 위 환경 변수로 변경할 수 있으며 API 사용료는 운영자가 부담합니다.
 - 활성화 뒤 새로 첨부하는 이미지에는 한국어 설명과 검색어를 저장하며 `imagedesc` 검색으로 찾을 수 있습니다. 기존 첨부 이미지는 자동으로 소급 처리하지 않습니다.

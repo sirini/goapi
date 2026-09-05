@@ -169,7 +169,7 @@ func (r *NuboUserRepository) DeleteAccount(userUid uint) ([]string, error) {
 			return nil, err
 		}
 	}
-	for _, table := range []string{"push_device", "user_token", "user_permission", "user_access_log"} {
+	for _, table := range []string{"push_device", "user_token", "user_permission", "user_access_log", "user_oauth_identity", "oauth_nonce"} {
 		query := fmt.Sprintf("DELETE FROM %s%s WHERE user_uid = ?", configs.Env.Prefix, table)
 		if _, err := tx.Exec(query, userUid); err != nil {
 			return nil, err

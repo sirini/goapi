@@ -4,45 +4,47 @@ import "database/sql"
 
 // 모든 리포지토리들을 관리
 type Repository struct {
-	Admin        AdminRepository
-	Auth         AuthRepository
-	Badge        BadgeRepository
-	Board        BoardRepository
-	BoardEdit    BoardEditRepository
-	BoardView    BoardViewRepository
-	Chat         ChatRepository
-	Comment      CommentRepository
-	Home         HomeRepository
-	MailCampaign MailCampaignRepository
-	MailDelivery MailDeliveryRepository
-	SignupInvite SignupInviteRepository
-	Noti         NotiRepository
-	Push         PushRepository
-	Sync         SyncRepository
-	Trade        TradeRepository
-	User         UserRepository
+	Admin         AdminRepository
+	Auth          AuthRepository
+	Badge         BadgeRepository
+	Board         BoardRepository
+	BoardEdit     BoardEditRepository
+	BoardView     BoardViewRepository
+	Chat          ChatRepository
+	Comment       CommentRepository
+	Home          HomeRepository
+	MailCampaign  MailCampaignRepository
+	MailDelivery  MailDeliveryRepository
+	SignupInvite  SignupInviteRepository
+	Noti          NotiRepository
+	OAuthIdentity OAuthIdentityRepository
+	Push          PushRepository
+	Sync          SyncRepository
+	Trade         TradeRepository
+	User          UserRepository
 }
 
 // 모든 리포지토리를 생성
 func NewRepository(db *sql.DB) *Repository {
 	board := NewNuboBoardRepository(db)
 	return &Repository{
-		Admin:        NewNuboAdminRepository(db),
-		Auth:         NewNuboAuthRepository(db),
-		Badge:        NewNuboBadgeRepository(db),
-		Board:        board,
-		BoardEdit:    NewNuboBoardEditRepository(db, board),
-		BoardView:    NewNuboBoardViewRepository(db, board),
-		Chat:         NewNuboChatRepository(db),
-		Comment:      NewNuboCommentRepository(db, board),
-		Home:         NewNuboHomeRepository(db, board),
-		MailCampaign: NewNuboMailCampaignRepository(db),
-		MailDelivery: NewNuboMailDeliveryRepository(db),
-		SignupInvite: NewNuboSignupInviteRepository(db),
-		Noti:         NewNuboNotiRepository(db),
-		Push:         NewNuboPushRepository(db),
-		Sync:         NewNuboSyncRepository(db),
-		Trade:        NewNuboTradeRepository(db),
-		User:         NewNuboUserRepository(db),
+		Admin:         NewNuboAdminRepository(db),
+		Auth:          NewNuboAuthRepository(db),
+		Badge:         NewNuboBadgeRepository(db),
+		Board:         board,
+		BoardEdit:     NewNuboBoardEditRepository(db, board),
+		BoardView:     NewNuboBoardViewRepository(db, board),
+		Chat:          NewNuboChatRepository(db),
+		Comment:       NewNuboCommentRepository(db, board),
+		Home:          NewNuboHomeRepository(db, board),
+		MailCampaign:  NewNuboMailCampaignRepository(db),
+		MailDelivery:  NewNuboMailDeliveryRepository(db),
+		SignupInvite:  NewNuboSignupInviteRepository(db),
+		Noti:          NewNuboNotiRepository(db),
+		OAuthIdentity: NewNuboOAuthIdentityRepository(db),
+		Push:          NewNuboPushRepository(db),
+		Sync:          NewNuboSyncRepository(db),
+		Trade:         NewNuboTradeRepository(db),
+		User:          NewNuboUserRepository(db),
 	}
 }

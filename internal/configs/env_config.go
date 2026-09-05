@@ -45,6 +45,7 @@ type Config struct {
 	OAuthGoogleID           string
 	OAuthGoogleSecret       string
 	OAuthGoogleAndroidID    string
+	OAuthAppleClientIDs     string
 	OAuthNaverID            string
 	OAuthNaverSecret        string
 	OAuthKakaoID            string
@@ -178,6 +179,7 @@ func LoadConfig() error {
 		OAuthGoogleID:           getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
 		OAuthGoogleSecret:       getEnv("OAUTH_GOOGLE_SECRET", ""),
 		OAuthGoogleAndroidID:    getEnv("OAUTH_GOOGLE_ANDROID_CLIENT_ID", ""),
+		OAuthAppleClientIDs:     getEnv("OAUTH_APPLE_CLIENT_IDS", ""),
 		OAuthNaverID:            getEnv("OAUTH_NAVER_CLIENT_ID", ""),
 		OAuthNaverSecret:        getEnv("OAUTH_NAVER_SECRET", ""),
 		OAuthKakaoID:            getEnv("OAUTH_KAKAO_CLIENT_ID", ""),
@@ -202,6 +204,24 @@ func GetGoogleAndroidClientID() string {
 		return clientID
 	}
 	return strings.TrimSpace(Env.OAuthGoogleID)
+}
+
+// GetAppleClientIDs는 쉼표로 구분한 iOS bundle ID를 중복 없이 반환한다.
+func GetAppleClientIDs() []string {
+	seen := make(map[string]struct{})
+	result := make([]string, 0)
+	for _, value := range strings.Split(Env.OAuthAppleClientIDs, ",") {
+		clientID := strings.TrimSpace(value)
+		if clientID == "" {
+			continue
+		}
+		if _, exists := seen[clientID]; exists {
+			continue
+		}
+		seen[clientID] = struct{}{}
+		result = append(result, clientID)
+	}
+	return result
 }
 
 // 숫자 형태로 반환이 필요한 항목 정의

@@ -1,9 +1,13 @@
 package services
 
 import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirini/goapi/internal/configs"
@@ -19,6 +23,13 @@ type OAuthService interface {
 	SaveRefreshToken(userUid uint, token string)
 	GetUserUid(id string) uint
 	GetUserInfo(userUid uint) models.MyInfoResult
+	IssueAppleNonce(purpose string, userUid uint) (string, error)
+	ConsumeAppleNonce(purpose string, userUid uint, nonce string) (bool, error)
+	FindAppleUser(subject string) (uint, bool, error)
+	AppleLinked(userUid uint) (bool, error)
+	TouchAppleIdentity(subject string) error
+	LinkAppleIdentity(userUid uint, identity models.AppleIdentity) error
+	RegisterAppleUser(identity models.AppleIdentity, name string) (uint, error)
 }
 
 type NuboOAuthService struct {
@@ -91,4 +102,54 @@ func (s *NuboOAuthService) GetUserUid(id string) uint {
 // 회원 정보 가져오기
 func (s *NuboOAuthService) GetUserInfo(userUid uint) models.MyInfoResult {
 	return s.repos.Auth.FindMyInfoByUid(userUid)
+}
+
+const appleOAuthProvider = "apple"
+const appleNonceLifetime = 5 * time.Minute
+
+func (s *NuboOAuthService) IssueAppleNonce(purpose string, userUid uint) (string, error) {
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
+		return "", err
+	}
+	nonce := base64.RawURLEncoding.EncodeToString(random)
+	expires := time.Now().Add(appleNonceLifetime).UnixMilli()
+	if err := s.repos.OAuthIdentity.SaveNonce(appleOAuthProvider, purpose, userUid, utils.GetHashedString(nonce), expires); err != nil {
+		return "", err
+	}
+	return nonce, nil
+}
+
+func (s *NuboOAuthService) ConsumeAppleNonce(purpose string, userUid uint, nonce string) (bool, error) {
+	return s.repos.OAuthIdentity.ConsumeNonce(
+		appleOAuthProvider, purpose, userUid, utils.GetHashedString(nonce), time.Now().UnixMilli(),
+	)
+}
+
+func (s *NuboOAuthService) FindAppleUser(subject string) (uint, bool, error) {
+	userUid, err := s.repos.OAuthIdentity.FindUser(appleOAuthProvider, subject)
+	if err == sql.ErrNoRows {
+		return 0, false, nil
+	}
+	return userUid, err == nil, err
+}
+
+func (s *NuboOAuthService) AppleLinked(userUid uint) (bool, error) {
+	return s.repos.OAuthIdentity.HasProvider(userUid, appleOAuthProvider)
+}
+
+func (s *NuboOAuthService) TouchAppleIdentity(subject string) error {
+	return s.repos.OAuthIdentity.Touch(appleOAuthProvider, subject, time.Now().UnixMilli())
+}
+
+func (s *NuboOAuthService) LinkAppleIdentity(userUid uint, identity models.AppleIdentity) error {
+	return s.repos.OAuthIdentity.Link(
+		userUid, appleOAuthProvider, identity.Subject, identity.Email, time.Now().UnixMilli(),
+	)
+}
+
+func (s *NuboOAuthService) RegisterAppleUser(identity models.AppleIdentity, name string) (uint, error) {
+	return s.repos.OAuthIdentity.CreateUserAndLink(
+		appleOAuthProvider, identity.Subject, identity.Email, uuid.NewString(), name, time.Now().UnixMilli(),
+	)
 }

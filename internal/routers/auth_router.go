@@ -34,6 +34,11 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 
 	// 배포된 Android와 새 iOS가 공유하는 기존 모바일 OAuth 라우터
 	auth.Post("/android/google", h.OAuth2.AndroidGoogleOAuthHandler)
+	auth.Post("/apple/nonce", h.OAuth2.AppleNonceHandler)
+	auth.Post("/apple", h.OAuth2.AppleSignInHandler)
+	auth.Post("/apple/link/nonce", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleLinkNonceHandler)
+	auth.Post("/apple/link", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleLinkHandler)
+	auth.Get("/apple/status", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleStatusHandler)
 
 	// 사용자 관련 라우터들
 	user := auth.Group("/user")

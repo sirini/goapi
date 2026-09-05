@@ -82,6 +82,17 @@ func TestGetGoogleAndroidClientID(t *testing.T) {
 	}
 }
 
+func TestGetAppleClientIDsTrimsAndDeduplicates(t *testing.T) {
+	old := Env
+	t.Cleanup(func() { Env = old })
+	Env = Config{OAuthAppleClientIDs: " me.sensta.ios.debug, me.sensta.ios,me.sensta.ios, "}
+
+	got := GetAppleClientIDs()
+	if len(got) != 2 || got[0] != "me.sensta.ios.debug" || got[1] != "me.sensta.ios" {
+		t.Fatalf("Apple client IDs = %#v", got)
+	}
+}
+
 func TestLoadConfigMissingFileDoesNotReplaceCurrentConfig(t *testing.T) {
 	original := Env
 	t.Cleanup(func() { Env = original })

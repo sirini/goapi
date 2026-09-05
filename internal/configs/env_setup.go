@@ -120,6 +120,9 @@ func Update(db *sql.DB, prefix string) {
 // InstallSchema adds tables and columns introduced after the initial installation.
 // It is safe to run repeatedly with `goapi install`.
 func InstallSchema(db *sql.DB, prefix string) error {
+	if err := createOAuthTables(db, prefix); err != nil {
+		return err
+	}
 	createSkinSettingTable(db, prefix)
 	if err := createBadgeTables(db, prefix); err != nil {
 		return err
@@ -521,6 +524,7 @@ func createDatabase(db *sql.DB, dbName string) bool {
 // 테이블들 생성하기
 func createTables(db *sql.DB, dbInfo DBInfo) {
 	createUserTable(db, dbInfo.Prefix)
+	_ = createOAuthTables(db, dbInfo.Prefix)
 	createUserTokenTable(db, dbInfo.Prefix)
 	createUserPermissionTable(db, dbInfo.Prefix)
 	createUserVerificationTable(db, dbInfo.Prefix)
@@ -551,6 +555,40 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createTradeTable(db, dbInfo.Prefix)
 	_ = createMailCampaignTable(db, dbInfo.Prefix)
 	_ = createMailDeliveryTable(db, dbInfo.Prefix)
+}
+
+// OAuth 제공자의 고유 subject와 일회성 nonce를 사용자 계정과 분리해 보관한다.
+func createOAuthTables(db *sql.DB, prefix string) error {
+	identityQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %suser_oauth_identity (
+  uid BIGINT UNSIGNED NOT NULL auto_increment,
+  user_uid INT UNSIGNED NOT NULL,
+  provider VARCHAR(30) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  subject VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  email VARCHAR(100) NOT NULL DEFAULT '',
+  created BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  last_used BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_oauth_provider_subject (provider, subject),
+  UNIQUE KEY uq_oauth_provider_user (provider, user_uid),
+  KEY (user_uid),
+  FOREIGN KEY (user_uid) REFERENCES %suser(uid) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix)
+	if _, err := db.Exec(identityQuery); err != nil {
+		return err
+	}
+
+	nonceQuery := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %soauth_nonce (
+  digest CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  provider VARCHAR(30) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  purpose VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  user_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  expires BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (digest),
+  KEY idx_oauth_nonce_expiry (expires),
+  KEY idx_oauth_nonce_user (provider, purpose, user_uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix)
+	_, err := db.Exec(nonceQuery)
+	return err
 }
 
 // 배지 정의와 획득 내역은 업적만 다룬다. 관리자 여부 같은 현재 상태는 기존 권한 응답으로 유지한다.
