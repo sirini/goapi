@@ -169,7 +169,7 @@ Docker와 Buildx가 준비된 환경에서 다음 스크립트를 실행하세�
   /path/to/release/licenses/sharp-libvips
 ```
 
-빌드 과정은 공식 npm 패키지와 sharp-libvips 소스의 고정 버전·SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. glibc는 CPU가 x86-64-v2를 만족하면 공식 최적화판을, 그렇지 않으면 `-march=x86-64` 호환판을 자동 선택합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04에서 두 변형을 시험하고, SSE4가 없는 QEMU `qemu64` CPU에서도 JPEG→WebP 변환을 검증합니다.
+빌드 과정은 공식 npm 패키지와 sharp-libvips 소스의 고정 버전·SHA-256을 확인하고, GOAPI에 상대 경로(`$ORIGIN/../lib`)를 기록합니다. glibc는 CPU가 x86-64-v2를 만족하면 공식 최적화판을, 그렇지 않으면 `-march=x86-64` 호환판을 자동 선택합니다. 시스템 libvips가 없는 Ubuntu 22.04와 24.04에서 호스트 CPU에 맞는 변형을 시험하고, QEMU `qemu64`와 `max` CPU에서 각각 호환판·최적화판의 자동 선택과 JPEG→WebP 변환을 검증합니다. 빌드 호스트가 x86-64-v2를 지원하지 않는 VM이어도 이 검증을 수행할 수 있습니다.
 
 빌드한 파일을 NUBO 디렉터리로 옮긴 뒤 그 위치에서 실행합니다.
 

@@ -132,7 +132,7 @@ COPY --from=sharp-libvips-compat /opt/THIRD-PARTY-NOTICES.md /opt/nubo/licenses/
 COPY --from=sharp-libvips-compat /opt/compat-build.json /opt/nubo/licenses/sharp-libvips/compat-build.json
 RUN ldd /opt/nubo/bin/goapi-linux \
     && ! ldd /opt/nubo/bin/goapi-linux | grep --quiet "not found" \
-    && ldd /opt/nubo/bin/goapi-linux | grep --quiet "/opt/nubo/bin/../lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3" \
+    && ldd /opt/nubo/bin/goapi-linux | grep --extended-regexp --quiet '/opt/nubo/bin/\.\./lib/(glibc-hwcaps/x86-64-v2/)?libvips-cpp\.so\.8\.18\.3 ' \
     && readelf --dynamic /opt/nubo/bin/goapi-linux | grep --quiet '\$ORIGIN/../lib' \
     && ! readelf --version-info /opt/nubo/bin/goapi-linux | grep --extended-regexp "GLIBC_2\.(3[6-9]|[4-9][0-9])" \
     && /opt/nubo/bin/imageprocessor.test \
@@ -148,7 +148,7 @@ RUN apt-get update \
 COPY --from=verify /opt/nubo /opt/nubo
 RUN ldd /opt/nubo/bin/goapi-linux \
     && ! ldd /opt/nubo/bin/goapi-linux | grep --quiet "not found" \
-    && ldd /opt/nubo/bin/goapi-linux | grep --quiet "/opt/nubo/bin/../lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3" \
+    && ldd /opt/nubo/bin/goapi-linux | grep --extended-regexp --quiet '/opt/nubo/bin/\.\./lib/(glibc-hwcaps/x86-64-v2/)?libvips-cpp\.so\.8\.18\.3 ' \
     && /opt/nubo/bin/imageprocessor.test \
     && /opt/nubo/bin/image-runtime-probe
 
@@ -160,7 +160,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=verify-newer /opt/nubo /opt/nubo
-RUN qemu-x86_64 -cpu qemu64 /opt/nubo/bin/image-runtime-probe
+# 빌드 호스트가 x86-64-v2를 지원하지 않아도 두 CPU별 자동 선택과 변환을 검증합니다.
+RUN qemu-x86_64 -cpu qemu64 /lib64/ld-linux-x86-64.so.2 --list /opt/nubo/bin/image-runtime-probe \
+        | grep --fixed-strings '/opt/nubo/bin/../lib/libvips-cpp.so.8.18.3 ' \
+    && qemu-x86_64 -cpu qemu64 /opt/nubo/bin/image-runtime-probe \
+    && qemu-x86_64 -cpu max /lib64/ld-linux-x86-64.so.2 --list /opt/nubo/bin/image-runtime-probe \
+        | grep --fixed-strings '/opt/nubo/bin/../lib/glibc-hwcaps/x86-64-v2/libvips-cpp.so.8.18.3 ' \
+    && qemu-x86_64 -cpu max /opt/nubo/bin/image-runtime-probe
 
 FROM scratch AS artifact
 COPY --from=verify-compat /opt/nubo/bin/goapi-linux /goapi-linux
