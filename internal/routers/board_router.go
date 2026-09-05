@@ -15,6 +15,7 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	board.Get("/original/transfer", h.Board.OriginalImageTransferHandler)
 	board.Get("/tag/recent", h.Board.BoardRecentTagListHandler)
 	board.Get("/user/latest", h.Board.LatestUserContentHandler)
+	board.Get("/user/summary", h.Board.PublicUserSummaryHandler)
 	board.Get("/transfer", h.Board.TransferHandler)
 
 	protected := board.Group("/", middlewares.JWTMiddleware(h.CanAuthenticate))

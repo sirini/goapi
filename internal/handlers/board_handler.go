@@ -16,6 +16,7 @@ import (
 )
 
 type BoardHandler interface {
+	PublicUserSummaryHandler(c fiber.Ctx) error
 	BoardListHandler(c fiber.Ctx) error
 	BoardRecentTagListHandler(c fiber.Ctx) error
 	BoardViewHandler(c fiber.Ctx) error
@@ -440,4 +441,32 @@ func (h *NuboBoardHandler) TransferHandler(c fiber.Ctx) error {
 
 	filePath := fmt.Sprintf(".%s", data.Path)
 	return c.Download(filePath, data.Name)
+}
+
+// 공개 게시판의 공개 작품만 집계하며 본인 스튜디오 인증 경로는 변경하지 않는다.
+func (h *NuboBoardHandler) PublicUserSummaryHandler(c fiber.Ctx) error {
+	target, err := strconv.ParseUint(c.Query("targetUserUid"), 10, 32)
+	if err != nil || target < 1 {
+		return utils.Err(c, "Invalid user", models.CODE_INVALID_PARAMETER)
+	}
+	boardUid := h.service.Board.GetBoardUid(strings.TrimSpace(c.Query("id")))
+	if boardUid < 1 {
+		return utils.Err(c, "Invalid board", models.CODE_INVALID_PARAMETER)
+	}
+	config := h.service.Board.GetBoardConfig(boardUid)
+	if config.Uid != boardUid || config.Level.List > 0 || config.Level.View > 0 {
+		return utils.Err(c, "Public access unavailable", models.CODE_FAILED_OPERATION)
+	}
+	user, err := h.service.User.GetUserInfo(uint(target))
+	if err != nil || user.Uid != uint(target) || user.Blocked {
+		return utils.Err(c, "User unavailable", models.CODE_FAILED_OPERATION)
+	}
+	result, err := h.service.Board.GetStudio(models.BoardStudioParam{
+		BoardUid: boardUid, UserUid: uint(target), Page: 1, Limit: 1,
+		Sort: models.BOARD_STUDIO_SORT_RECENT, PublicOnly: true, SummaryOnly: true,
+	})
+	if err != nil {
+		return utils.Err(c, "Cannot load public summary", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result.Summary)
 }

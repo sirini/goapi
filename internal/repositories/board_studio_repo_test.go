@@ -190,3 +190,25 @@ func TestGetStudioPropagatesRepositoryErrors(t *testing.T) {
 		}
 	})
 }
+
+func TestPublicSummaryExcludesSecretAndDoesNotLoadPosts(t *testing.T) {
+	withBoardRepositoryTestPrefix(t)
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	mock.ExpectQuery(`(?s)SELECT.*COUNT\(\*\).*FROM nubo_post AS p.*p\.board_uid = \? AND p\.user_uid = \? AND p\.status IN \(\?, \?\)`).
+		WithArgs(uint(7), uint(11), models.CONTENT_NORMAL, models.CONTENT_NORMAL).
+		WillReturnRows(studioSummaryRows(3, 5, 61, 4, 3))
+	result, err := NewNuboBoardRepository(db).GetStudio(models.BoardStudioParam{BoardUid: 7, UserUid: 11, Page: 1, Limit: 1, Sort: models.BOARD_STUDIO_SORT_RECENT, PublicOnly: true, SummaryOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.PostCount != 3 || result.Summary.PhotoCount != 5 || result.Summary.LikeCount != 4 || len(result.Posts.Items) != 0 {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

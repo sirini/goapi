@@ -84,6 +84,11 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 		return result, err
 	}
 
+	// 공개 통계는 비공개 작품을 포함하지 않는다. 본인 스튜디오의 기존 범위는 유지한다.
+	secondStatus := models.CONTENT_SECRET
+	if param.PublicOnly {
+		secondStatus = models.CONTENT_NORMAL
+	}
 	prefix := configs.Env.Prefix
 	imageCount := studioImageCountExpression(prefix)
 	likeCount := studioLikeCountExpression(prefix)
@@ -108,7 +113,7 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 		param.BoardUid,
 		param.UserUid,
 		models.CONTENT_NORMAL,
-		models.CONTENT_SECRET,
+		secondStatus,
 	).Scan(
 		&result.Summary.PostCount,
 		&result.Summary.PhotoCount,
@@ -120,6 +125,9 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 		return result, err
 	}
 
+	if param.SummaryOnly {
+		return result, nil
+	}
 	result.Posts.TotalCount = result.Summary.PostCount
 	result.Posts.HasNext = uint64(param.Page)*uint64(param.Limit) < result.Posts.TotalCount
 	offset := uint64(param.Page-1) * uint64(param.Limit)
@@ -155,7 +163,7 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 		param.BoardUid,
 		param.UserUid,
 		models.CONTENT_NORMAL,
-		models.CONTENT_SECRET,
+		secondStatus,
 		param.Limit,
 		offset,
 	)

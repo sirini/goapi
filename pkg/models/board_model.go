@@ -225,11 +225,13 @@ const (
 
 // 사용자 작품 스튜디오 조회 파라미터 정의
 type BoardStudioParam struct {
-	BoardUid uint
-	UserUid  uint
-	Page     uint
-	Limit    uint
-	Sort     BoardStudioSort
+	PublicOnly  bool
+	SummaryOnly bool
+	BoardUid    uint
+	UserUid     uint
+	Page        uint
+	Limit       uint
+	Sort        BoardStudioSort
 }
 
 // 사용자 작품 스튜디오 누적 성과 정의
