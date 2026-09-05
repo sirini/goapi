@@ -974,7 +974,7 @@ func (s *NuboBoardService) WritePost(param models.EditorWriteParam) (uint, error
 	}
 	grantAchievement(s.repos.Badge, param.UserUid, models.BADGE_FIRST_POST, "post", postUid)
 
-	if param.ClientKey == models.CLIENT_SENSTA_ANDROID && attachmentsSaved && containsImage(param.Files) && s.repos.Badge != nil {
+	if models.IsSenstaClient(param.ClientKey) && attachmentsSaved && containsImage(param.Files) && s.repos.Badge != nil {
 		now := uint64(time.Now().UnixMilli())
 		if err := s.repos.Badge.RecordPostOrigin(models.PostOriginParam{
 			PostUid: postUid, ClientKey: param.ClientKey, AppVersion: param.AppVersion, RecordedAt: now,

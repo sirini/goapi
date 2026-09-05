@@ -92,7 +92,7 @@ func CheckWriteParams(c fiber.Ctx) (models.EditorWriteParam, error) {
 		ClientKey:   strings.ToLower(strings.TrimSpace(c.Get(models.CLIENT_HEADER))),
 		AppVersion:  CutString(strings.TrimSpace(c.Get(models.APP_VERSION_HEADER)), 40),
 	}
-	if result.ClientKey != models.CLIENT_SENSTA_ANDROID {
+	if !models.IsSenstaClient(result.ClientKey) {
 		result.ClientKey = ""
 		result.AppVersion = ""
 	}

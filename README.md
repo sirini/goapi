@@ -256,8 +256,9 @@ GOAPI의 배지는 한 번 획득하면 계속 유지되는 업적만 다룹니�
 - 내장 업적은 `first-post`, `first-comment`, `sensta-app`입니다. 첫 글과 첫 댓글은 설치 시 기존 활동을
   한 번만 소급하며, Sensta 앱 업적은 사진 첨부 저장에 성공한 새 게시물의 출처를 `post_origin`에 남긴
   뒤 수여합니다.
-- Sensta Android는 `X-Nubo-Client: sensta-android`와 `X-Nubo-App-Version`을 보냅니다. 이 헤더는 앱
-  출처 표식일 뿐 인증 수단이 아니며, 실제 사용자는 JWT로 판정합니다.
+- Sensta Android와 iOS는 각각 `X-Nubo-Client: sensta-android`, `X-Nubo-Client: sensta-ios`와
+  `X-Nubo-App-Version`을 보냅니다. 이 헤더는 앱 출처 표식일 뿐 인증 수단이 아니며, 실제 사용자는
+  JWT로 판정합니다.
 - 공개 프로필은 활성 업적 전체를 반환하고 게시물·댓글 작성자는 `show_inline` 업적만 반환합니다.
   클라이언트는 특정 배지 key나 달성 규칙을 다시 판정하지 않습니다.
 - `GET|PATCH /auth/user/achievements`는 최대 10개의 미확인 업적 조회와 확인 저장에 사용합니다.

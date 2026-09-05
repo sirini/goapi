@@ -6,9 +6,14 @@ const (
 	BADGE_SENSTA_APP    = "sensta-app"
 
 	CLIENT_SENSTA_ANDROID = "sensta-android"
+	CLIENT_SENSTA_IOS     = "sensta-ios"
 	CLIENT_HEADER         = "X-Nubo-Client"
 	APP_VERSION_HEADER    = "X-Nubo-App-Version"
 )
+
+func IsSenstaClient(clientKey string) bool {
+	return clientKey == CLIENT_SENSTA_ANDROID || clientKey == CLIENT_SENSTA_IOS
+}
 
 // UserBadge is an achievement a user keeps after qualifying for it once.
 type UserBadge struct {
