@@ -5,25 +5,18 @@ import (
 	"testing"
 )
 
-func TestNormalizeChatMessage(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  string
-		want   string
-		wantOK bool
-	}{
-		{name: "trims whitespace", input: "  안녕하세요  ", want: "안녕하세요", wantOK: true},
-		{name: "rejects blank", input: " \n\t ", want: "", wantOK: false},
-		{name: "accepts limit", input: strings.Repeat("가", 2000), want: strings.Repeat("가", 2000), wantOK: true},
-		{name: "rejects over limit", input: strings.Repeat("가", 2001), want: strings.Repeat("가", 2001), wantOK: false},
+func TestNormalizeChatMessageUsesDatabaseCharacterLimit(t *testing.T) {
+	message, valid := normalizeChatMessage("  안녕하세요  ")
+	if !valid || message != "안녕하세요" {
+		t.Fatalf("normalized message = %q, valid = %v", message, valid)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := normalizeChatMessage(tt.input)
-			if got != tt.want || ok != tt.wantOK {
-				t.Fatalf("normalizeChatMessage() = (%q, %v), want (%q, %v)", got, ok, tt.want, tt.wantOK)
-			}
-		})
+	if _, valid := normalizeChatMessage(strings.Repeat("가", 2000)); !valid {
+		t.Fatal("2000 Unicode characters were rejected")
+	}
+	if _, valid := normalizeChatMessage(strings.Repeat("가", 2001)); valid {
+		t.Fatal("2001 Unicode characters were accepted")
+	}
+	if _, valid := normalizeChatMessage(" \n\t "); valid {
+		t.Fatal("whitespace-only message was accepted")
 	}
 }

@@ -14,6 +14,7 @@ type ChatRepository interface {
 	InsertNewChat(actionUserUid uint, targetUserUid uint, message string) uint
 	LoadChatList(userUid uint, limit uint) ([]models.ChatItem, error)
 	LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error)
+	MarkChatRead(actionUserUid uint, targetUserUid uint, throughUid uint, readAt uint64) (int64, error)
 }
 
 type NuboChatRepository struct {
@@ -81,9 +82,7 @@ func chatListQuery(prefix string) string {
 
 // 상대방과의 대화 내용 가져오기
 func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error) {
-	query := fmt.Sprintf(`SELECT uid, from_uid, message, timestamp FROM %s%s 
-												WHERE (to_uid = ? AND from_uid = ?) OR (to_uid = ? AND from_uid = ?)
-												ORDER BY uid DESC LIMIT ?`, configs.Env.Prefix, models.TABLE_CHAT)
+	query := chatHistoryQuery(configs.Env.Prefix)
 
 	rows, err := r.db.Query(query, targetUserUid, actionUserUid, actionUserUid, targetUserUid, limit)
 	if err != nil {
@@ -94,7 +93,7 @@ func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid u
 	items := make([]models.ChatHistory, 0)
 	for rows.Next() {
 		history := models.ChatHistory{}
-		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp); err != nil {
+		if err := rows.Scan(&history.Uid, &history.UserUid, &history.Message, &history.Timestamp, &history.ReadAt); err != nil {
 			return nil, err
 		}
 		items = append(items, history)
@@ -104,4 +103,25 @@ func (r *NuboChatRepository) LoadChatHistory(actionUserUid uint, targetUserUid u
 	}
 	slices.Reverse(items)
 	return items, nil
+}
+
+func chatHistoryQuery(prefix string) string {
+	return fmt.Sprintf(`SELECT uid, from_uid, message, timestamp, read_at FROM %s%s
+		WHERE (to_uid = ? AND from_uid = ?) OR (to_uid = ? AND from_uid = ?)
+		ORDER BY uid DESC LIMIT ?`, prefix, models.TABLE_CHAT)
+}
+
+// 현재 사용자가 상대방에게서 받은 쪽지만 마지막으로 표시한 지점까지 읽음 처리한다.
+func (r *NuboChatRepository) MarkChatRead(actionUserUid uint, targetUserUid uint, throughUid uint, readAt uint64) (int64, error) {
+	query := chatReadQuery(configs.Env.Prefix)
+	result, err := r.db.Exec(query, readAt, actionUserUid, targetUserUid, throughUid)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func chatReadQuery(prefix string) string {
+	return fmt.Sprintf(`UPDATE %s%s SET read_at = ?
+		WHERE to_uid = ? AND from_uid = ? AND uid <= ? AND read_at = 0`, prefix, models.TABLE_CHAT)
 }

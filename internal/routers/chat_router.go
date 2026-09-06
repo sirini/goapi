@@ -12,4 +12,5 @@ func RegisterChatRouters(api fiber.Router, h *handlers.Handler) {
 	chat.Get("/list", h.Chat.LoadChatListHandler)
 	chat.Get("/history", h.Chat.LoadChatHistoryHandler)
 	chat.Post("/save", h.Chat.SaveChatHandler)
+	chat.Patch("/read", h.Chat.ReadChatHandler)
 }

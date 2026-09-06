@@ -373,6 +373,23 @@ FIREBASE_CREDENTIALS_FILE=/etc/nubo/firebase-service-account.json
 
 두 값을 비우면 푸시 발송만 안전하게 비활성화되며 기존 알림 목록은 계속 동작합니다. 앱은 Firebase 프로젝트 설정이 없을 때 주기 조회 방식으로 자동 대체합니다. `push_device` 테이블이 없는 기존 설치는 새 실행 파일로 `install` 명령을 한 번 실행해 재실행 가능한 스키마 업데이트를 적용하세요.
 
+### 1:1 메시지 읽음 상태
+
+`GET /chat/history`의 각 메시지는 기존 필드와 함께 epoch milliseconds 형식의 `readAt`을 반환합니다.
+아직 읽지 않은 메시지는 `0`입니다. 수신 클라이언트가 대화 화면에 실제로 표시한 마지막 수신 메시지의
+UID를 `PATCH /chat/read` body `{ "targetUserUid": 상대방UID, "throughUid": 마지막수신메시지UID }`로
+보내면, 서버는 JWT 사용자에게 그 상대방이 보낸 메시지만 해당 지점까지 읽음 처리합니다. 다른 사용자의
+대화나 현재 사용자가 보낸 메시지는 갱신하지 않습니다.
+
+클라이언트는 대화 화면이 활성화된 동안에만 가벼운 주기 조회로 `/chat/history`를 다시 읽을 수 있습니다.
+이 계약에는 WebSocket, 사진 첨부, 수신 메시지 일일 이메일이 포함되지 않습니다. 메시지는 앞뒤 공백을
+제거한 뒤 최대 2,000 Unicode 문자까지 저장합니다.
+
+기존 사이트는 새 runtime으로 재시작하기 전에 DB를 외부에 백업하고 NUBO 작업 공간에서
+`NUBO_ENV_FILE="$PWD/.env" ./bin/goapi install`을 한 번 실행해야 합니다. 이 명령은 `chat.read_at`,
+2,000자 메시지 컬럼과 읽음 갱신용 인덱스를 반복 실행 가능하게 준비합니다. 적용 후의 일반 실행과 이후
+재시작에는 `install`을 붙이지 않습니다.
+
 ## 개발과 검증
 
 ```bash

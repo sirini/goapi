@@ -148,6 +148,9 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if err := ensureNotificationSenderForeignKey(db, prefix); err != nil {
 		return err
 	}
+	if err := ensureChatSchema(db, prefix); err != nil {
+		return err
+	}
 	if err := ensureTradeSchema(db, prefix); err != nil {
 		return err
 	}
@@ -159,6 +162,46 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	}
 	if count == 0 {
 		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %sboard ADD COLUMN skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board' AFTER type", prefix))
+	}
+	return err
+}
+
+func ensureChatSchema(db *sql.DB, prefix string) error {
+	table := prefix + "chat"
+	var count uint
+	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'read_at'`, table).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN read_at BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER timestamp", table)); err != nil {
+			return err
+		}
+	}
+
+	var messageLength sql.NullInt64
+	err = db.QueryRow(`SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'message' LIMIT 1`, table).Scan(&messageLength)
+	if err != nil {
+		return err
+	}
+	if !messageLength.Valid {
+		return fmt.Errorf("chat message column metadata is unavailable")
+	}
+	if messageLength.Int64 < 2000 {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN message VARCHAR(2000) NOT NULL DEFAULT ''", table)); err != nil {
+			return err
+		}
+	}
+
+	err = db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = 'idx_chat_recipient_sender_uid'`, table).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD KEY idx_chat_recipient_sender_uid (to_uid, from_uid, uid)", table))
 	}
 	return err
 }
@@ -871,11 +914,13 @@ func createChatTable(db *sql.DB, prefix string) {
   uid INT UNSIGNED NOT NULL auto_increment,
   to_uid INT UNSIGNED NOT NULL DEFAULT 0,
   from_uid INT UNSIGNED NOT NULL DEFAULT 0,
-  message VARCHAR(1000) NOT NULL DEFAULT '',
+  message VARCHAR(2000) NOT NULL DEFAULT '',
   timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  read_at BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (to_uid),
   KEY (from_uid),
+  KEY idx_chat_recipient_sender_uid (to_uid, from_uid, uid),
   CONSTRAINT fk_ct FOREIGN KEY (to_uid) REFERENCES %suser(uid),
   CONSTRAINT fk_cf FOREIGN KEY (from_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix)

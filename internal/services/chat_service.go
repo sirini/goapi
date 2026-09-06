@@ -1,15 +1,21 @@
 package services
 
 import (
+	"errors"
+	"time"
+
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/pkg/models"
 	"github.com/sirini/goapi/pkg/utils"
 )
 
+var ErrChatBlocked = errors.New("chat is unavailable because of a block relation")
+
 type ChatService interface {
 	GetChattingList(userUid uint, limit uint) ([]models.ChatItem, error)
 	GetChattingHistory(actionUserUid uint, targetUserUid uint, limit uint) ([]models.ChatHistory, error)
 	SaveChatMessage(actionUserUid uint, targetUserUid uint, message string) uint
+	MarkChatRead(actionUserUid uint, targetUserUid uint, throughUid uint) (models.ChatReadResult, error)
 }
 
 type NuboChatService struct {
@@ -56,6 +62,23 @@ func (s *NuboChatService) SaveChatMessage(actionUserUid uint, targetUserUid uint
 		s.notifications.Save(parameter, false)
 	}
 	return insertId
+}
+
+// 상대방에게서 받은 쪽지를 현재 화면에 표시한 마지막 지점까지 읽음 처리한다.
+func (s *NuboChatService) MarkChatRead(actionUserUid uint, targetUserUid uint, throughUid uint) (models.ChatReadResult, error) {
+	if s.hasBlockRelation(actionUserUid, targetUserUid) {
+		return models.ChatReadResult{}, ErrChatBlocked
+	}
+	readAt := uint64(time.Now().UnixMilli())
+	updatedCount, err := s.repos.Chat.MarkChatRead(actionUserUid, targetUserUid, throughUid, readAt)
+	if err != nil {
+		return models.ChatReadResult{}, err
+	}
+	return models.ChatReadResult{
+		ThroughUid:   throughUid,
+		ReadAt:       readAt,
+		UpdatedCount: updatedCount,
+	}, nil
 }
 
 func (s *NuboChatService) hasBlockRelation(actionUserUid uint, targetUserUid uint) bool {

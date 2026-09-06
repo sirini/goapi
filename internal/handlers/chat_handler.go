@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -15,6 +16,7 @@ type ChatHandler interface {
 	LoadChatListHandler(c fiber.Ctx) error
 	LoadChatHistoryHandler(c fiber.Ctx) error
 	SaveChatHandler(c fiber.Ctx) error
+	ReadChatHandler(c fiber.Ctx) error
 }
 
 type NuboChatHandler struct {
@@ -84,6 +86,27 @@ func (h *NuboChatHandler) SaveChatHandler(c fiber.Ctx) error {
 		return utils.Err(c, "Failed to send a message", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, insertId)
+}
+
+// 현재 화면에 표시된 상대방 쪽지를 읽음 처리한다.
+func (h *NuboChatHandler) ReadChatHandler(c fiber.Ctx) error {
+	actionUserUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	payload := models.ChatReadRequest{}
+	if err := c.Bind().Body(&payload); err != nil {
+		return utils.Err(c, "Invalid parameters", models.CODE_INVALID_PARAMETER)
+	}
+	if payload.TargetUserUid < 1 || payload.ThroughUid < 1 || payload.TargetUserUid == actionUserUid {
+		return utils.Err(c, "Invalid target user or message", models.CODE_INVALID_PARAMETER)
+	}
+
+	result, err := h.service.Chat.MarkChatRead(actionUserUid, payload.TargetUserUid, payload.ThroughUid)
+	if errors.Is(err, services.ErrChatBlocked) {
+		return utils.Err(c, err.Error(), models.CODE_NO_PERMISSION)
+	}
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, result)
 }
 
 // 채팅 메시지 앞뒤 공백을 정리하고 데이터베이스에 저장할 수 있는 길이인지 확인한다.
