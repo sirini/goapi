@@ -63,15 +63,7 @@ func (s *firebasePushSender) Send(
 	for start := 0; start < len(installationIDs); start += 500 {
 		end := min(start+500, len(installationIDs))
 		batch := installationIDs[start:end]
-		response, err := s.client.SendEachForMulticast(ctx, &messaging.MulticastMessage{
-			Fids: batch,
-			Data: message.Data,
-			Notification: &messaging.Notification{
-				Title: message.Title,
-				Body:  message.Body,
-			},
-			Android: &messaging.AndroidConfig{Priority: "high"},
-		})
+		response, err := s.client.SendEachForMulticast(ctx, buildFirebaseMulticastMessage(batch, message))
 		if err != nil {
 			return invalid, err
 		}
@@ -82,4 +74,25 @@ func (s *firebasePushSender) Send(
 		}
 	}
 	return invalid, nil
+}
+
+func buildFirebaseMulticastMessage(installationIDs []string, message PushMessage) *messaging.MulticastMessage {
+	return &messaging.MulticastMessage{
+		Fids: installationIDs,
+		Data: message.Data,
+		Notification: &messaging.Notification{
+			Title: message.Title,
+			Body:  message.Body,
+		},
+		Android: &messaging.AndroidConfig{Priority: "high"},
+		APNS: &messaging.APNSConfig{
+			Headers: map[string]string{
+				"apns-priority":  "10",
+				"apns-push-type": "alert",
+			},
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{Sound: "default"},
+			},
+		},
+	}
 }
