@@ -1,6 +1,11 @@
 package services
 
-import "testing"
+import (
+	"errors"
+	"testing"
+
+	"firebase.google.com/go/v4/messaging"
+)
 
 func TestBuildFirebaseMulticastMessageSupportsAndroidAndIOS(t *testing.T) {
 	installationIDs := []string{"installation-id-1", "installation-id-2"}
@@ -28,5 +33,32 @@ func TestBuildFirebaseMulticastMessageSupportsAndroidAndIOS(t *testing.T) {
 	}
 	if got.Data["fromUserUid"] != "27" {
 		t.Fatalf("data = %#v", got.Data)
+	}
+}
+
+func TestFirebaseBatchOutcomeReturnsPerInstallationFailure(t *testing.T) {
+	providerErr := errors.New("third party auth error")
+	invalid, err := firebaseBatchOutcome(
+		[]string{"installation-id-1", "installation-id-2"},
+		[]*messaging.SendResponse{
+			{Success: true, MessageID: "message-1"},
+			{Error: providerErr},
+		},
+	)
+	if len(invalid) != 0 {
+		t.Fatalf("invalid installations = %#v", invalid)
+	}
+	if !errors.Is(err, providerErr) {
+		t.Fatalf("delivery error = %v, want %v", err, providerErr)
+	}
+}
+
+func TestFirebaseBatchOutcomeAllowsSuccessfulResults(t *testing.T) {
+	invalid, err := firebaseBatchOutcome(
+		[]string{"installation-id"},
+		[]*messaging.SendResponse{{Success: true, MessageID: "message-id"}},
+	)
+	if len(invalid) != 0 || err != nil {
+		t.Fatalf("outcome = (%#v, %v), want no failures", invalid, err)
 	}
 }

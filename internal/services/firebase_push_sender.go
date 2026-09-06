@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -67,13 +68,34 @@ func (s *firebasePushSender) Send(
 		if err != nil {
 			return invalid, err
 		}
-		for index, result := range response.Responses {
-			if result.Error != nil && messaging.IsUnregistered(result.Error) {
-				invalid = append(invalid, batch[index])
-			}
+		batchInvalid, batchErr := firebaseBatchOutcome(batch, response.Responses)
+		invalid = append(invalid, batchInvalid...)
+		if batchErr != nil {
+			return invalid, batchErr
 		}
 	}
 	return invalid, nil
+}
+
+func firebaseBatchOutcome(
+	installationIDs []string,
+	responses []*messaging.SendResponse,
+) ([]string, error) {
+	invalid := make([]string, 0)
+	failures := make([]error, 0)
+	for index, result := range responses {
+		if result == nil || result.Error == nil {
+			continue
+		}
+		if messaging.IsUnregistered(result.Error) {
+			if index < len(installationIDs) {
+				invalid = append(invalid, installationIDs[index])
+			}
+			continue
+		}
+		failures = append(failures, fmt.Errorf("delivery result %d: %w", index, result.Error))
+	}
+	return invalid, errors.Join(failures...)
 }
 
 func buildFirebaseMulticastMessage(installationIDs []string, message PushMessage) *messaging.MulticastMessage {
