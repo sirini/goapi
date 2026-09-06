@@ -28,6 +28,14 @@ type AppleAuthParam struct {
 	Name          string `json:"name"`
 }
 
+// Apple 연결 계정 탈퇴는 재인증 결과와 명시적인 삭제 확인을 함께 요구한다.
+type AppleDeleteAccountParam struct {
+	IdentityToken     string `json:"identityToken"`
+	AuthorizationCode string `json:"authorizationCode"`
+	Nonce             string `json:"nonce"`
+	Confirmation      string `json:"confirmation"`
+}
+
 // 서버에서 검증을 마친 Apple ID 토큰의 계정 식별 정보다.
 type AppleIdentity struct {
 	Subject       string

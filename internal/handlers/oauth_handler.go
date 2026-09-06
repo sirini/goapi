@@ -31,6 +31,8 @@ type OAuth2Handler interface {
 	AppleLinkNonceHandler(c fiber.Ctx) error
 	AppleLinkHandler(c fiber.Ctx) error
 	AppleStatusHandler(c fiber.Ctx) error
+	AppleDeleteNonceHandler(c fiber.Ctx) error
+	AppleDeleteAccountHandler(c fiber.Ctx) error
 	GoogleOAuthRequestHandler(c fiber.Ctx) error
 	GoogleOAuthCallbackHandler(c fiber.Ctx) error
 	NaverOAuthRequestHandler(c fiber.Ctx) error
@@ -44,15 +46,20 @@ type OAuth2Handler interface {
 type NuboOAuth2Handler struct {
 	service       *services.Service
 	appleVerifier services.AppleTokenVerifying
+	appleRevoker  services.AppleAuthorizationRevoking
 }
 
 // services.Service 주입 받기
 func NewNuboOAuth2Handler(service *services.Service) *NuboOAuth2Handler {
-	return &NuboOAuth2Handler{service: service, appleVerifier: services.NewAppleTokenVerifier()}
+	return &NuboOAuth2Handler{
+		service: service, appleVerifier: services.NewAppleTokenVerifier(),
+		appleRevoker: services.NewAppleAuthorizationRevoker(),
+	}
 }
 
 const appleNonceSignIn = "signin"
 const appleNonceLink = "link"
+const appleNonceDelete = "delete"
 
 // AppleNonceHandler는 로그인 요청에 묶을 짧은 수명의 일회성 nonce를 발급한다.
 func (h *NuboOAuth2Handler) AppleNonceHandler(c fiber.Ctx) error {
@@ -166,6 +173,79 @@ func (h *NuboOAuth2Handler) AppleStatusHandler(c fiber.Ctx) error {
 		return utils.Err(c, "failed to load the Apple account status", models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, models.OAuthIdentityStatus{Linked: linked})
+}
+
+// AppleDeleteNonceHandler는 연결된 Apple 계정의 탈퇴 재인증에만 쓸 nonce를 발급한다.
+func (h *NuboOAuth2Handler) AppleDeleteNonceHandler(c fiber.Ctx) error {
+	if len(configs.GetAppleClientIDs()) == 0 || h.appleRevoker == nil || !h.appleRevoker.Configured() {
+		return utils.Err(c, "Apple token revocation is not configured", models.CODE_FAILED_OPERATION)
+	}
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	linked, err := h.service.OAuth.AppleLinked(userUid)
+	if err != nil {
+		return utils.Err(c, "failed to load the Apple account status", models.CODE_FAILED_OPERATION)
+	}
+	if !linked {
+		return utils.Err(c, "Apple ID is not linked", models.CODE_INVALID_PARAMETER)
+	}
+	nonce, err := h.service.OAuth.IssueAppleNonce(appleNonceDelete, userUid)
+	if err != nil {
+		return utils.Err(c, "failed to issue an Apple deletion nonce", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, models.AppleNonceResult{Nonce: nonce})
+}
+
+// AppleDeleteAccountHandler는 Apple 승인을 먼저 폐기한 뒤에만 로컬 계정을 삭제한다.
+func (h *NuboOAuth2Handler) AppleDeleteAccountHandler(c fiber.Ctx) error {
+	param := models.AppleDeleteAccountParam{}
+	if err := c.Bind().Body(&param); err != nil || len(param.IdentityToken) > 20000 ||
+		len(param.AuthorizationCode) > 10000 || len(param.Nonce) > 256 ||
+		strings.TrimSpace(param.Confirmation) != "DELETE" {
+		return utils.Err(c, "invalid Apple account deletion request", models.CODE_INVALID_PARAMETER)
+	}
+	if h.appleRevoker == nil || !h.appleRevoker.Configured() {
+		return utils.Err(c, "Apple token revocation is not configured", models.CODE_FAILED_OPERATION)
+	}
+	userUid := uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	identity, err := h.appleVerifier.Verify(ctx, param.IdentityToken, param.Nonce, configs.GetAppleClientIDs())
+	if err != nil {
+		log.Printf("apple oauth: deletion identity verification failed: %v", err)
+		return utils.Err(c, publicAppleVerificationError(err), models.CODE_INVALID_TOKEN)
+	}
+	linkedUserUid, linked, err := h.service.OAuth.FindAppleUser(identity.Subject)
+	if err != nil {
+		return utils.Err(c, "failed to find the Apple account", models.CODE_FAILED_OPERATION)
+	}
+	if !linked || linkedUserUid != userUid {
+		return utils.Err(c, "Apple ID does not match the signed-in account", models.CODE_NO_PERMISSION)
+	}
+	consumed, err := h.service.OAuth.ConsumeAppleNonce(appleNonceDelete, userUid, param.Nonce)
+	if err != nil {
+		return utils.Err(c, "failed to consume the Apple deletion nonce", models.CODE_FAILED_OPERATION)
+	}
+	if !consumed {
+		return utils.Err(c, "invalid or expired Apple nonce", models.CODE_INVALID_TOKEN)
+	}
+	exchange, err := h.appleRevoker.Exchange(ctx, identity.Audience, param.AuthorizationCode)
+	if err != nil {
+		log.Printf("apple oauth: authorization code exchange failed: %v", err)
+		return utils.Err(c, "failed to validate Apple authorization", models.CODE_FAILED_OPERATION)
+	}
+	exchangedIdentity, err := h.appleVerifier.Verify(ctx, exchange.IdentityToken, param.Nonce, []string{identity.Audience})
+	if err != nil || exchangedIdentity.Subject != identity.Subject {
+		log.Printf("apple oauth: exchanged identity did not match deletion request")
+		return utils.Err(c, "Apple authorization does not match the account", models.CODE_INVALID_TOKEN)
+	}
+	if err := h.appleRevoker.Revoke(ctx, identity.Audience, exchange.RefreshToken); err != nil {
+		log.Printf("apple oauth: token revocation failed: %v", err)
+		return utils.Err(c, "failed to revoke Apple authorization", models.CODE_FAILED_OPERATION)
+	}
+	if err := h.service.User.DeleteAccount(userUid, param.Confirmation); err != nil {
+		return utils.Err(c, "failed to delete the account", models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, nil)
 }
 
 func (h *NuboOAuth2Handler) verifyAppleRequest(c fiber.Ctx) (models.AppleAuthParam, models.AppleIdentity, bool) {

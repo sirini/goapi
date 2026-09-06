@@ -10,50 +10,54 @@ import (
 )
 
 type Config struct {
-	GoPort                  string
-	GoHost                  string
-	GoapiBase               string
-	Domain                  string
-	Title                   string
-	Version                 string
-	ProfileSize             string
-	ContentInsertSize       string
-	ThumbnailSize           string
-	FullSize                string
-	FileSizeLimit           string
-	UploadDir               string
-	DBHost                  string
-	DBUser                  string
-	DBPass                  string
-	DBName                  string
-	Prefix                  string
-	DBPort                  string
-	DBSocket                string
-	DBMaxIdle               string
-	DBMaxOpen               string
-	AdminID                 string
-	AdminPW                 string
-	JWTSecretKey            string
-	SyncSecretKey           string
-	JWTAccessHours          string
-	JWTRefreshDays          string
-	ResendKey               string
-	ResendFromEmail         string
-	ResendFromName          string
-	ResendReplyToEmail      string
-	SignupMode              string
-	OAuthGoogleID           string
-	OAuthGoogleSecret       string
-	OAuthGoogleAndroidID    string
-	OAuthAppleClientIDs     string
-	OAuthNaverID            string
-	OAuthNaverSecret        string
-	OAuthKakaoID            string
-	OAuthKakaoSecret        string
-	OpenaiKey               string
-	FirebaseProjectID       string
-	FirebaseCredentialsFile string
-	ImageDescription        ImageDescriptionEnv
+	GoPort                   string
+	GoHost                   string
+	GoapiBase                string
+	Domain                   string
+	Title                    string
+	Version                  string
+	ProfileSize              string
+	ContentInsertSize        string
+	ThumbnailSize            string
+	FullSize                 string
+	FileSizeLimit            string
+	UploadDir                string
+	DBHost                   string
+	DBUser                   string
+	DBPass                   string
+	DBName                   string
+	Prefix                   string
+	DBPort                   string
+	DBSocket                 string
+	DBMaxIdle                string
+	DBMaxOpen                string
+	AdminID                  string
+	AdminPW                  string
+	JWTSecretKey             string
+	SyncSecretKey            string
+	JWTAccessHours           string
+	JWTRefreshDays           string
+	ResendKey                string
+	ResendFromEmail          string
+	ResendFromName           string
+	ResendReplyToEmail       string
+	SignupMode               string
+	OAuthGoogleID            string
+	OAuthGoogleSecret        string
+	OAuthGoogleAndroidID     string
+	OAuthAppleClientIDs      string
+	OAuthAppleTeamID         string
+	OAuthAppleKeyID          string
+	OAuthApplePrivateKey     string
+	OAuthApplePrivateKeyFile string
+	OAuthNaverID             string
+	OAuthNaverSecret         string
+	OAuthKakaoID             string
+	OAuthKakaoSecret         string
+	OpenaiKey                string
+	FirebaseProjectID        string
+	FirebaseCredentialsFile  string
+	ImageDescription         ImageDescriptionEnv
 }
 
 type ImageDescriptionEnv struct {
@@ -144,49 +148,53 @@ func LoadConfig() error {
 	}
 
 	Env = Config{
-		Version:                 getEnv("GOAPI_VERSION", "1.3.0"),
-		GoapiBase:               getEnv("GOAPI_BASE", "goapi"),
-		GoHost:                  getEnv("GOAPI_HOST", "0.0.0.0"),
-		GoPort:                  getEnv("GOAPI_PORT", "3006"),
-		Domain:                  getEnv("GOAPI_DOMAIN", "http://localhost"),
-		Title:                   getEnv("GOAPI_TITLE", "NUBO"),
-		ProfileSize:             getEnv("GOAPI_PROFILE_SIZE", "256"),
-		ContentInsertSize:       getEnv("GOAPI_CONTENT_INSERT_SIZE", "640"),
-		ThumbnailSize:           getEnv("GOAPI_THUMBNAIL_SIZE", "512"),
-		FullSize:                getEnv("GOAPI_FULL_SIZE", "2400"),
-		FileSizeLimit:           getEnv("GOAPI_FILE_SIZE_LIMIT", "104857600"),
-		UploadDir:               getEnv("NUBO_UPLOAD_DIR", "./upload"),
-		DBHost:                  getEnv("DB_HOST", "localhost"),
-		DBUser:                  getEnv("DB_USER", ""),
-		DBPass:                  getEnv("DB_PASS", ""),
-		DBName:                  getEnv("DB_NAME", "nubo"),
-		Prefix:                  getEnv("DB_TABLE_PREFIX", "nubo_"),
-		DBPort:                  getEnv("DB_PORT", "3306"),
-		DBSocket:                getEnv("DB_UNIX_SOCKET", ""),
-		DBMaxIdle:               getEnv("DB_MAX_IDLE", "10"),
-		DBMaxOpen:               getEnv("DB_MAX_OPEN", "10"),
-		AdminID:                 getEnv("ADMIN_ID", ""),
-		AdminPW:                 getEnv("ADMIN_PW", ""),
-		JWTSecretKey:            getEnv("JWT_SECRET_KEY", ""),
-		SyncSecretKey:           getEnv("SYNC_SECRET_KEY", ""),
-		JWTAccessHours:          getEnv("JWT_ACCESS_HOURS", "2"),
-		JWTRefreshDays:          getEnv("JWT_REFRESH_DAYS", "30"),
-		ResendKey:               getEnv("RESEND_API_KEY", ""),
-		ResendFromEmail:         getEnv("RESEND_FROM_EMAIL", ""),
-		ResendFromName:          getEnv("RESEND_FROM_NAME", ""),
-		ResendReplyToEmail:      getEnv("RESEND_REPLY_TO_EMAIL", ""),
-		SignupMode:              getEnv("SIGNUP_MODE", "verified_email"),
-		OAuthGoogleID:           getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
-		OAuthGoogleSecret:       getEnv("OAUTH_GOOGLE_SECRET", ""),
-		OAuthGoogleAndroidID:    getEnv("OAUTH_GOOGLE_ANDROID_CLIENT_ID", ""),
-		OAuthAppleClientIDs:     getEnv("OAUTH_APPLE_CLIENT_IDS", ""),
-		OAuthNaverID:            getEnv("OAUTH_NAVER_CLIENT_ID", ""),
-		OAuthNaverSecret:        getEnv("OAUTH_NAVER_SECRET", ""),
-		OAuthKakaoID:            getEnv("OAUTH_KAKAO_CLIENT_ID", ""),
-		OAuthKakaoSecret:        getEnv("OAUTH_KAKAO_SECRET", ""),
-		OpenaiKey:               getEnv("OPENAI_API_KEY", ""),
-		FirebaseProjectID:       getEnv("FIREBASE_PROJECT_ID", ""),
-		FirebaseCredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", ""),
+		Version:                  getEnv("GOAPI_VERSION", "1.3.0"),
+		GoapiBase:                getEnv("GOAPI_BASE", "goapi"),
+		GoHost:                   getEnv("GOAPI_HOST", "0.0.0.0"),
+		GoPort:                   getEnv("GOAPI_PORT", "3006"),
+		Domain:                   getEnv("GOAPI_DOMAIN", "http://localhost"),
+		Title:                    getEnv("GOAPI_TITLE", "NUBO"),
+		ProfileSize:              getEnv("GOAPI_PROFILE_SIZE", "256"),
+		ContentInsertSize:        getEnv("GOAPI_CONTENT_INSERT_SIZE", "640"),
+		ThumbnailSize:            getEnv("GOAPI_THUMBNAIL_SIZE", "512"),
+		FullSize:                 getEnv("GOAPI_FULL_SIZE", "2400"),
+		FileSizeLimit:            getEnv("GOAPI_FILE_SIZE_LIMIT", "104857600"),
+		UploadDir:                getEnv("NUBO_UPLOAD_DIR", "./upload"),
+		DBHost:                   getEnv("DB_HOST", "localhost"),
+		DBUser:                   getEnv("DB_USER", ""),
+		DBPass:                   getEnv("DB_PASS", ""),
+		DBName:                   getEnv("DB_NAME", "nubo"),
+		Prefix:                   getEnv("DB_TABLE_PREFIX", "nubo_"),
+		DBPort:                   getEnv("DB_PORT", "3306"),
+		DBSocket:                 getEnv("DB_UNIX_SOCKET", ""),
+		DBMaxIdle:                getEnv("DB_MAX_IDLE", "10"),
+		DBMaxOpen:                getEnv("DB_MAX_OPEN", "10"),
+		AdminID:                  getEnv("ADMIN_ID", ""),
+		AdminPW:                  getEnv("ADMIN_PW", ""),
+		JWTSecretKey:             getEnv("JWT_SECRET_KEY", ""),
+		SyncSecretKey:            getEnv("SYNC_SECRET_KEY", ""),
+		JWTAccessHours:           getEnv("JWT_ACCESS_HOURS", "2"),
+		JWTRefreshDays:           getEnv("JWT_REFRESH_DAYS", "30"),
+		ResendKey:                getEnv("RESEND_API_KEY", ""),
+		ResendFromEmail:          getEnv("RESEND_FROM_EMAIL", ""),
+		ResendFromName:           getEnv("RESEND_FROM_NAME", ""),
+		ResendReplyToEmail:       getEnv("RESEND_REPLY_TO_EMAIL", ""),
+		SignupMode:               getEnv("SIGNUP_MODE", "verified_email"),
+		OAuthGoogleID:            getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
+		OAuthGoogleSecret:        getEnv("OAUTH_GOOGLE_SECRET", ""),
+		OAuthGoogleAndroidID:     getEnv("OAUTH_GOOGLE_ANDROID_CLIENT_ID", ""),
+		OAuthAppleClientIDs:      getEnv("OAUTH_APPLE_CLIENT_IDS", ""),
+		OAuthAppleTeamID:         getEnv("OAUTH_APPLE_TEAM_ID", ""),
+		OAuthAppleKeyID:          getEnv("OAUTH_APPLE_KEY_ID", ""),
+		OAuthApplePrivateKey:     getEnv("OAUTH_APPLE_PRIVATE_KEY", ""),
+		OAuthApplePrivateKeyFile: getEnv("OAUTH_APPLE_PRIVATE_KEY_FILE", ""),
+		OAuthNaverID:             getEnv("OAUTH_NAVER_CLIENT_ID", ""),
+		OAuthNaverSecret:         getEnv("OAUTH_NAVER_SECRET", ""),
+		OAuthKakaoID:             getEnv("OAUTH_KAKAO_CLIENT_ID", ""),
+		OAuthKakaoSecret:         getEnv("OAUTH_KAKAO_SECRET", ""),
+		OpenaiKey:                getEnv("OPENAI_API_KEY", ""),
+		FirebaseProjectID:        getEnv("FIREBASE_PROJECT_ID", ""),
+		FirebaseCredentialsFile:  getEnv("FIREBASE_CREDENTIALS_FILE", ""),
 		ImageDescription: ImageDescriptionEnv{
 			Enabled:     getEnv("OPENAI_IMAGE_DESCRIPTION_ENABLED", "false"),
 			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-5.6-luna"),

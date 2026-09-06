@@ -39,6 +39,8 @@ func RegisterAuthRouters(api fiber.Router, h *handlers.Handler) {
 	auth.Post("/apple/link/nonce", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleLinkNonceHandler)
 	auth.Post("/apple/link", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleLinkHandler)
 	auth.Get("/apple/status", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleStatusHandler)
+	auth.Post("/apple/delete/nonce", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleDeleteNonceHandler)
+	auth.Delete("/apple/account", middlewares.JWTMiddleware(h.CanAuthenticate), h.OAuth2.AppleDeleteAccountHandler)
 
 	// 사용자 관련 라우터들
 	user := auth.Group("/user")

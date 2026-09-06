@@ -27,7 +27,7 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	t.Cleanup(func() { Env = original })
 
 	environmentPath := filepath.Join(t.TempDir(), "nubo.env")
-	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\nADMIN_ID=admin@example.com\nADMIN_PW=admin-password\nOAUTH_GOOGLE_ANDROID_CLIENT_ID=android-web-client-id\n"
+	contents := "GOAPI_TITLE=File Title\nGOAPI_HOST=127.0.0.1\nGOAPI_PORT=4310\nDB_NAME=external_db\nNUBO_UPLOAD_DIR=/srv/nubo/upload\nADMIN_ID=admin@example.com\nADMIN_PW=admin-password\nOAUTH_GOOGLE_ANDROID_CLIENT_ID=android-web-client-id\nOAUTH_APPLE_TEAM_ID=TEAM123\nOAUTH_APPLE_KEY_ID=KEY123\nOAUTH_APPLE_PRIVATE_KEY_FILE=/run/secrets/AuthKey.p8\n"
 	if err := os.WriteFile(environmentPath, []byte(contents), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -40,6 +40,9 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	unsetEnvironmentForTest(t, "ADMIN_ID")
 	unsetEnvironmentForTest(t, "ADMIN_PW")
 	unsetEnvironmentForTest(t, "OAUTH_GOOGLE_ANDROID_CLIENT_ID")
+	unsetEnvironmentForTest(t, "OAUTH_APPLE_TEAM_ID")
+	unsetEnvironmentForTest(t, "OAUTH_APPLE_KEY_ID")
+	unsetEnvironmentForTest(t, "OAUTH_APPLE_PRIVATE_KEY_FILE")
 
 	if err := LoadConfig(); err != nil {
 		t.Fatal(err)
@@ -64,6 +67,10 @@ func TestLoadConfigReadsExternalFileAndPreservesProcessPrecedence(t *testing.T) 
 	}
 	if Env.OAuthGoogleAndroidID != "android-web-client-id" {
 		t.Fatalf("Android Google client ID = %q, want file value", Env.OAuthGoogleAndroidID)
+	}
+	if Env.OAuthAppleTeamID != "TEAM123" || Env.OAuthAppleKeyID != "KEY123" ||
+		Env.OAuthApplePrivateKeyFile != "/run/secrets/AuthKey.p8" {
+		t.Fatalf("Apple revocation settings were not loaded from the external environment file")
 	}
 }
 

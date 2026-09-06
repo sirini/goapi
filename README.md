@@ -339,6 +339,12 @@ OAUTH_GOOGLE_SECRET=
 OAUTH_GOOGLE_ANDROID_CLIENT_ID=
 # 쉼표로 구분한 Sign in with Apple audience(bundle ID 또는 Services ID)
 OAUTH_APPLE_CLIENT_IDS=
+# Apple 연결 계정 탈퇴 시 authorization code 교환 및 token revocation에 필요
+OAUTH_APPLE_TEAM_ID=
+OAUTH_APPLE_KEY_ID=
+# 아래 둘 중 하나만 설정(.p8 원문은 실제 개행 또는 \\n 표기 지원)
+OAUTH_APPLE_PRIVATE_KEY=
+OAUTH_APPLE_PRIVATE_KEY_FILE=
 OAUTH_NAVER_CLIENT_ID=
 OAUTH_NAVER_SECRET=
 OAUTH_KAKAO_CLIENT_ID=
