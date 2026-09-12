@@ -115,7 +115,7 @@ func (r *NuboUserRepository) RemoveBlackList(actionUserUid uint, targetUserUid u
 	return err
 }
 
-// 작성 콘텐츠는 보존하되 인증·개인정보·기기 연결을 원자적으로 제거한다.
+// 작성 콘텐츠·인증·개인정보·기기 연결을 원자적으로 제거하고 사용자 행은 익명화한다.
 func (r *NuboUserRepository) DeleteAccount(userUid uint) ([]string, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -148,7 +148,8 @@ func (r *NuboUserRepository) DeleteAccount(userUid uint) ([]string, error) {
 		{fmt.Sprintf("DELETE FROM %scomment_like WHERE user_uid = ? OR comment_uid IN (%s)", configs.Env.Prefix, commentIDs), []any{userUid, userUid, userUid}},
 		{fmt.Sprintf("DELETE FROM %snotification WHERE to_uid = ? OR from_uid = ? OR post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid, userUid, userUid}},
 		{fmt.Sprintf("DELETE FROM %spost_like WHERE user_uid = ? OR post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid, userUid}},
-		{fmt.Sprintf("DELETE FROM %scomment WHERE uid IN (%s)", configs.Env.Prefix, commentIDs), []any{userUid, userUid}},
+		// MySQL은 삭제 대상 테이블을 서브쿼리에서 다시 읽으면 오류 1093을 반환한다.
+		{fmt.Sprintf("DELETE FROM %scomment WHERE user_uid = ? OR post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid, userUid}},
 		{fmt.Sprintf("DELETE FROM %sexif WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
 		{fmt.Sprintf("DELETE FROM %simage_description WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
 		{fmt.Sprintf("DELETE FROM %sfile_thumbnail WHERE post_uid IN (%s)", configs.Env.Prefix, postIDs), []any{userUid}},
