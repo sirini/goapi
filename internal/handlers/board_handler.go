@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -297,6 +298,14 @@ func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 
 // 게시글 다중 리액션 핸들러
 func (h *NuboBoardHandler) SetReactionHandler(c fiber.Ctx) error {
+	// reaction 필드의 누락과 명시적 null을 구분한다. 누락은 거부하고 null만 취소한다.
+	fields := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(c.Body(), &fields); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if _, present := fields["reaction"]; !present {
+		return utils.Err(c, "reaction field is required", models.CODE_INVALID_PARAMETER)
+	}
 	body := models.BoardReactionBody{}
 	if err := c.Bind().Body(&body); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)

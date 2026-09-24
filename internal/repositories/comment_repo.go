@@ -12,6 +12,7 @@ import (
 type CommentRepository interface {
 	FindPostUserUidByUid(commentUid uint) (uint, uint)
 	GetComments(param models.CommentListParam) ([]models.CommentItem, error)
+	GetCommentStatus(commentUid uint) models.Status
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
@@ -66,6 +67,16 @@ func (r *NuboCommentRepository) FindPostUserUidByUid(commentUid uint) (uint, uin
 
 	r.db.QueryRow(query, commentUid).Scan(&postUid, &userUid)
 	return postUid, userUid
+}
+
+// 댓글 상태 가져오기. 삭제된 댓글(답글 자리만 남은 경우 포함)도 이 값으로 판별한다.
+func (r *NuboCommentRepository) GetCommentStatus(commentUid uint) models.Status {
+	var status int8
+	query := fmt.Sprintf("SELECT status FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+
+	r.db.QueryRow(query, commentUid).Scan(&status)
+	return models.Status(status)
 }
 
 // 게시글 상태 가져오기

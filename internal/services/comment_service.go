@@ -45,6 +45,10 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
 	if !s.repos.Comment.IsCommentInBoard(param.CommentUid, param.BoardUid) {
 		return fmt.Errorf("comment does not belong to this board")
 	}
+	// liked:false가 접근 검사 전에 조기 성공하지 않도록 자격을 먼저 확인한다.
+	if err := s.checkCommentReactionAccess(param.CommentUid, param.BoardUid, param.UserUid); err != nil {
+		return err
+	}
 	if !param.Liked {
 		// 현재 종류가 like일 때만 취소하고, 다른 리액션은 건드리지 않는다.
 		if s.repos.Comment.GetCommentUserReaction(param.CommentUid, param.UserUid) != models.REACTION_LIKE {
@@ -106,8 +110,12 @@ func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (mod
 	return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid), nil
 }
 
-// 댓글 리액션은 부모 게시글을 볼 수 있는 사용자에게만 허용한다.
+// 댓글 리액션은 삭제된 댓글(답글 자리만 남은 경우 포함)과 열람 자격이 없는 부모 게시글을 거부한다.
+// 포인트는 차감하지 않고 열람 가능 여부만 확인한다.
 func (s *NuboCommentService) checkCommentReactionAccess(commentUid uint, boardUid uint, userUid uint) error {
+	if status := s.repos.Comment.GetCommentStatus(commentUid); status == models.CONTENT_REMOVED {
+		return fmt.Errorf("comment has been removed")
+	}
 	postUid, _ := s.repos.Comment.FindPostUserUidByUid(commentUid)
 	status := s.repos.Comment.GetPostStatus(postUid)
 	if postUid < 1 || status == models.CONTENT_REMOVED {
@@ -115,6 +123,14 @@ func (s *NuboCommentService) checkCommentReactionAccess(commentUid uint, boardUi
 	}
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
 		return fmt.Errorf("you have been blocked by writer")
+	}
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return fmt.Errorf("not enough point")
 	}
 	if status == models.CONTENT_SECRET {
 		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)

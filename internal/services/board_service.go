@@ -442,6 +442,10 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return fmt.Errorf("post does not belong to this board")
 	}
+	// liked:false가 접근 검사 전에 조기 성공하지 않도록 자격을 먼저 확인한다.
+	if err := s.checkPostReactionAccess(param.PostUid, param.BoardUid, param.UserUid); err != nil {
+		return err
+	}
 	current := s.repos.BoardView.GetPostUserReaction(param.PostUid, param.UserUid)
 	reaction := ""
 	if param.Liked {
@@ -504,7 +508,8 @@ func (s *NuboBoardService) SetPostReaction(param models.BoardReactionParam) (mod
 	return state, nil
 }
 
-// 리액션 쓰기는 삭제된 글, 작성자 차단 관계, 열람 권한이 없는 비밀글을 거부한다.
+// 리액션 쓰기는 삭제된 글, 작성자 차단 관계, 열람 권한이 없는 비밀글, 게시판 열람 자격을 거부한다.
+// 포인트는 차감하지 않고 열람 가능 여부만 확인한다.
 func (s *NuboBoardService) checkPostReactionAccess(postUid uint, boardUid uint, userUid uint) error {
 	status := s.repos.Comment.GetPostStatus(postUid)
 	if postUid < 1 || status == models.CONTENT_REMOVED {
@@ -512,6 +517,14 @@ func (s *NuboBoardService) checkPostReactionAccess(postUid uint, boardUid uint, 
 	}
 	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
 		return fmt.Errorf("you have been blocked by writer")
+	}
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return fmt.Errorf("not enough point")
 	}
 	if status == models.CONTENT_SECRET {
 		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
