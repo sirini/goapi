@@ -319,7 +319,7 @@ func (r *NuboBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) ui
 // 게시글 보기 시 글 내용 가져오기
 func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
 	item := models.BoardListItem{}
-	var likeCount, bestCount, facepalmCount, hmmCount uint
+	var reactions models.ReactionCountsDTO
 	var userReactionCode uint8
 	prefix := configs.Env.Prefix
 
@@ -330,10 +330,7 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
 			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 2),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 3),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 4),
+			%s,
 			COALESCE((SELECT reaction_type FROM %s%s WHERE post_uid = p.uid AND user_uid = ?), 0)
 		FROM %s%s AS p
 		LEFT JOIN %s%s AS u ON p.user_uid = u.uid
@@ -343,10 +340,7 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
+		reactionCountSubselects(models.TABLE_POST_LIKE, "post_uid", "p.uid"),
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST,
 		prefix, models.TABLE_USER,
@@ -376,18 +370,13 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 		&item.Comment,
 		&item.Like,
 		&item.Liked,
-		&likeCount, &bestCount, &facepalmCount, &hmmCount,
+		&reactions.Like, &reactions.Best, &reactions.Facepalm, &reactions.Hmm, &reactions.Laugh, &reactions.Celebrate, &reactions.Fire, &reactions.Support, &reactions.Sad, &reactions.Eyes,
 		&userReactionCode,
 	)
 	if err != nil {
 		return item, err
 	}
-	item.Reactions = models.ReactionCountsDTO{
-		Like:     likeCount,
-		Best:     bestCount,
-		Facepalm: facepalmCount,
-		Hmm:      hmmCount,
-	}
+	item.Reactions = reactions
 	if reaction := models.ReactionType(userReactionCode); reaction != models.REACTION_NONE {
 		value := reaction.APIValue()
 		item.MyReaction = &value

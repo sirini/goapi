@@ -254,10 +254,7 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 			u.name, u.profile,
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND liked = 1),
 			EXISTS(SELECT 1 FROM %s%s WHERE comment_uid = c.uid AND user_uid = ? AND liked = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 2),
-			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 3),
-			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 4),
+			%s,
 			COALESCE((SELECT reaction_type FROM %s%s WHERE comment_uid = c.uid AND user_uid = ?), 0)
 		FROM %s%s AS c
 		JOIN (
@@ -270,10 +267,7 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 		ORDER BY c.reply_uid ASC, c.uid ASC`,
 		prefix, models.TABLE_COMMENT_LIKE,
 		prefix, models.TABLE_COMMENT_LIKE,
-		prefix, models.TABLE_COMMENT_LIKE,
-		prefix, models.TABLE_COMMENT_LIKE,
-		prefix, models.TABLE_COMMENT_LIKE,
-		prefix, models.TABLE_COMMENT_LIKE,
+		reactionCountSubselects(models.TABLE_COMMENT_LIKE, "comment_uid", "c.uid"),
 		prefix, models.TABLE_COMMENT_LIKE,
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_COMMENT,
@@ -295,26 +289,21 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 	defer rows.Close()
 
 	for rows.Next() {
-		var likeCount, bestCount, facepalmCount, hmmCount uint
+		var reactions models.ReactionCountsDTO
 		item := models.CommentItem{}
 		err := rows.Scan(
 			&item.Uid, &item.ReplyUid, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status,
 			&item.Writer.Name, &item.Writer.Profile,
 			&item.Like,
 			&item.Liked,
-			&likeCount, &bestCount, &facepalmCount, &hmmCount,
+			&reactions.Like, &reactions.Best, &reactions.Facepalm, &reactions.Hmm, &reactions.Laugh, &reactions.Celebrate, &reactions.Fire, &reactions.Support, &reactions.Sad, &reactions.Eyes,
 			&userReactionCode,
 		)
 		if err != nil {
 			return nil, err
 		}
 		{
-			item.Reactions = models.ReactionCountsDTO{
-				Like:     likeCount,
-				Best:     bestCount,
-				Facepalm: facepalmCount,
-				Hmm:      hmmCount,
-			}
+			item.Reactions = reactions
 			if reaction := models.ReactionType(userReactionCode); reaction != models.REACTION_NONE {
 				value := reaction.APIValue()
 				item.MyReaction = &value

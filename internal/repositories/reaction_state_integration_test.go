@@ -55,7 +55,7 @@ func TestReactionStateMySQL(t *testing.T) {
 		if err != nil || !changed {
 			t.Fatalf("first like: changed=%v err=%v", changed, err)
 		}
-		assertPostState(t, viewRepo, postUid, userUid, [4]uint{1, 0, 0, 0}, models.REACTIONS.LIKE)
+		assertPostState(t, viewRepo, postUid, userUid, [10]uint{1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, models.REACTIONS.LIKE)
 		stamp := likeTimestamp(t, db, prefix+"post_like", "post_uid", postUid, userUid)
 
 		// 같은 상태 재설정: 무변경, timestamp 유지
@@ -78,7 +78,17 @@ func TestReactionStateMySQL(t *testing.T) {
 		if err != nil || !changed {
 			t.Fatalf("switch to best: changed=%v err=%v", changed, err)
 		}
-		assertPostState(t, viewRepo, postUid, userUid, [4]uint{0, 1, 0, 0}, models.REACTIONS.BEST)
+		assertPostState(t, viewRepo, postUid, userUid, [10]uint{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, models.REACTIONS.BEST)
+
+		// 확장 종류로 교체
+		changed, err = viewRepo.SetPostReaction(models.BoardReactionParam{
+			BoardUid: boardUid, PostUid: postUid, UserUid: userUid,
+			Reaction: models.REACTIONS.LAUGH, ReactionCode: models.REACTION_LAUGH,
+		})
+		if err != nil || !changed {
+			t.Fatalf("switch to laugh: changed=%v err=%v", changed, err)
+		}
+		assertPostState(t, viewRepo, postUid, userUid, [10]uint{0, 0, 0, 0, 1, 0, 0, 0, 0, 0}, models.REACTIONS.LAUGH)
 
 		// 취소(null)
 		changed, err = viewRepo.SetPostReaction(models.BoardReactionParam{
@@ -88,7 +98,7 @@ func TestReactionStateMySQL(t *testing.T) {
 		if err != nil || !changed {
 			t.Fatalf("cancel: changed=%v err=%v", changed, err)
 		}
-		assertPostState(t, viewRepo, postUid, userUid, [4]uint{0, 0, 0, 0}, "")
+		assertPostState(t, viewRepo, postUid, userUid, [10]uint{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, "")
 		if count := likeRowCount(t, db, prefix+"post_like", "post_uid", postUid, userUid); count != 1 {
 			t.Fatalf("rows after cancel = %d, want 1", count)
 		}
@@ -131,7 +141,7 @@ func TestReactionStateMySQL(t *testing.T) {
 	})
 
 	t.Run("concurrent requests leave one row with a valid state", func(t *testing.T) {
-		codes := []models.ReactionType{models.REACTION_LIKE, models.REACTION_BEST, models.REACTION_FACEPALM, models.REACTION_HMM, models.REACTION_NONE}
+		codes := append(models.ReactionCodeList, models.REACTION_NONE)
 		var wg sync.WaitGroup
 		for i := 0; i < 20; i++ {
 			wg.Add(1)
@@ -208,10 +218,11 @@ func dropReactionStateTables(t *testing.T, db *sql.DB, prefix string) {
 	}
 }
 
-func assertPostState(t *testing.T, viewRepo BoardViewRepository, postUid uint, userUid uint, want [4]uint, myReaction models.Reaction) {
+func assertPostState(t *testing.T, viewRepo BoardViewRepository, postUid uint, userUid uint, want [10]uint, myReaction models.Reaction) {
 	t.Helper()
 	state := viewRepo.GetPostReactionState(postUid, userUid)
-	got := [4]uint{state.Reactions.Like, state.Reactions.Best, state.Reactions.Facepalm, state.Reactions.Hmm}
+	got := [10]uint{state.Reactions.Like, state.Reactions.Best, state.Reactions.Facepalm, state.Reactions.Hmm,
+		state.Reactions.Laugh, state.Reactions.Celebrate, state.Reactions.Fire, state.Reactions.Support, state.Reactions.Sad, state.Reactions.Eyes}
 	if got != want {
 		t.Fatalf("reactions = %v, want %v", got, want)
 	}

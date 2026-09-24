@@ -14,11 +14,11 @@ func reactionRowsForPosts() *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
 		"uid", "user_uid", "category_uid", "title", "content", "submitted", "modified", "hit", "status",
 		"name", "profile", "category_name", "cover", "comment_count", "like_count", "liked",
-		"like_c", "best_c", "facepalm_c", "hmm_c", "my_reaction",
+		"like_c", "best_c", "facepalm_c", "hmm_c", "laugh_c", "celebrate_c", "fire_c", "support_c", "sad_c", "eyes_c", "my_reaction",
 	}).AddRow(
 		uint(11), uint(3), uint(2), "제목", "내용", int64(100), int64(100), uint(5), models.CONTENT_NORMAL,
 		"작성자", "프로필", "분류", "", uint(4), uint(3), 0,
-		uint(3), uint(2), uint(0), uint(1), uint8(0),
+		uint(3), uint(2), uint(0), uint(1), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint8(0),
 	)
 }
 
@@ -182,11 +182,11 @@ func TestGetCommentsScansReactionsForUserWithoutReactionRows(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"uid", "reply_uid", "user_uid", "content", "submitted", "modified", "status",
 			"name", "profile", "like_count", "liked",
-			"like_c", "best_c", "facepalm_c", "hmm_c", "my_reaction",
+			"like_c", "best_c", "facepalm_c", "hmm_c", "laugh_c", "celebrate_c", "fire_c", "support_c", "sad_c", "eyes_c", "my_reaction",
 		}).AddRow(
 			uint(21), uint(0), uint(3), "댓글", int64(100), int64(100), models.CONTENT_NORMAL,
 			"작성자", "프로필", uint(2), 0,
-			uint(2), uint(1), uint(0), uint(0), uint8(0),
+			uint(2), uint(1), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint8(0),
 		))
 
 	items, err := repo.GetComments(models.CommentListParam{PostUid: 5, UserUid: 9, Limit: 20, Page: 1})

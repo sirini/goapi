@@ -207,12 +207,7 @@ func (r *NuboBoardRepository) GetCommentReactionCounts(commentUid uint) models.R
 }
 
 func (r *NuboBoardRepository) scanReactionCounts(query string, targetUid uint) models.ReactionCounts {
-	counts := models.ReactionCounts{
-		models.REACTION_LIKE:     0,
-		models.REACTION_BEST:     0,
-		models.REACTION_FACEPALM: 0,
-		models.REACTION_HMM:      0,
-	}
+	counts := models.NewReactionCounts()
 
 	rows, err := r.db.Query(query, targetUid)
 	if err != nil {
@@ -246,15 +241,16 @@ func (r *NuboBoardRepository) GetPostReactionSummaries(postUids []uint, userUid 
 
 	countRows, err := r.db.Query(fmt.Sprintf(
 		`SELECT post_uid,
-			SUM(reaction_type = 1), SUM(reaction_type = 2), SUM(reaction_type = 3), SUM(reaction_type = 4)
+			%s
 		FROM %s%s WHERE post_uid IN (%s) GROUP BY post_uid`,
+		reactionSumColumns(models.TABLE_POST_LIKE, "reaction_type"),
 		configs.Env.Prefix, models.TABLE_POST_LIKE, placeholders), args...)
 	if err == nil {
 		defer countRows.Close()
 		for countRows.Next() {
 			var postUid uint
 			var counts models.ReactionCountsDTO
-			if err := countRows.Scan(&postUid, &counts.Like, &counts.Best, &counts.Facepalm, &counts.Hmm); err == nil {
+			if err := countRows.Scan(&postUid, &counts.Like, &counts.Best, &counts.Facepalm, &counts.Hmm, &counts.Laugh, &counts.Celebrate, &counts.Fire, &counts.Support, &counts.Sad, &counts.Eyes); err == nil {
 				state := summaries[postUid]
 				state.Reactions = counts
 				summaries[postUid] = state
@@ -304,12 +300,7 @@ func (r *NuboBoardRepository) scanUserReaction(query string, targetUid uint, use
 
 func reactionState(counts models.ReactionCounts, current models.ReactionType) models.ReactionState {
 	state := models.ReactionState{
-		Reactions: models.ReactionCountsDTO{
-			Like:     counts[models.REACTION_LIKE],
-			Best:     counts[models.REACTION_BEST],
-			Facepalm: counts[models.REACTION_FACEPALM],
-			Hmm:      counts[models.REACTION_HMM],
-		},
+		Reactions: counts.DTO(),
 	}
 	if current != models.REACTION_NONE {
 		reaction := current.APIValue()
@@ -419,10 +410,7 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
 			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 1),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 2),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 3),
-			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 4),
+			%s,
 			COALESCE((SELECT reaction_type FROM %s%s WHERE post_uid = p.uid AND user_uid = ?), 0)
 		FROM %s%s AS p
 		JOIN (
@@ -435,10 +423,7 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
+		reactionCountSubselects(models.TABLE_POST_LIKE, "post_uid", "p.uid"),
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST,
 		prefix, models.TABLE_POST,
@@ -453,7 +438,7 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 	defer rows.Close()
 
 	for rows.Next() {
-		var likeCount, bestCount, facepalmCount, hmmCount uint
+		var reactions models.ReactionCountsDTO
 		var userReactionCode uint8
 		item := models.BoardListItem{}
 		err = rows.Scan(
@@ -465,18 +450,13 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 			&item.Comment,
 			&item.Like,
 			&item.Liked,
-			&likeCount, &bestCount, &facepalmCount, &hmmCount,
+			&reactions.Like, &reactions.Best, &reactions.Facepalm, &reactions.Hmm, &reactions.Laugh, &reactions.Celebrate, &reactions.Fire, &reactions.Support, &reactions.Sad, &reactions.Eyes,
 			&userReactionCode,
 		)
 		if err != nil {
 			return nil, err
 		}
-		item.Reactions = models.ReactionCountsDTO{
-			Like:     likeCount,
-			Best:     bestCount,
-			Facepalm: facepalmCount,
-			Hmm:      hmmCount,
-		}
+		item.Reactions = reactions
 		item.MyReaction = userReactionPointer(userReactionCode)
 		items = append(items, item)
 	}
@@ -621,10 +601,7 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
             (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
             (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
             EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1),
-            (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 1),
-            (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 2),
-            (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 3),
-            (SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 4),
+            %s,
             COALESCE((SELECT reaction_type FROM %s%s WHERE post_uid = p.uid AND user_uid = ?), 0)
         FROM %s%s AS p
         JOIN (%s) AS sub ON p.uid = sub.uid
@@ -635,10 +612,7 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
-		prefix, models.TABLE_POST_LIKE,
+		reactionCountSubselects(models.TABLE_POST_LIKE, "post_uid", "p.uid"),
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST,
 		subQuery,
@@ -657,7 +631,7 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 
 	for rows.Next() {
 		item := models.BoardListItem{}
-		var likeCount, bestCount, facepalmCount, hmmCount uint
+		var reactions models.ReactionCountsDTO
 		var userReactionCode uint8
 		err := rows.Scan(
 			&item.Uid, &item.Writer.UserUid, &item.Category.Uid, &item.Title, &item.Content,
@@ -668,18 +642,13 @@ func (r *NuboBoardRepository) FindPosts(param models.BoardListParam) ([]models.B
 			&item.Comment,
 			&item.Like,
 			&item.Liked,
-			&likeCount, &bestCount, &facepalmCount, &hmmCount,
+			&reactions.Like, &reactions.Best, &reactions.Facepalm, &reactions.Hmm, &reactions.Laugh, &reactions.Celebrate, &reactions.Fire, &reactions.Support, &reactions.Sad, &reactions.Eyes,
 			&userReactionCode,
 		)
 		if err != nil {
 			return nil, err
 		}
-		item.Reactions = models.ReactionCountsDTO{
-			Like:     likeCount,
-			Best:     bestCount,
-			Facepalm: facepalmCount,
-			Hmm:      hmmCount,
-		}
+		item.Reactions = reactions
 		item.MyReaction = userReactionPointer(userReactionCode)
 		items = append(items, item)
 	}

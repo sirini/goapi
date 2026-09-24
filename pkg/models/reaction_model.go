@@ -4,11 +4,17 @@ import "fmt"
 
 // DB reaction_type 코드와 API 문자열 식별자를 고정한다.
 const (
-	REACTION_NONE     ReactionType = 0
-	REACTION_LIKE     ReactionType = 1
-	REACTION_BEST     ReactionType = 2
-	REACTION_FACEPALM ReactionType = 3
-	REACTION_HMM      ReactionType = 4
+	REACTION_NONE      ReactionType = 0
+	REACTION_LIKE      ReactionType = 1
+	REACTION_BEST      ReactionType = 2
+	REACTION_FACEPALM  ReactionType = 3
+	REACTION_HMM       ReactionType = 4
+	REACTION_LAUGH     ReactionType = 5
+	REACTION_CELEBRATE ReactionType = 6
+	REACTION_FIRE      ReactionType = 7
+	REACTION_SUPPORT   ReactionType = 8
+	REACTION_SAD       ReactionType = 9
+	REACTION_EYES      ReactionType = 10
 )
 
 type ReactionType uint8
@@ -35,11 +41,17 @@ type CommentReactionBody struct {
 }
 
 var REACTIONS = struct {
-	LIKE     Reaction
-	BEST     Reaction
-	FACEPALM Reaction
-	HMM      Reaction
-}{LIKE: "like", BEST: "best", FACEPALM: "facepalm", HMM: "hmm"}
+	LIKE      Reaction
+	BEST      Reaction
+	FACEPALM  Reaction
+	HMM       Reaction
+	LAUGH     Reaction
+	CELEBRATE Reaction
+	FIRE      Reaction
+	SUPPORT   Reaction
+	SAD       Reaction
+	EYES      Reaction
+}{LIKE: "like", BEST: "best", FACEPALM: "facepalm", HMM: "hmm", LAUGH: "laugh", CELEBRATE: "celebrate", FIRE: "fire", SUPPORT: "support", SAD: "sad", EYES: "eyes"}
 
 func (v ReactionType) APIValue() Reaction {
 	switch v {
@@ -51,6 +63,18 @@ func (v ReactionType) APIValue() Reaction {
 		return REACTIONS.FACEPALM
 	case REACTION_HMM:
 		return REACTIONS.HMM
+	case REACTION_LAUGH:
+		return REACTIONS.LAUGH
+	case REACTION_CELEBRATE:
+		return REACTIONS.CELEBRATE
+	case REACTION_FIRE:
+		return REACTIONS.FIRE
+	case REACTION_SUPPORT:
+		return REACTIONS.SUPPORT
+	case REACTION_SAD:
+		return REACTIONS.SAD
+	case REACTION_EYES:
+		return REACTIONS.EYES
 	default:
 		return ""
 	}
@@ -66,8 +90,49 @@ func ParseReaction(v Reaction) (ReactionType, error) {
 		return REACTION_FACEPALM, nil
 	case REACTIONS.HMM:
 		return REACTION_HMM, nil
+	case REACTIONS.LAUGH:
+		return REACTION_LAUGH, nil
+	case REACTIONS.CELEBRATE:
+		return REACTION_CELEBRATE, nil
+	case REACTIONS.FIRE:
+		return REACTION_FIRE, nil
+	case REACTIONS.SUPPORT:
+		return REACTION_SUPPORT, nil
+	case REACTIONS.SAD:
+		return REACTION_SAD, nil
+	case REACTIONS.EYES:
+		return REACTION_EYES, nil
 	default:
 		return REACTION_NONE, fmt.Errorf("unknown reaction: %q", v)
+	}
+}
+
+// 코드 오름차순 종류 목록. 집계 초기화와 DTO 변환에 사용한다.
+var ReactionCodeList = []ReactionType{
+	REACTION_LIKE, REACTION_BEST, REACTION_FACEPALM, REACTION_HMM,
+	REACTION_LAUGH, REACTION_CELEBRATE, REACTION_FIRE, REACTION_SUPPORT, REACTION_SAD, REACTION_EYES,
+}
+
+func NewReactionCounts() ReactionCounts {
+	counts := make(ReactionCounts)
+	for _, code := range ReactionCodeList {
+		counts[code] = 0
+	}
+	return counts
+}
+
+func (counts ReactionCounts) DTO() ReactionCountsDTO {
+	return ReactionCountsDTO{
+		Like:      counts[REACTION_LIKE],
+		Best:      counts[REACTION_BEST],
+		Facepalm:  counts[REACTION_FACEPALM],
+		Hmm:       counts[REACTION_HMM],
+		Laugh:     counts[REACTION_LAUGH],
+		Celebrate: counts[REACTION_CELEBRATE],
+		Fire:      counts[REACTION_FIRE],
+		Support:   counts[REACTION_SUPPORT],
+		Sad:       counts[REACTION_SAD],
+		Eyes:      counts[REACTION_EYES],
 	}
 }
 
@@ -76,10 +141,16 @@ type ReactionCounts map[ReactionType]uint
 
 // JSON 계약은 종류 문자열을 키로 가진 고정 순서 DTO를 따른다.
 type ReactionCountsDTO struct {
-	Like     uint `json:"like"`
-	Best     uint `json:"best"`
-	Facepalm uint `json:"facepalm"`
-	Hmm      uint `json:"hmm"`
+	Like      uint `json:"like"`
+	Best      uint `json:"best"`
+	Facepalm  uint `json:"facepalm"`
+	Hmm       uint `json:"hmm"`
+	Laugh     uint `json:"laugh"`
+	Celebrate uint `json:"celebrate"`
+	Fire      uint `json:"fire"`
+	Support   uint `json:"support"`
+	Sad       uint `json:"sad"`
+	Eyes      uint `json:"eyes"`
 }
 
 type ReactionState struct {
