@@ -12,6 +12,7 @@ import (
 type CommentHandler interface {
 	CommentListHandler(c fiber.Ctx) error
 	LikeCommentHandler(c fiber.Ctx) error
+	SetReactionHandler(c fiber.Ctx) error
 	ModifyCommentHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
 	ReplyCommentHandler(c fiber.Ctx) error
@@ -60,6 +61,20 @@ func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
+}
+
+// 댓글 다중 리액션 핸들러
+func (h *NuboCommentHandler) SetReactionHandler(c fiber.Ctx) error {
+	param := models.CommentReactionParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	param.UserUid = uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	state, err := h.service.Comment.SetReaction(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, state)
 }
 
 // 기존 댓글 내용 수정하기 핸들러

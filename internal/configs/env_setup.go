@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -154,6 +155,9 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if err := ensureTradeSchema(db, prefix); err != nil {
 		return err
 	}
+	if err := ensureReactionSchema(db, prefix); err != nil {
+		return err
+	}
 	var count uint
 	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'skin_key'`, prefix+"board").Scan(&count)
@@ -278,6 +282,151 @@ func ensureNotificationSenderForeignKey(db *sql.DB, prefix string) error {
 
 func notificationSenderForeignKeyDDL(prefix string) string {
 	return fmt.Sprintf("ALTER TABLE %snotification ADD CONSTRAINT fk_nf FOREIGN KEY (from_uid) REFERENCES %suser(uid)", prefix, prefix)
+}
+
+type reactionLikeTableSpec struct {
+	table         string
+	targetColumn  string
+	targetName    string
+	uniqueIndex   string
+	reactionIndex string
+	boardFk       string
+	targetFk      string
+	userFk        string
+}
+
+// 기존 좋아요 테이블을 다중 리액션 원본으로 확장하고 재실행 가능성을 유지한다.
+func ensureReactionSchema(db *sql.DB, prefix string) error {
+	specs := []reactionLikeTableSpec{
+		{
+			table: "post_like", targetColumn: "post_uid", targetName: "post",
+			uniqueIndex: "uq_post_like_post_user", reactionIndex: "idx_post_like_reaction",
+			boardFk: "fk_plb", targetFk: "fk_plp", userFk: "fk_plu",
+		},
+		{
+			table: "comment_like", targetColumn: "comment_uid", targetName: "comment",
+			uniqueIndex: "uq_comment_like_comment_user", reactionIndex: "idx_comment_like_reaction",
+			boardFk: "fk_clb", targetFk: "fk_clc", userFk: "fk_clu",
+		},
+	}
+	for _, spec := range specs {
+		table := prefix + spec.table
+		if err := ensureReactionLikeColumn(db, table); err != nil {
+			return err
+		}
+		if err := migrateLikeTableForReactions(db, table, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureReactionLikeColumn(db *sql.DB, table string) error {
+	var count uint
+	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'reaction_type'`, table).Scan(&count); err != nil {
+		return err
+	}
+	if count == 0 {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN reaction_type TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER liked", table)); err != nil {
+			return err
+		}
+	}
+	// 이행 중 예전 서버가 남긴 좋아요를 리액션 원본으로 다시 맞춘다.
+	_, err := db.Exec(fmt.Sprintf("UPDATE %s SET reaction_type = ? WHERE liked = 1 AND reaction_type = 0", table), uint8(1))
+	return err
+}
+
+func migrateLikeTableForReactions(db *sql.DB, table string, spec reactionLikeTableSpec) error {
+	var hasPK uint
+	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = 'PRIMARY'`, table).Scan(&hasPK); err != nil {
+		return err
+	}
+	if hasPK == 0 {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN uid BIGINT UNSIGNED NOT NULL auto_increment, ADD PRIMARY KEY (uid)", table)); err != nil {
+			return err
+		}
+	}
+
+	if err := validateReactionTableReferences(db, table, spec, prefixForTable(table)); err != nil {
+		return err
+	}
+
+	removed, err := deduplicateReactionLikeRows(db, table, spec.targetColumn)
+	if err != nil {
+		return err
+	}
+	log.Printf("[install] %s duplicate reaction rows removed: %d", table, removed)
+
+	if err := ensureReactionTableIndex(db, table, spec.uniqueIndex,
+		fmt.Sprintf("UNIQUE KEY %s (%s, user_uid)", spec.uniqueIndex, spec.targetColumn)); err != nil {
+		return err
+	}
+	return ensureReactionTableIndex(db, table, spec.reactionIndex,
+		fmt.Sprintf("KEY %s (%s, reaction_type)", spec.reactionIndex, spec.targetColumn))
+}
+
+func ensureReactionTableIndex(db *sql.DB, table, indexName, ddl string) error {
+	var count uint
+	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`, table, indexName).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	_, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD %s", table, ddl))
+	return err
+}
+
+func deduplicateReactionLikeRows(db *sql.DB, table, targetColumn string) (int64, error) {
+	// 동일 대상·사용자 중 최신 timestamp, 동률은 새 PK가 큰 행을 채택한다.
+	query := fmt.Sprintf(`DELETE older FROM %[1]s older
+		JOIN %[1]s newer ON older.%[2]s = newer.%[2]s AND older.user_uid = newer.user_uid
+		AND (older.timestamp < newer.timestamp OR (older.timestamp = newer.timestamp AND older.uid < newer.uid))`, table, targetColumn)
+	result, err := db.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func validateReactionTableReferences(db *sql.DB, table string, spec reactionLikeTableSpec, prefix string) error {
+	references := []struct {
+		constraint string
+		column     string
+		expected   string
+	}{
+		{spec.boardFk, "board_uid", prefix + "board"},
+		{spec.targetFk, spec.targetColumn, prefix + spec.targetName},
+		{spec.userFk, "user_uid", prefix + "user"},
+	}
+	for _, reference := range references {
+		var referenced sql.NullString
+		err := db.QueryRow(`SELECT REFERENCED_TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
+			table, reference.constraint, reference.column).Scan(&referenced)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+		if err == nil && referenced.Valid && referenced.String == reference.expected {
+			continue
+		}
+		if err == sql.ErrNoRows {
+			if _, addErr := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s(uid)",
+				table, reference.constraint, reference.column, reference.expected)); addErr != nil {
+				return addErr
+			}
+			continue
+		}
+		return fmt.Errorf("%s has unexpected foreign key %s -> %v", table, reference.constraint, referenced.String)
+	}
+	return nil
+}
+
+func prefixForTable(table string) string {
+	return strings.TrimSuffix(table, "_post_like")
 }
 
 // 선택된 환경 파일이 존재하는지 확인하기
@@ -584,9 +733,8 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createPostTable(db, dbInfo.Prefix)
 	createHashtagTable(db, dbInfo.Prefix)
 	createPostHashtagTable(db, dbInfo.Prefix)
-	createPostLikeTable(db, dbInfo.Prefix)
 	createCommentTable(db, dbInfo.Prefix)
-	createCommentLikeTable(db, dbInfo.Prefix)
+	_ = createCommentLikeTable(db, dbInfo.Prefix)
 	_ = createBadgeTables(db, dbInfo.Prefix)
 	createFileTable(db, dbInfo.Prefix)
 	createFileThumbnailTable(db, dbInfo.Prefix)
@@ -1067,13 +1215,18 @@ func createPostHashtagTable(db *sql.DB, prefix string) {
 }
 
 // post_like 테이블 생성
-func createPostLikeTable(db *sql.DB, prefix string) {
+func createPostLikeTable(db *sql.DB, prefix string) error {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %spost_like (
+  uid BIGINT UNSIGNED NOT NULL auto_increment,
   board_uid INT UNSIGNED NOT NULL DEFAULT 0,
   post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   liked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  reaction_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
   timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_post_like_post_user (post_uid, user_uid),
+  KEY idx_post_like_reaction (post_uid, reaction_type),
   KEY (post_uid),
   KEY (user_uid),
   KEY (liked),
@@ -1081,7 +1234,8 @@ func createPostLikeTable(db *sql.DB, prefix string) {
   CONSTRAINT fk_plp FOREIGN KEY (post_uid) REFERENCES %spost(uid),
   CONSTRAINT fk_plu FOREIGN KEY (user_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix, prefix)
-	db.Exec(query)
+	_, err := db.Exec(query)
+	return err
 }
 
 // comment 테이블 생성
@@ -1111,13 +1265,18 @@ func createCommentTable(db *sql.DB, prefix string) {
 }
 
 // comment_like 테이블 생성
-func createCommentLikeTable(db *sql.DB, prefix string) {
+func createCommentLikeTable(db *sql.DB, prefix string) error {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %scomment_like (
+  uid BIGINT UNSIGNED NOT NULL auto_increment,
   board_uid INT UNSIGNED NOT NULL DEFAULT 0,
   comment_uid INT UNSIGNED NOT NULL DEFAULT 0,
   user_uid INT UNSIGNED NOT NULL DEFAULT 0,
   liked TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  reaction_type TINYINT UNSIGNED NOT NULL DEFAULT 0,
   timestamp BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (uid),
+  UNIQUE KEY uq_comment_like_comment_user (comment_uid, user_uid),
+  KEY idx_comment_like_reaction (comment_uid, reaction_type),
   KEY (comment_uid),
   KEY (user_uid),
   KEY (liked),
@@ -1125,7 +1284,8 @@ func createCommentLikeTable(db *sql.DB, prefix string) {
   CONSTRAINT fk_clc FOREIGN KEY (comment_uid) REFERENCES %scomment(uid),
   CONSTRAINT fk_clu FOREIGN KEY (user_uid) REFERENCES %suser(uid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`, prefix, prefix, prefix, prefix)
-	db.Exec(query)
+	_, err := db.Exec(query)
+	return err
 }
 
 // file 테이블 생성

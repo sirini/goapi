@@ -122,12 +122,13 @@ type BoardCommonPostItem struct {
 
 // 게시글 목록보기에 추가로 필요한 리턴 타입 정의
 type BoardCommonListItem struct {
-	Category Pair        `json:"category"`
-	Cover    string      `json:"cover"`
-	Comment  uint        `json:"comment"`
-	Like     uint        `json:"like"`
-	Liked    bool        `json:"liked"`
-	Writer   BoardWriter `json:"writer"`
+	Category  Pair          `json:"category"`
+	Cover     string        `json:"cover"`
+	Comment   uint          `json:"comment"`
+	Like      uint          `json:"like"`
+	Liked     bool          `json:"liked"`
+	Reactions ReactionState `json:"reactions"`
+	Writer    BoardWriter   `json:"writer"`
 }
 
 // 게시글 목록보기용 리턴 타입 정의

@@ -42,6 +42,7 @@ type BoardService interface {
 	GetThumbnailImage(fileUid uint, userUid uint) (string, error)
 	GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParam) error
+	SetPostReaction(param models.BoardReactionParam) (models.ReactionState, error)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	ModifyPost(param models.EditorModifyParam) error
 	MovePost(param models.BoardMovePostParam) error
@@ -441,11 +442,14 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return fmt.Errorf("post does not belong to this board")
 	}
-	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
-		s.repos.BoardView.UpdateLikePost(param)
-	} else {
-		s.repos.BoardView.InsertLikePost(param)
+	code := models.REACTION_NONE
+	if param.Liked {
+		code = models.REACTION_LIKE
 	}
+	_ = s.repos.BoardView.SetPostReaction(models.BoardReactionParam{
+		BoardUid: param.BoardUid, PostUid: param.PostUid, UserUid: param.UserUid,
+		Reaction: code.APIValue(), ReactionCode: code,
+	})
 	if param.Liked {
 		targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
 		s.notifications.Save(models.InsertNotificationParam{
@@ -456,6 +460,36 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
 		}, true)
 	}
 	return nil
+}
+
+// 게시글에 다중 리액션 남기기
+func (s *NuboBoardService) SetPostReaction(param models.BoardReactionParam) (models.ReactionState, error) {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return models.ReactionState{}, fmt.Errorf("post does not belong to this board")
+	}
+	code, err := models.ParseReaction(param.Reaction)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
+	param.ReactionCode = code
+	if param.ReactionCode == models.REACTION_LIKE {
+		targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
+		param.TargetUserUid = targetUserUid
+		param.Notify = param.UserUid != targetUserUid
+	}
+	if err := s.repos.BoardView.SetPostReaction(param); err != nil {
+		return models.ReactionState{}, err
+	}
+	state := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+	if param.ReactionCode == models.REACTION_LIKE && param.Notify {
+		s.notifications.Save(models.InsertNotificationParam{
+			ActionUserUid: param.UserUid,
+			TargetUserUid: param.TargetUserUid,
+			NotiType:      models.NOTI_LIKE_POST,
+			PostUid:       param.PostUid,
+		}, true)
+	}
+	return state, nil
 }
 
 // 게시글 수정 시 기존 정보들 가져오기

@@ -13,6 +13,7 @@ import (
 
 type CommentService interface {
 	Like(param models.CommentLikeParam) error
+	SetReaction(param models.CommentReactionParam) (models.ReactionState, error)
 	List(param models.CommentListParam) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParam) error
 	Remove(param models.CommentRemoveParam) error
@@ -61,6 +62,41 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
 		s.repos.Comment.UpdateLikeComment(param)
 	}
 	return nil
+}
+
+// 댓글에 다중 리액션 남기기
+func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (models.ReactionState, error) {
+	if !s.repos.Comment.IsCommentInBoard(param.CommentUid, param.BoardUid) {
+		return models.ReactionState{}, fmt.Errorf("comment does not belong to this board")
+	}
+	code, err := models.ParseReaction(param.Reaction)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
+	param.ReactionCode = code
+	if code == models.REACTION_LIKE {
+		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
+		param.TargetUserUid = targetUserUid
+		param.Notify = param.UserUid != targetUserUid
+		if err := s.repos.Comment.SetCommentReaction(param); err != nil {
+			return models.ReactionState{}, err
+		}
+		state := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+		if param.Notify {
+			s.notifications.Save(models.InsertNotificationParam{
+				ActionUserUid: param.UserUid,
+				TargetUserUid: targetUserUid,
+				NotiType:      models.NOTI_LIKE_COMMENT,
+				PostUid:       postUid,
+				CommentUid:    param.CommentUid,
+			}, true)
+		}
+		return state, nil
+	}
+	if err := s.repos.Comment.SetCommentReaction(param); err != nil {
+		return models.ReactionState{}, err
+	}
+	return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid), nil
 }
 
 // 댓글 목록 가져오기

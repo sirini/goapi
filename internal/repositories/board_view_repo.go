@@ -24,12 +24,14 @@ type BoardViewRepository interface {
 	GetPrevPostUid(boardUid uint, postUid uint) uint
 	GetNextPostUid(boardUid uint, postUid uint) uint
 	GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error)
+	GetPostReactionState(postUid uint, userUid uint) models.ReactionState
 	GetTags(postUid uint) []models.Pair
 	GetTagName(hashtagUid uint) string
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
 	GetWriterLatestComment(writerUid uint, limit uint) ([]models.BoardWriterLatestComment, error)
 	GetWriterLatestPost(writerUid uint, limit uint) ([]models.BoardWriterLatestPost, error)
 	InsertLikePost(param models.BoardViewLikeParam)
+	SetPostReaction(param models.BoardReactionParam) error
 	IsLikedPost(postUid uint, actionUserUid uint) bool
 	IsFileInBoard(fileUid uint, boardUid uint) bool
 	IsFileInPost(fileUid uint, postUid uint, boardUid uint) bool
@@ -46,7 +48,6 @@ type BoardViewRepository interface {
 	RemovePost(postUid uint) error
 	RemovePostTags(postUid uint)
 	RemoveThumbnails(fileUid uint) []string
-	UpdateLikePost(param models.BoardViewLikeParam)
 	UpdatePostHit(postUid uint)
 	MovePost(targetBoardUid uint, postUid uint) error
 }
@@ -317,6 +318,8 @@ func (r *NuboBoardViewRepository) GetNextPostUid(boardUid uint, postUid uint) ui
 // 게시글 보기 시 글 내용 가져오기
 func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error) {
 	item := models.BoardListItem{}
+	var likeCount, bestCount, facepalmCount, hmmCount uint
+	var userReactionCode uint8
 	prefix := configs.Env.Prefix
 
 	query := fmt.Sprintf(`SELECT p.uid, p.user_uid, p.category_uid, p.title, p.content, p.submitted, p.modified, p.hit, p.status,
@@ -325,13 +328,23 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 			COALESCE((SELECT path FROM %s%s WHERE post_uid = p.uid LIMIT 1), ''),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND status != ?),
 			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND liked = 1),
-			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1)
+			EXISTS(SELECT 1 FROM %s%s WHERE post_uid = p.uid AND user_uid = ? AND liked = 1),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 1),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 2),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 3),
+			(SELECT COUNT(*) FROM %s%s WHERE post_uid = p.uid AND reaction_type = 4),
+			(SELECT reaction_type FROM %s%s WHERE post_uid = p.uid AND user_uid = ?)
 		FROM %s%s AS p
 		LEFT JOIN %s%s AS u ON p.user_uid = u.uid
 		LEFT JOIN %s%s AS c ON p.category_uid = c.uid
 		WHERE p.uid = ? AND p.status != ?`,
 		prefix, models.TABLE_FILE_THUMB,
 		prefix, models.TABLE_COMMENT,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST_LIKE,
+		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST_LIKE,
 		prefix, models.TABLE_POST,
@@ -361,11 +374,31 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 		&item.Comment,
 		&item.Like,
 		&item.Liked,
+		&likeCount, &bestCount, &facepalmCount, &hmmCount,
+		&userReactionCode,
 	)
 	if err != nil {
 		return item, err
 	}
+	item.Reactions.Reactions = models.ReactionCounts{
+		models.REACTION_LIKE:     likeCount,
+		models.REACTION_BEST:     bestCount,
+		models.REACTION_FACEPALM: facepalmCount,
+		models.REACTION_HMM:      hmmCount,
+	}
+	if reaction := models.ReactionType(userReactionCode); reaction != models.REACTION_NONE {
+		value := reaction.APIValue()
+		item.Reactions.MyReaction = &value
+	}
 	return item, nil
+}
+
+// 상세와 성공 쓰기 응답에서 재사용할 종류별 리액션 상태 가져오기
+func (r *NuboBoardViewRepository) GetPostReactionState(postUid uint, userUid uint) models.ReactionState {
+	counts := r.board.GetPostReactionCounts(postUid)
+	current := r.board.GetPostUserReaction(postUid, userUid)
+	counts[models.REACTION_LIKE] = uint(counts[models.REACTION_LIKE])
+	return reactionState(counts, current)
 }
 
 // 게시글에 등록된 해시태그들 가져오기
@@ -491,10 +524,11 @@ func (r *NuboBoardViewRepository) IsWriter(table models.Table, targetUid uint, u
 
 // 게시글에 대한 좋아요를 추가하기
 func (r *NuboBoardViewRepository) InsertLikePost(param models.BoardViewLikeParam) {
-	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, user_uid, liked, timestamp) 
-												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_POST_LIKE)
-
-	r.db.Exec(query, param.BoardUid, param.PostUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+	_ = r.SetPostReaction(models.BoardReactionParam{
+		BoardUid: param.BoardUid, PostUid: param.PostUid, UserUid: param.UserUid,
+		Reaction:     reactionCodeFromLiked(param.Liked).APIValue(),
+		ReactionCode: reactionCodeFromLiked(param.Liked),
+	})
 }
 
 // 첨부파일 및 썸네일들 삭제하기
@@ -612,11 +646,41 @@ func (r *NuboBoardViewRepository) RemoveThumbnails(fileUid uint) []string {
 }
 
 // 게시글에 대한 좋아요를 변경하기
-func (r *NuboBoardViewRepository) UpdateLikePost(param models.BoardViewLikeParam) {
-	query := fmt.Sprintf(`UPDATE %s%s SET liked = ?, timestamp = ? 
-												WHERE post_uid = ? AND user_uid = ? LIMIT 1`, configs.Env.Prefix, models.TABLE_POST_LIKE)
+// 사용자당 한 행을 유지하며 liked와 reaction_type를 한 트랜잭션으로 동기화한다.
+func (r *NuboBoardViewRepository) SetPostReaction(param models.BoardReactionParam) error {
+	code := uint8(param.ReactionCode)
+	liked := 0
+	if code == 1 {
+		liked = 1
+	}
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(fmt.Sprintf(`INSERT INTO %s%s (board_uid, post_uid, user_uid, liked, reaction_type, timestamp)
+		VALUES (?, ?, ?, ?, ?, ?) AS new
+		ON DUPLICATE KEY UPDATE liked = new.liked, reaction_type = new.reaction_type, timestamp = new.timestamp`,
+		configs.Env.Prefix, models.TABLE_POST_LIKE),
+		param.BoardUid, param.PostUid, param.UserUid, liked, code, time.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 2 && param.ReactionCode == models.REACTION_LIKE && param.Notify {
+		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s%s WHERE from_uid = ? AND to_uid = ? AND post_uid = ? AND type = ? LIMIT 1",
+			configs.Env.Prefix, models.TABLE_NOTI), param.UserUid, param.TargetUserUid, param.PostUid, models.NOTI_LIKE_POST)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
 
-	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.PostUid, param.UserUid)
+func reactionCodeFromLiked(liked bool) models.ReactionType {
+	if liked {
+		return models.REACTION_LIKE
+	}
+	return models.REACTION_NONE
 }
 
 // 조회수 업데이트 하기

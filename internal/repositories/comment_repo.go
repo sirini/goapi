@@ -16,6 +16,8 @@ type CommentRepository interface {
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
+	GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState
+	SetCommentReaction(param models.CommentReactionParam) error
 	IsCommentInBoard(commentUid uint, boardUid uint) bool
 	IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool
 	InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error)
@@ -109,12 +111,44 @@ func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
 
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
 func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bool {
-	var uid uint
-	query := fmt.Sprintf("SELECT comment_uid FROM %s%s WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
+	return r.board.GetCommentUserReaction(commentUid, userUid) == models.REACTION_LIKE
+}
 
-	r.db.QueryRow(query, commentUid, userUid).Scan(&uid)
-	return uid > 0
+// 댓글 종류별 리액션 상태 가져오기
+func (r *NuboCommentRepository) GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState {
+	counts := r.board.GetCommentReactionCounts(commentUid)
+	current := r.board.GetCommentUserReaction(commentUid, userUid)
+	return reactionState(counts, current)
+}
+
+// 사용자당 한 행을 유지하며 liked와 reaction_type를 한 트랜잭션으로 동기화한다.
+func (r *NuboCommentRepository) SetCommentReaction(param models.CommentReactionParam) error {
+	code := uint8(param.ReactionCode)
+	liked := 0
+	if code == 1 {
+		liked = 1
+	}
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, reaction_type, timestamp)
+		VALUES (?, ?, ?, ?, ?, ?) AS new
+		ON DUPLICATE KEY UPDATE liked = new.liked, reaction_type = new.reaction_type, timestamp = new.timestamp`,
+		configs.Env.Prefix, models.TABLE_COMMENT_LIKE),
+		param.BoardUid, param.CommentUid, param.UserUid, liked, code, time.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+	if affected, _ := result.RowsAffected(); affected == 2 && param.ReactionCode == models.REACTION_LIKE && param.Notify {
+		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s%s WHERE from_uid = ? AND to_uid = ? AND comment_uid = ? AND type = ? LIMIT 1",
+			configs.Env.Prefix, models.TABLE_NOTI), param.UserUid, param.TargetUserUid, param.CommentUid, models.NOTI_LIKE_COMMENT)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // 새로운 댓글 작성하기
@@ -165,10 +199,14 @@ func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam, re
 
 // 이 댓글에 대한 좋아요 추가하기
 func (r *NuboCommentRepository) InsertLikeComment(param models.CommentLikeParam) {
-	query := fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, timestamp) 
-												VALUES (?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-
-	r.db.Exec(query, param.BoardUid, param.CommentUid, param.UserUid, param.Liked, time.Now().UnixMilli())
+	code := models.REACTION_NONE
+	if param.Liked {
+		code = models.REACTION_LIKE
+	}
+	_ = r.SetCommentReaction(models.CommentReactionParam{
+		BoardUid: param.BoardUid, CommentUid: param.CommentUid, UserUid: param.UserUid,
+		Reaction: code.APIValue(), ReactionCode: code,
+	})
 }
 
 // 댓글을 삭제 상태로 변경하기
@@ -189,15 +227,13 @@ func (r *NuboCommentRepository) UpdateComment(commentUid uint, content string) {
 
 // 이 댓글에 대한 좋아요 변경하기
 func (r *NuboCommentRepository) UpdateLikeComment(param models.CommentLikeParam) {
-	query := fmt.Sprintf("UPDATE %s%s SET liked = ?, timestamp = ? WHERE comment_uid = ? AND user_uid = ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_COMMENT_LIKE)
-
-	r.db.Exec(query, param.Liked, time.Now().UnixMilli(), param.CommentUid, param.UserUid)
+	r.InsertLikeComment(param)
 }
 
 // 댓글 목록 가져오기
 func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]models.CommentItem, error) {
 	items := make([]models.CommentItem, 0)
+	userReactionCode := uint8(0)
 	offset := (param.Page - 1) * param.Limit
 	prefix := configs.Env.Prefix
 
@@ -205,7 +241,12 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 			c.uid, c.reply_uid, c.user_uid, c.content, c.submitted, c.modified, c.status,
 			u.name, u.profile,
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND liked = 1),
-			EXISTS(SELECT 1 FROM %s%s WHERE comment_uid = c.uid AND user_uid = ? AND liked = 1)
+			EXISTS(SELECT 1 FROM %s%s WHERE comment_uid = c.uid AND user_uid = ? AND liked = 1),
+			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 1),
+			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 2),
+			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 3),
+			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 4),
+			(SELECT reaction_type FROM %s%s WHERE comment_uid = c.uid AND user_uid = ?)
 		FROM %s%s AS c
 		JOIN (
 			SELECT uid FROM %s%s 
@@ -217,12 +258,18 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 		ORDER BY c.reply_uid ASC, c.uid ASC`,
 		prefix, models.TABLE_COMMENT_LIKE,
 		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
+		prefix, models.TABLE_COMMENT_LIKE,
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_COMMENT,
 		prefix, models.TABLE_USER,
 	)
 
 	rows, err := r.db.Query(query,
+		param.UserUid,
 		param.UserUid,
 		param.PostUid,
 		models.CONTENT_NORMAL,
@@ -236,14 +283,27 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 	defer rows.Close()
 
 	for rows.Next() {
+		var likeCount, bestCount, facepalmCount, hmmCount uint
 		item := models.CommentItem{}
 		err := rows.Scan(
 			&item.Uid, &item.ReplyUid, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status,
 			&item.Writer.Name, &item.Writer.Profile,
 			&item.Like,
 			&item.Liked,
+			&likeCount, &bestCount, &facepalmCount, &hmmCount,
+			&userReactionCode,
 		)
 		if err == nil {
+			item.Reactions.Reactions = models.ReactionCounts{
+				models.REACTION_LIKE:     likeCount,
+				models.REACTION_BEST:     bestCount,
+				models.REACTION_FACEPALM: facepalmCount,
+				models.REACTION_HMM:      hmmCount,
+			}
+			if reaction := models.ReactionType(userReactionCode); reaction != models.REACTION_NONE {
+				value := reaction.APIValue()
+				item.Reactions.MyReaction = &value
+			}
 			item.PostUid = param.PostUid
 			items = append(items, item)
 		}

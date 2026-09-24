@@ -25,6 +25,7 @@ type BoardHandler interface {
 	OriginalImageTransferHandler(c fiber.Ctx) error
 	LatestUserContentHandler(c fiber.Ctx) error
 	LikePostHandler(c fiber.Ctx) error
+	SetReactionHandler(c fiber.Ctx) error
 	ListForMoveHandler(c fiber.Ctx) error
 	MovePostHandler(c fiber.Ctx) error
 	MyStudioHandler(c fiber.Ctx) error
@@ -292,6 +293,20 @@ func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
+}
+
+// 게시글 다중 리액션 핸들러
+func (h *NuboBoardHandler) SetReactionHandler(c fiber.Ctx) error {
+	param := models.BoardReactionParam{}
+	if err := c.Bind().Body(&param); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	param.UserUid = uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
+	state, err := h.service.Board.SetPostReaction(param)
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, state)
 }
 
 // 게시글 이동 대상 목록 가져오는 핸들러
