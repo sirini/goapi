@@ -356,9 +356,9 @@ func (r *NuboBoardViewRepository) GetPostItem(postUid uint, actionUserUid uint) 
 	err := r.db.QueryRow(query,
 		models.CONTENT_REMOVED,
 		actionUserUid,
+		actionUserUid,
 		postUid,
 		models.CONTENT_REMOVED,
-		actionUserUid,
 	).Scan(
 		&item.Uid,
 		&item.Writer.UserUid,

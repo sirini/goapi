@@ -446,8 +446,7 @@ func (r *NuboBoardRepository) GetNoticePosts(boardUid uint, actionUserUid uint) 
 		prefix, models.TABLE_BOARD_CAT,
 	)
 
-	// 파라미터 바인딩 순서 확인
-	rows, err := r.db.Query(query, models.CONTENT_REMOVED, actionUserUid, actionUserUid, boardUid, models.CONTENT_NOTICE, actionUserUid)
+	rows, err := r.db.Query(query, models.CONTENT_REMOVED, actionUserUid, actionUserUid, boardUid, models.CONTENT_NOTICE)
 	if err != nil {
 		return nil, err
 	}

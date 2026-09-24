@@ -119,7 +119,6 @@ func TestGetNoticePostsScansReactionsForUserWithoutReactionRows(t *testing.T) {
 			uint(9), uint(9),
 			uint(7),
 			models.CONTENT_NOTICE,
-			uint(9),
 		).
 		WillReturnRows(reactionRowsForPosts())
 
@@ -148,10 +147,9 @@ func TestGetPostItemScansReactionsForUserWithoutReactionRows(t *testing.T) {
 	mock.ExpectQuery(`(?s)WHERE p\.uid = \? AND p\.status != \?`).
 		WithArgs(
 			models.CONTENT_REMOVED,
-			uint(9),
+			uint(9), uint(9),
 			uint(11),
 			models.CONTENT_REMOVED,
-			uint(9),
 		).
 		WillReturnRows(reactionRowsForPosts())
 
