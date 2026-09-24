@@ -119,6 +119,40 @@ func TestReactionInstallMySQL(t *testing.T) {
 			`SELECT COUNT(*) FROM %scomment_like WHERE liked <> IF(reaction_type = 1, 1, 0)`, prefix), 0,
 			"liked=(reaction_type=1) invariant on comment_like")
 	})
+
+	t.Run("legacy two-level comments migrate to thread columns", func(t *testing.T) {
+		prefix := fmt.Sprintf("thread_%d_", time.Now().UnixNano())
+		t.Cleanup(func() { dropPrefixedTables(t, db, prefix) })
+		if err := BootstrapDatabase(db, prefix, admin); err != nil {
+			t.Fatalf("seeding modern install: %v", err)
+		}
+		boardUid := mustScalar(t, db, fmt.Sprintf("SELECT uid FROM %sboard ORDER BY uid LIMIT 1", prefix)).(int64)
+		writerUid := mustScalar(t, db, fmt.Sprintf("SELECT uid FROM %suser ORDER BY uid LIMIT 1", prefix)).(int64)
+		categoryUid := mustScalar(t, db, fmt.Sprintf("SELECT uid FROM %sboard_category ORDER BY uid LIMIT 1", prefix)).(int64)
+		exec(t, db, fmt.Sprintf("INSERT INTO %spost (board_uid, user_uid, category_uid, title) VALUES (?, ?, ?, 'thread post')", prefix), boardUid, writerUid, categoryUid)
+		postUid := mustScalar(t, db, fmt.Sprintf("SELECT MAX(uid) FROM %spost", prefix)).(int64)
+		exec(t, db, fmt.Sprintf("INSERT INTO %scomment (board_uid, post_uid, user_uid, content) VALUES (?, ?, ?, 'thread root')", prefix), boardUid, postUid, writerUid)
+		rootUid := mustScalar(t, db, fmt.Sprintf("SELECT MAX(uid) FROM %scomment", prefix)).(int64)
+		exec(t, db, fmt.Sprintf("UPDATE %scomment SET reply_uid = ? WHERE uid = ?", prefix), rootUid, rootUid)
+		exec(t, db, fmt.Sprintf("INSERT INTO %scomment (reply_uid, board_uid, post_uid, user_uid, content) VALUES (?, ?, ?, ?, 'legacy reply')", prefix), rootUid, boardUid, postUid, writerUid)
+		// 구 스키마로 후퇴시킨다.
+		exec(t, db, fmt.Sprintf("ALTER TABLE %scomment DROP INDEX idx_comment_parent, DROP COLUMN parent_uid, DROP COLUMN depth", prefix))
+
+		for round := 1; round <= 2; round++ {
+			if err := BootstrapDatabase(db, prefix, admin); err != nil {
+				t.Fatalf("thread migration round %d: %v", round, err)
+			}
+		}
+		assertColumn(t, db, prefix+"comment", "parent_uid")
+		assertColumn(t, db, prefix+"comment", "depth")
+		assertIndex(t, db, prefix+"comment", "idx_comment_parent")
+		assertQueryRows(t, db, fmt.Sprintf(
+			`SELECT reply_uid, parent_uid, depth FROM %scomment WHERE post_uid = ? ORDER BY uid`, prefix), postUid,
+			"thread comment rows", []map[string]any{
+				{"reply_uid": rootUid, "parent_uid": 0, "depth": 0},
+				{"reply_uid": rootUid, "parent_uid": rootUid, "depth": 1},
+			})
+	})
 }
 
 func exec(t *testing.T, db *sql.DB, query string, args ...any) {

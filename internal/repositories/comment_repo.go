@@ -16,13 +16,14 @@ type CommentRepository interface {
 	GetPostStatus(postUid uint) models.Status
 	GetPostWriterUid(postUid uint) uint
 	HasReplyComment(commentUid uint) bool
+	GetCommentThreadInfo(commentUid uint) models.CommentThreadInfo
 	IsLikedComment(commentUid uint, userUid uint) bool
 	GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState
 	GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType
 	SetCommentReaction(param models.CommentReactionParam) (bool, error)
 	IsCommentInBoard(commentUid uint, boardUid uint) bool
 	IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool
-	InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error)
+	InsertComment(param models.CommentWriteParam, replyUid uint, parentUid uint, depth uint, point models.UpdatePointParam) (uint, error)
 	InsertLikeComment(param models.CommentLikeParam)
 	RemoveComment(commentUid uint) error
 	UpdateComment(commentUid uint, content string)
@@ -99,26 +100,24 @@ func (r *NuboCommentRepository) GetPostWriterUid(postUid uint) uint {
 	return userUid
 }
 
-// 이 댓글에 답글이 하나라도 있는지 확인하기
+// 이 댓글에 직계 자식(답글)이 하나라도 있는지 확인한다. parent_uid 백필 후에는 직계 자식만 보아도 충분하다.
 func (r *NuboCommentRepository) HasReplyComment(commentUid uint) bool {
-	var replyUid uint
-	query := fmt.Sprintf("SELECT reply_uid FROM %s%s WHERE uid = ? AND status != ? LIMIT 1",
-		configs.Env.Prefix, models.TABLE_COMMENT)
-
-	r.db.QueryRow(query, commentUid, models.CONTENT_REMOVED).Scan(&replyUid)
-	if replyUid != commentUid {
-		return false
-	}
-
 	var exists bool
-	query = fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE reply_uid = ? AND uid != ? AND status != ?)",
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s%s WHERE parent_uid = ? AND uid != ? AND status != ?)",
 		configs.Env.Prefix, models.TABLE_COMMENT)
-
-	err := r.db.QueryRow(query, commentUid, commentUid, models.CONTENT_REMOVED).Scan(&exists)
-	if err != nil {
+	if err := r.db.QueryRow(query, commentUid, commentUid, models.CONTENT_REMOVED).Scan(&exists); err != nil {
 		return false
 	}
 	return exists
+}
+
+// 댓글의 스레드 정보(스레드 루트 uid·깊이)를 가져온다.
+func (r *NuboCommentRepository) GetCommentThreadInfo(commentUid uint) models.CommentThreadInfo {
+	var info models.CommentThreadInfo
+	query := fmt.Sprintf("SELECT reply_uid, depth FROM %s%s WHERE uid = ? LIMIT 1",
+		configs.Env.Prefix, models.TABLE_COMMENT)
+	r.db.QueryRow(query, commentUid).Scan(&info.ReplyUid, &info.Depth)
+	return info
 }
 
 // 이미 이 댓글에 좋아요를 클릭한 적이 있는지 확인하기
@@ -164,7 +163,7 @@ func (r *NuboCommentRepository) SetCommentReaction(param models.CommentReactionP
 }
 
 // 새로운 댓글 작성하기
-func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error) {
+func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam, replyUid uint, parentUid uint, depth uint, point models.UpdatePointParam) (uint, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return models.FAILED, err
@@ -175,12 +174,14 @@ func (r *NuboCommentRepository) InsertComment(param models.CommentWriteParam, re
 	}
 
 	query := fmt.Sprintf(`INSERT INTO %s%s 
-												(reply_uid, board_uid, post_uid, user_uid, content, submitted, modified, status) 
-												VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT)
+												(reply_uid, parent_uid, depth, board_uid, post_uid, user_uid, content, submitted, modified, status) 
+												VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, configs.Env.Prefix, models.TABLE_COMMENT)
 
 	result, err := tx.Exec(
 		query,
 		replyUid,
+		parentUid,
+		depth,
 		param.BoardUid,
 		param.PostUid,
 		param.UserUid,
@@ -250,7 +251,7 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 	prefix := configs.Env.Prefix
 
 	query := fmt.Sprintf(`SELECT 
-			c.uid, c.reply_uid, c.user_uid, c.content, c.submitted, c.modified, c.status,
+			c.uid, c.reply_uid, c.parent_uid, c.depth, c.user_uid, c.content, c.submitted, c.modified, c.status,
 			u.name, u.profile,
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND liked = 1),
 			EXISTS(SELECT 1 FROM %s%s WHERE comment_uid = c.uid AND user_uid = ? AND liked = 1),
@@ -292,7 +293,7 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 		var reactions models.ReactionCountsDTO
 		item := models.CommentItem{}
 		err := rows.Scan(
-			&item.Uid, &item.ReplyUid, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status,
+			&item.Uid, &item.ReplyUid, &item.ParentUid, &item.Depth, &item.Writer.UserUid, &item.Content, &item.Submitted, &item.Modified, &item.Status,
 			&item.Writer.Name, &item.Writer.Profile,
 			&item.Like,
 			&item.Liked,

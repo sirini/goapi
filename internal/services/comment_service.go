@@ -211,19 +211,26 @@ func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
 }
 
 // 새로운 답글 작성하기
+// 대상의 스레드 루트를 reply_uid로 유지하고 직계 부모·깊이를 parent_uid·depth로 저장한다.
+// 구 앱이 루트에만 답글을 다는 한 결과는 기존 2단계 계약과 동일하다.
 func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error) {
 	if !s.repos.Comment.IsCommentInPost(param.ReplyTargetUid, param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("reply target does not belong to this post")
 	}
-	return s.write(param.CommentWriteParam, param.ReplyTargetUid)
+	info := s.repos.Comment.GetCommentThreadInfo(param.ReplyTargetUid)
+	threadRoot := info.ReplyUid
+	if threadRoot == 0 {
+		threadRoot = param.ReplyTargetUid
+	}
+	return s.writeThread(param.CommentWriteParam, threadRoot, param.ReplyTargetUid, info.Depth+1)
 }
 
 // 새로운 댓글 작성하기
 func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error) {
-	return s.write(param, 0)
+	return s.writeThread(param, 0, 0, 0)
 }
 
-func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint) (uint, error) {
+func (s *NuboCommentService) writeThread(param models.CommentWriteParam, replyUid uint, parentUid uint, depth uint) (uint, error) {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("post does not belong to this board")
 	}
@@ -245,7 +252,7 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
-	insertId, err := s.repos.Comment.InsertComment(param, replyUid, models.UpdatePointParam{
+	insertId, err := s.repos.Comment.InsertComment(param, replyUid, parentUid, depth, models.UpdatePointParam{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_COMMENT,

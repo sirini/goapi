@@ -160,6 +160,9 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if err := ensureReactionSchema(db, prefix); err != nil {
 		return err
 	}
+	if err := ensureCommentThreadSchema(db, prefix); err != nil {
+		return err
+	}
 	var count uint
 	err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'skin_key'`, prefix+"board").Scan(&count)
@@ -169,6 +172,56 @@ func InstallSchema(db *sql.DB, prefix string) error {
 	if count == 0 {
 		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %sboard ADD COLUMN skin_key VARCHAR(80) NOT NULL DEFAULT 'nubo-basic-board' AFTER type", prefix))
 	}
+	return err
+}
+
+// 기존 2단계 comment 테이블을 다층 스레드 원본으로 확장하고 재실행 가능성을 유지한다.
+// reply_uid는 구 계약(스레드 루트 uid)을 그대로 유지하고 parent_uid·depth를 추가한다.
+func ensureCommentThreadSchema(db *sql.DB, prefix string) error {
+	table := prefix + "comment"
+	if err := ensureCommentThreadColumns(db, table); err != nil {
+		return err
+	}
+	return backfillCommentThreadColumns(db, table)
+}
+
+func ensureCommentThreadColumns(db *sql.DB, table string) error {
+	columns := []struct{ name, ddl string }{
+		{"parent_uid", "ALTER TABLE %s ADD COLUMN parent_uid INT UNSIGNED NOT NULL DEFAULT 0 AFTER reply_uid"},
+		{"depth", "ALTER TABLE %s ADD COLUMN depth SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER parent_uid"},
+	}
+	for _, column := range columns {
+		var count uint
+		if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`, table, column.name).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			if _, err := db.Exec(fmt.Sprintf(column.ddl, table)); err != nil {
+				return err
+			}
+		}
+	}
+	var indexCount uint
+	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = 'idx_comment_parent'`, table).Scan(&indexCount); err != nil {
+		return err
+	}
+	if indexCount == 0 {
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s ADD KEY idx_comment_parent (parent_uid)", table)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 2단계 시절 데이터를 parent_uid·depth로 백필한다. parent_uid가 0인 행만 다루므로
+// 새로 쓴 다층 행은 다시 건드리지 않는다.
+func backfillCommentThreadColumns(db *sql.DB, table string) error {
+	_, err := db.Exec(fmt.Sprintf(`UPDATE %s SET
+		parent_uid = IF(reply_uid = uid OR reply_uid = 0, 0, reply_uid),
+		depth = IF(reply_uid = uid OR reply_uid = 0, 0, 1)
+		WHERE parent_uid = 0 AND depth = 0`, table))
 	return err
 }
 
@@ -1249,6 +1302,8 @@ func createCommentTable(db *sql.DB, prefix string) {
 	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %scomment (
   uid INT UNSIGNED NOT NULL auto_increment,
   reply_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  parent_uid INT UNSIGNED NOT NULL DEFAULT 0,
+  depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   board_uid INT UNSIGNED NOT NULL DEFAULT 0,
   post_uid INT UNSIGNED NOT NULL DEFAULT 0,
   user_uid INT UNSIGNED NOT NULL DEFAULT 0,
@@ -1258,6 +1313,7 @@ func createCommentTable(db *sql.DB, prefix string) {
   status TINYINT NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   KEY (reply_uid),
+  KEY (parent_uid),
   KEY (board_uid),
   KEY (post_uid),
   KEY (user_uid),

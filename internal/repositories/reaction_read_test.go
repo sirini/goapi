@@ -180,11 +180,11 @@ func TestGetCommentsScansReactionsForUserWithoutReactionRows(t *testing.T) {
 			uint(20), uint(0),
 		).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"uid", "reply_uid", "user_uid", "content", "submitted", "modified", "status",
+			"uid", "reply_uid", "parent_uid", "depth", "user_uid", "content", "submitted", "modified", "status",
 			"name", "profile", "like_count", "liked",
 			"like_c", "best_c", "facepalm_c", "hmm_c", "laugh_c", "celebrate_c", "fire_c", "support_c", "sad_c", "eyes_c", "my_reaction",
 		}).AddRow(
-			uint(21), uint(0), uint(3), "댓글", int64(100), int64(100), models.CONTENT_NORMAL,
+			uint(21), uint(21), uint(0), uint(0), uint(3), "댓글", int64(100), int64(100), models.CONTENT_NORMAL,
 			"작성자", "프로필", uint(2), 0,
 			uint(2), uint(1), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint(0), uint8(0),
 		))

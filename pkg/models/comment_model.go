@@ -14,6 +14,8 @@ type CommentListParam struct {
 type CommentItem struct {
 	Uid        uint              `json:"uid"`
 	ReplyUid   uint              `json:"replyUid"`
+	ParentUid  uint              `json:"parentUid"`
+	Depth      uint              `json:"depth"`
 	PostUid    uint              `json:"postUid"`
 	Writer     BoardWriter       `json:"writer"`
 	Like       uint              `json:"like"`
@@ -53,6 +55,12 @@ type CommentRemoveParam struct {
 	BoardUid        uint `json:"boardUid"`
 	UserUid         uint `json:"userUid"`
 	RemoveTargetUid uint `json:"removeTargetUid"`
+}
+
+// 댓글의 스레드 정보: ReplyUid는 스레드 루트 uid, Depth는 루트부터의 깊이다.
+type CommentThreadInfo struct {
+	ReplyUid uint
+	Depth    uint
 }
 
 // 답글 작성하기에 필요한 파라미터 정의
