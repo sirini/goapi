@@ -137,6 +137,7 @@ func TestFindPostsSearchesImageDescription(t *testing.T) {
 		WithArgs(
 			models.CONTENT_REMOVED,
 			uint(9),
+			uint(9),
 			uint(7),
 			models.CONTENT_NORMAL,
 			models.CONTENT_SECRET,

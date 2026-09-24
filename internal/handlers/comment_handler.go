@@ -65,12 +65,22 @@ func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 
 // 댓글 다중 리액션 핸들러
 func (h *NuboCommentHandler) SetReactionHandler(c fiber.Ctx) error {
-	param := models.CommentReactionParam{}
-	if err := c.Bind().Body(&param); err != nil {
+	body := models.CommentReactionBody{}
+	if err := c.Bind().Body(&body); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	param.UserUid = uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
-	state, err := h.service.Comment.SetReaction(param)
+	if body.BoardUid == 0 || body.CommentUid == 0 {
+		return utils.Err(c, "boardUid and commentUid are required", models.CODE_INVALID_PARAMETER)
+	}
+	reaction := ""
+	if body.Reaction != nil {
+		reaction = *body.Reaction
+	}
+	state, err := h.service.Comment.SetReaction(models.CommentReactionParam{
+		BoardUid: body.BoardUid, CommentUid: body.CommentUid,
+		UserUid:  uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY))),
+		Reaction: reaction, ReactionIsNull: body.Reaction == nil,
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

@@ -297,12 +297,22 @@ func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 
 // 게시글 다중 리액션 핸들러
 func (h *NuboBoardHandler) SetReactionHandler(c fiber.Ctx) error {
-	param := models.BoardReactionParam{}
-	if err := c.Bind().Body(&param); err != nil {
+	body := models.BoardReactionBody{}
+	if err := c.Bind().Body(&body); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
 	}
-	param.UserUid = uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY)))
-	state, err := h.service.Board.SetPostReaction(param)
+	if body.BoardUid == 0 || body.PostUid == 0 {
+		return utils.Err(c, "boardUid and postUid are required", models.CODE_INVALID_PARAMETER)
+	}
+	reaction := ""
+	if body.Reaction != nil {
+		reaction = *body.Reaction
+	}
+	state, err := h.service.Board.SetPostReaction(models.BoardReactionParam{
+		BoardUid: body.BoardUid, PostUid: body.PostUid,
+		UserUid:  uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY))),
+		Reaction: reaction, ReactionIsNull: body.Reaction == nil,
+	})
 	if err != nil {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}

@@ -75,6 +75,17 @@ func (s *NuboHomeService) GetLatestPosts(param models.HomePostParam) ([]models.B
 		item.Liked = s.repos.Board.CheckLikedPost(post.Uid, param.UserUid)
 		items = append(items, item)
 	}
+	// 홈 카드의 종류별 리액션 요약은 행마다 상관 서브쿼리 대신 uid 묶음으로 조회한다.
+	postUids := make([]uint, 0, len(items))
+	for _, item := range items {
+		postUids = append(postUids, item.Uid)
+	}
+	summaries := s.repos.Board.GetPostReactionSummaries(postUids, param.UserUid)
+	for i := range items {
+		state := summaries[items[i].Uid]
+		items[i].Reactions = state.Reactions
+		items[i].MyReaction = state.MyReaction
+	}
 	userUids := make([]uint, 0, len(items))
 	for _, item := range items {
 		userUids = append(userUids, item.Writer.UserUid)

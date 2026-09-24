@@ -194,5 +194,18 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 	if err := rows.Err(); err != nil {
 		return result, err
 	}
+	// 작품 행에도 종류별 리액션 요약을 묶음 조회로 채운다. 누적 like/정렬은 좋아요 전용을 유지한다.
+	if len(result.Posts.Items) > 0 {
+		uids := make([]uint, 0, len(result.Posts.Items))
+		for _, item := range result.Posts.Items {
+			uids = append(uids, item.Uid)
+		}
+		summaries := r.GetPostReactionSummaries(uids, param.UserUid)
+		for i := range result.Posts.Items {
+			state := summaries[result.Posts.Items[i].Uid]
+			result.Posts.Items[i].Reactions = state.Reactions
+			result.Posts.Items[i].MyReaction = state.MyReaction
+		}
+	}
 	return result, nil
 }

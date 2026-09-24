@@ -15,6 +15,25 @@ type ReactionType uint8
 
 type Reaction = string
 
+// 취소는 JSON null로 구분하며, 빈 문자열은 거부한다.
+type ReactionParam struct {
+	Reaction *Reaction `json:"reaction"`
+}
+
+// PATCH /board/reaction 본문. reaction은 네 종류 문자열이나 명시적 null만 허용한다.
+type BoardReactionBody struct {
+	BoardUid uint      `json:"boardUid"`
+	PostUid  uint      `json:"postUid"`
+	Reaction *Reaction `json:"reaction"`
+}
+
+// PATCH /comment/reaction 본문. reaction은 네 종류 문자열이나 명시적 null만 허용한다.
+type CommentReactionBody struct {
+	BoardUid   uint      `json:"boardUid"`
+	CommentUid uint      `json:"commentUid"`
+	Reaction   *Reaction `json:"reaction"`
+}
+
 var REACTIONS = struct {
 	LIKE     Reaction
 	BEST     Reaction
@@ -55,28 +74,38 @@ func ParseReaction(v Reaction) (ReactionType, error) {
 // 종류별 집계는 0이어도 항상 응답에 포함한다.
 type ReactionCounts map[ReactionType]uint
 
+// JSON 계약은 종류 문자열을 키로 가진 고정 순서 DTO를 따른다.
+type ReactionCountsDTO struct {
+	Like     uint `json:"like"`
+	Best     uint `json:"best"`
+	Facepalm uint `json:"facepalm"`
+	Hmm      uint `json:"hmm"`
+}
+
 type ReactionState struct {
-	Reactions  ReactionCounts `json:"reactions"`
-	MyReaction *Reaction      `json:"myReaction"`
+	Reactions  ReactionCountsDTO `json:"reactions"`
+	MyReaction *Reaction         `json:"myReaction"`
 }
 
 // 리액션 상태 변경에 필요한 파라미터 정의
 type BoardReactionParam struct {
-	BoardUid      uint
-	PostUid       uint
-	UserUid       uint
-	Reaction      Reaction
-	ReactionCode  ReactionType
-	Notify        bool
-	TargetUserUid uint
+	BoardUid       uint
+	PostUid        uint
+	UserUid        uint
+	Reaction       Reaction
+	ReactionIsNull bool
+	ReactionCode   ReactionType
+	Notify         bool
+	TargetUserUid  uint
 }
 
 type CommentReactionParam struct {
-	BoardUid      uint
-	CommentUid    uint
-	UserUid       uint
-	Reaction      Reaction
-	ReactionCode  ReactionType
-	Notify        bool
-	TargetUserUid uint
+	BoardUid       uint
+	CommentUid     uint
+	UserUid        uint
+	Reaction       Reaction
+	ReactionIsNull bool
+	ReactionCode   ReactionType
+	Notify         bool
+	TargetUserUid  uint
 }

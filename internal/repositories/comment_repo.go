@@ -17,7 +17,8 @@ type CommentRepository interface {
 	HasReplyComment(commentUid uint) bool
 	IsLikedComment(commentUid uint, userUid uint) bool
 	GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState
-	SetCommentReaction(param models.CommentReactionParam) error
+	GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType
+	SetCommentReaction(param models.CommentReactionParam) (bool, error)
 	IsCommentInBoard(commentUid uint, boardUid uint) bool
 	IsCommentInPost(commentUid uint, postUid uint, boardUid uint) bool
 	InsertComment(param models.CommentWriteParam, replyUid uint, point models.UpdatePointParam) (uint, error)
@@ -115,6 +116,10 @@ func (r *NuboCommentRepository) IsLikedComment(commentUid uint, userUid uint) bo
 }
 
 // 댓글 종류별 리액션 상태 가져오기
+func (r *NuboCommentRepository) GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType {
+	return r.board.GetCommentUserReaction(commentUid, userUid)
+}
+
 func (r *NuboCommentRepository) GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState {
 	counts := r.board.GetCommentReactionCounts(commentUid)
 	current := r.board.GetCommentUserReaction(commentUid, userUid)
@@ -122,7 +127,7 @@ func (r *NuboCommentRepository) GetCommentReactionState(commentUid uint, userUid
 }
 
 // 사용자당 한 행을 유지하며 liked와 reaction_type를 한 트랜잭션으로 동기화한다.
-func (r *NuboCommentRepository) SetCommentReaction(param models.CommentReactionParam) error {
+func (r *NuboCommentRepository) SetCommentReaction(param models.CommentReactionParam) (bool, error) {
 	code := uint8(param.ReactionCode)
 	liked := 0
 	if code == 1 {
@@ -130,25 +135,21 @@ func (r *NuboCommentRepository) SetCommentReaction(param models.CommentReactionP
 	}
 	tx, err := r.db.Begin()
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
 	result, err := tx.Exec(fmt.Sprintf(`INSERT INTO %s%s (board_uid, comment_uid, user_uid, liked, reaction_type, timestamp)
-		VALUES (?, ?, ?, ?, ?, ?) AS new
-		ON DUPLICATE KEY UPDATE liked = new.liked, reaction_type = new.reaction_type, timestamp = new.timestamp`,
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE liked = VALUES(liked), reaction_type = VALUES(reaction_type), timestamp = IF(reaction_type <> VALUES(reaction_type) OR liked <> VALUES(liked), VALUES(timestamp), timestamp)`,
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE),
 		param.BoardUid, param.CommentUid, param.UserUid, liked, code, time.Now().UnixMilli())
 	if err != nil {
-		return err
+		return false, err
 	}
-	if affected, _ := result.RowsAffected(); affected == 2 && param.ReactionCode == models.REACTION_LIKE && param.Notify {
-		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s%s WHERE from_uid = ? AND to_uid = ? AND comment_uid = ? AND type = ? LIMIT 1",
-			configs.Env.Prefix, models.TABLE_NOTI), param.UserUid, param.TargetUserUid, param.CommentUid, models.NOTI_LIKE_COMMENT)
-		if err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
+	// affected: 0 = 무변경(같은 상태 재설정), 1 = 새 행, 2 = 기존 행 변경
+	affected, _ := result.RowsAffected()
+	changed := affected != 0
+	return changed, tx.Commit()
 }
 
 // 새로운 댓글 작성하기
@@ -203,7 +204,7 @@ func (r *NuboCommentRepository) InsertLikeComment(param models.CommentLikeParam)
 	if param.Liked {
 		code = models.REACTION_LIKE
 	}
-	_ = r.SetCommentReaction(models.CommentReactionParam{
+	_, _ = r.SetCommentReaction(models.CommentReactionParam{
 		BoardUid: param.BoardUid, CommentUid: param.CommentUid, UserUid: param.UserUid,
 		Reaction: code.APIValue(), ReactionCode: code,
 	})
@@ -246,7 +247,7 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 2),
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 3),
 			(SELECT COUNT(*) FROM %s%s WHERE comment_uid = c.uid AND reaction_type = 4),
-			(SELECT reaction_type FROM %s%s WHERE comment_uid = c.uid AND user_uid = ?)
+			COALESCE((SELECT reaction_type FROM %s%s WHERE comment_uid = c.uid AND user_uid = ?), 0)
 		FROM %s%s AS c
 		JOIN (
 			SELECT uid FROM %s%s 
@@ -293,16 +294,19 @@ func (r *NuboCommentRepository) GetComments(param models.CommentListParam) ([]mo
 			&likeCount, &bestCount, &facepalmCount, &hmmCount,
 			&userReactionCode,
 		)
-		if err == nil {
-			item.Reactions.Reactions = models.ReactionCounts{
-				models.REACTION_LIKE:     likeCount,
-				models.REACTION_BEST:     bestCount,
-				models.REACTION_FACEPALM: facepalmCount,
-				models.REACTION_HMM:      hmmCount,
+		if err != nil {
+			return nil, err
+		}
+		{
+			item.Reactions = models.ReactionCountsDTO{
+				Like:     likeCount,
+				Best:     bestCount,
+				Facepalm: facepalmCount,
+				Hmm:      hmmCount,
 			}
 			if reaction := models.ReactionType(userReactionCode); reaction != models.REACTION_NONE {
 				value := reaction.APIValue()
-				item.Reactions.MyReaction = &value
+				item.MyReaction = &value
 			}
 			item.PostUid = param.PostUid
 			items = append(items, item)

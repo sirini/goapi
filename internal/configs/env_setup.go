@@ -94,7 +94,9 @@ func Install() bool {
 	db, _ := connWithName(dbInfo)
 	defer db.Close()
 
-	createTables(db, dbInfo)
+	if err := createTables(db, dbInfo); err != nil {
+		return false
+	}
 	insertRows(db, dbInfo, adminInfo)
 
 	return true
@@ -314,7 +316,7 @@ func ensureReactionSchema(db *sql.DB, prefix string) error {
 		if err := ensureReactionLikeColumn(db, table); err != nil {
 			return err
 		}
-		if err := migrateLikeTableForReactions(db, table, spec); err != nil {
+		if err := migrateLikeTableForReactions(db, table, prefix, spec); err != nil {
 			return err
 		}
 	}
@@ -337,7 +339,7 @@ func ensureReactionLikeColumn(db *sql.DB, table string) error {
 	return err
 }
 
-func migrateLikeTableForReactions(db *sql.DB, table string, spec reactionLikeTableSpec) error {
+func migrateLikeTableForReactions(db *sql.DB, table string, prefix string, spec reactionLikeTableSpec) error {
 	var hasPK uint
 	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.STATISTICS
 		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = 'PRIMARY'`, table).Scan(&hasPK); err != nil {
@@ -349,7 +351,7 @@ func migrateLikeTableForReactions(db *sql.DB, table string, spec reactionLikeTab
 		}
 	}
 
-	if err := validateReactionTableReferences(db, table, spec, prefixForTable(table)); err != nil {
+	if err := validateReactionTableReferences(db, table, spec, prefix); err != nil {
 		return err
 	}
 
@@ -423,10 +425,6 @@ func validateReactionTableReferences(db *sql.DB, table string, spec reactionLike
 		return fmt.Errorf("%s has unexpected foreign key %s -> %v", table, reference.constraint, referenced.String)
 	}
 	return nil
-}
-
-func prefixForTable(table string) string {
-	return strings.TrimSuffix(table, "_post_like")
 }
 
 // 선택된 환경 파일이 존재하는지 확인하기
@@ -714,7 +712,7 @@ func createDatabase(db *sql.DB, dbName string) bool {
 }
 
 // 테이블들 생성하기
-func createTables(db *sql.DB, dbInfo DBInfo) {
+func createTables(db *sql.DB, dbInfo DBInfo) error {
 	createUserTable(db, dbInfo.Prefix)
 	_ = createOAuthTables(db, dbInfo.Prefix)
 	createUserTokenTable(db, dbInfo.Prefix)
@@ -733,9 +731,16 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createPostTable(db, dbInfo.Prefix)
 	createHashtagTable(db, dbInfo.Prefix)
 	createPostHashtagTable(db, dbInfo.Prefix)
+	if err := createPostLikeTable(db, dbInfo.Prefix); err != nil {
+		return err
+	}
 	createCommentTable(db, dbInfo.Prefix)
-	_ = createCommentLikeTable(db, dbInfo.Prefix)
-	_ = createBadgeTables(db, dbInfo.Prefix)
+	if err := createCommentLikeTable(db, dbInfo.Prefix); err != nil {
+		return err
+	}
+	if err := createBadgeTables(db, dbInfo.Prefix); err != nil {
+		return err
+	}
 	createFileTable(db, dbInfo.Prefix)
 	createFileThumbnailTable(db, dbInfo.Prefix)
 	createImageTable(db, dbInfo.Prefix)
@@ -746,6 +751,7 @@ func createTables(db *sql.DB, dbInfo DBInfo) {
 	createTradeTable(db, dbInfo.Prefix)
 	_ = createMailCampaignTable(db, dbInfo.Prefix)
 	_ = createMailDeliveryTable(db, dbInfo.Prefix)
+	return nil
 }
 
 // OAuth 제공자의 고유 subject와 일회성 nonce를 사용자 계정과 분리해 보관한다.
