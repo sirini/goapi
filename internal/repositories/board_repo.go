@@ -20,9 +20,9 @@ type BoardRepository interface {
 	GetCommentCount(postUid uint) uint
 	GetCommentLikeCount(postUid uint) uint
 	GetLikeCount(postUid uint) uint
-	GetCommentReactionCounts(commentUid uint) models.ReactionCounts
+	GetCommentReactionCounts(commentUid uint) (models.ReactionCounts, error)
 	GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType
-	GetPostReactionCounts(postUid uint) models.ReactionCounts
+	GetPostReactionCounts(postUid uint) (models.ReactionCounts, error)
 	GetPostReactionSummaries(postUids []uint, userUid uint) map[uint]models.ReactionState
 	GetPostUserReaction(postUid uint, userUid uint) models.ReactionType
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
@@ -194,34 +194,37 @@ func (r *NuboBoardRepository) GetLikeCount(postUid uint) uint {
 }
 
 // 종류별 리액션 집계를 하나의 쿼리로 가져온다.
-func (r *NuboBoardRepository) GetPostReactionCounts(postUid uint) models.ReactionCounts {
+func (r *NuboBoardRepository) GetPostReactionCounts(postUid uint) (models.ReactionCounts, error) {
 	return r.scanReactionCounts(fmt.Sprintf(
 		"SELECT reaction_type, COUNT(*) FROM %s%s WHERE post_uid = ? AND reaction_type > 0 GROUP BY reaction_type",
 		configs.Env.Prefix, models.TABLE_POST_LIKE), postUid)
 }
 
-func (r *NuboBoardRepository) GetCommentReactionCounts(commentUid uint) models.ReactionCounts {
+func (r *NuboBoardRepository) GetCommentReactionCounts(commentUid uint) (models.ReactionCounts, error) {
 	return r.scanReactionCounts(fmt.Sprintf(
 		"SELECT reaction_type, COUNT(*) FROM %s%s WHERE comment_uid = ? AND reaction_type > 0 GROUP BY reaction_type",
 		configs.Env.Prefix, models.TABLE_COMMENT_LIKE), commentUid)
 }
 
-func (r *NuboBoardRepository) scanReactionCounts(query string, targetUid uint) models.ReactionCounts {
+func (r *NuboBoardRepository) scanReactionCounts(query string, targetUid uint) (models.ReactionCounts, error) {
 	counts := models.NewReactionCounts()
-
 	rows, err := r.db.Query(query, targetUid)
 	if err != nil {
-		return counts
+		return counts, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var code uint8
 		var count uint
-		if err := rows.Scan(&code, &count); err == nil {
-			counts[models.ReactionType(code)] = count
+		if err := rows.Scan(&code, &count); err != nil {
+			return counts, err
 		}
+		counts[models.ReactionType(code)] = count
 	}
-	return counts
+	if err := rows.Err(); err != nil {
+		return counts, err
+	}
+	return counts, nil
 }
 
 // 홈·스튜디오 같은 목록 화면을 위해 대상 uid 묶음의 종류별 집계와 내 선택을 한 번에 조회한다.

@@ -18,7 +18,7 @@ type CommentRepository interface {
 	HasReplyComment(commentUid uint) bool
 	GetCommentThreadInfo(commentUid uint) models.CommentThreadInfo
 	IsLikedComment(commentUid uint, userUid uint) bool
-	GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState
+	GetCommentReactionState(commentUid uint, userUid uint) (models.ReactionState, error)
 	GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType
 	SetCommentReaction(param models.CommentReactionParam) (bool, error)
 	IsCommentInBoard(commentUid uint, boardUid uint) bool
@@ -130,10 +130,13 @@ func (r *NuboCommentRepository) GetCommentUserReaction(commentUid uint, userUid 
 	return r.board.GetCommentUserReaction(commentUid, userUid)
 }
 
-func (r *NuboCommentRepository) GetCommentReactionState(commentUid uint, userUid uint) models.ReactionState {
-	counts := r.board.GetCommentReactionCounts(commentUid)
+func (r *NuboCommentRepository) GetCommentReactionState(commentUid uint, userUid uint) (models.ReactionState, error) {
+	counts, err := r.board.GetCommentReactionCounts(commentUid)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
 	current := r.board.GetCommentUserReaction(commentUid, userUid)
-	return reactionState(counts, current)
+	return reactionState(counts, current), nil
 }
 
 // 사용자당 한 행을 유지하며 liked와 reaction_type를 한 트랜잭션으로 동기화한다.

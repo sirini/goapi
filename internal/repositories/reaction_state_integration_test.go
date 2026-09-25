@@ -121,7 +121,10 @@ func TestReactionStateMySQL(t *testing.T) {
 		if err != nil || !changed {
 			t.Fatalf("first like: changed=%v err=%v", changed, err)
 		}
-		state := commentRepo.GetCommentReactionState(commentUid, userUid)
+		state, err := commentRepo.GetCommentReactionState(commentUid, userUid)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
 		if state.Reactions.Like != 1 || state.MyReaction == nil || *state.MyReaction != models.REACTIONS.LIKE {
 			t.Fatalf("unexpected comment state: %+v", state)
 		}
@@ -131,7 +134,10 @@ func TestReactionStateMySQL(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("cancel: %v", err)
 		}
-		state = commentRepo.GetCommentReactionState(commentUid, userUid)
+		state, err = commentRepo.GetCommentReactionState(commentUid, userUid)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
 		if state.Reactions.Like != 0 || state.MyReaction != nil {
 			t.Fatalf("unexpected comment state after cancel: %+v", state)
 		}
@@ -220,7 +226,10 @@ func dropReactionStateTables(t *testing.T, db *sql.DB, prefix string) {
 
 func assertPostState(t *testing.T, viewRepo BoardViewRepository, postUid uint, userUid uint, want [10]uint, myReaction models.Reaction) {
 	t.Helper()
-	state := viewRepo.GetPostReactionState(postUid, userUid)
+	state, err := viewRepo.GetPostReactionState(postUid, userUid)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	got := [10]uint{state.Reactions.Like, state.Reactions.Best, state.Reactions.Facepalm, state.Reactions.Hmm,
 		state.Reactions.Laugh, state.Reactions.Celebrate, state.Reactions.Fire, state.Reactions.Support, state.Reactions.Sad, state.Reactions.Eyes}
 	if got != want {

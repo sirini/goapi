@@ -24,7 +24,7 @@ type BoardViewRepository interface {
 	GetPrevPostUid(boardUid uint, postUid uint) uint
 	GetNextPostUid(boardUid uint, postUid uint) uint
 	GetPostItem(postUid uint, actionUserUid uint) (models.BoardListItem, error)
-	GetPostReactionState(postUid uint, userUid uint) models.ReactionState
+	GetPostReactionState(postUid uint, userUid uint) (models.ReactionState, error)
 	GetTags(postUid uint) []models.Pair
 	GetTagName(hashtagUid uint) string
 	GetThumbnailImage(fileUid uint) models.BoardThumbnail
@@ -389,8 +389,13 @@ func (r *NuboBoardViewRepository) GetPostUserReaction(postUid uint, userUid uint
 	return r.board.GetPostUserReaction(postUid, userUid)
 }
 
-func (r *NuboBoardViewRepository) GetPostReactionState(postUid uint, userUid uint) models.ReactionState {
-	return reactionState(r.board.GetPostReactionCounts(postUid), r.board.GetPostUserReaction(postUid, userUid))
+func (r *NuboBoardViewRepository) GetPostReactionState(postUid uint, userUid uint) (models.ReactionState, error) {
+	count, err := r.board.GetPostReactionCounts(postUid)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
+	reaction := r.board.GetPostUserReaction(postUid, userUid)
+	return reactionState(count, reaction), nil
 }
 
 // 게시글에 등록된 해시태그들 가져오기

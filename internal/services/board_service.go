@@ -477,7 +477,11 @@ func (s *NuboBoardService) SetPostReaction(param models.BoardReactionParam) (mod
 	if param.ReactionIsNull {
 		// 취소(null)는 활성 행을 0으로 바꾼다. 취소할 상태가 없으면 무변경으로 성공한다.
 		if s.repos.BoardView.GetPostUserReaction(param.PostUid, param.UserUid) == models.REACTION_NONE {
-			return s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid), nil
+			state, err := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+			if err != nil {
+				return models.ReactionState{}, err
+			}
+			return state, nil
 		}
 	} else {
 		var err error
@@ -496,7 +500,10 @@ func (s *NuboBoardService) SetPostReaction(param models.BoardReactionParam) (mod
 	if err != nil {
 		return models.ReactionState{}, err
 	}
-	state := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+	state, err := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
 	if changed && param.ReactionCode == models.REACTION_LIKE && param.Notify {
 		s.notifications.Save(models.InsertNotificationParam{
 			ActionUserUid: param.UserUid,

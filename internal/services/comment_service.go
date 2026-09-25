@@ -74,7 +74,11 @@ func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (mod
 	if param.ReactionIsNull {
 		// 취소(null)는 활성 행을 0으로 바꾼다. 취소할 상태가 없으면 무변경으로 성공한다.
 		if s.repos.Comment.GetCommentUserReaction(param.CommentUid, param.UserUid) == models.REACTION_NONE {
-			return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid), nil
+			state, err := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+			if err != nil {
+				return models.ReactionState{}, err
+			}
+			return state, nil
 		}
 	} else {
 		var err error
@@ -92,7 +96,10 @@ func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (mod
 		if err != nil {
 			return models.ReactionState{}, err
 		}
-		state := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+		state, err := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+		if err != nil {
+			return models.ReactionState{}, err
+		}
 		if changed && param.Notify {
 			s.notifications.Save(models.InsertNotificationParam{
 				ActionUserUid: param.UserUid,
@@ -107,7 +114,7 @@ func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (mod
 	if _, err := s.repos.Comment.SetCommentReaction(param); err != nil {
 		return models.ReactionState{}, err
 	}
-	return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid), nil
+	return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
 }
 
 // 댓글 리액션은 삭제된 댓글(답글 자리만 남은 경우 포함)과 열람 자격이 없는 부모 게시글을 거부한다.

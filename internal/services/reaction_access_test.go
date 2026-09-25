@@ -82,7 +82,7 @@ func TestPostReactionRejectsViewRestrictions(t *testing.T) {
 		needPoint: -100,
 	}
 	s := NewNuboBoardService(&repositories.Repository{
-		BoardView: view,
+		BoardView: view.BoardViewRepository,
 		Comment:   reactionAccessCommentRepo{postStatus: map[uint]models.Status{10: models.CONTENT_NORMAL}},
 		User:      reactionAccessUserRepo{level: 2, point: 10},
 	})
@@ -110,7 +110,7 @@ func TestPostReactionRejectsViewRestrictions(t *testing.T) {
 		postBoard: map[uint]uint{10: 1},
 		needLevel: 5,
 		needPoint: -100,
-	}
+	}.BoardViewRepository
 	s.repos.User = reactionAccessUserRepo{level: 6, point: 200}
 	cancel := base
 	cancel.ReactionIsNull = true
@@ -124,7 +124,7 @@ func TestPostReactionRejectsWriterBan(t *testing.T) {
 		BoardView: reactionAccessBoardViewRepo{
 			postBoard: map[uint]uint{10: 1},
 			banned:    map[uint]bool{10: true},
-		},
+		}.BoardViewRepository,
 		Comment: reactionAccessCommentRepo{postStatus: map[uint]models.Status{10: models.CONTENT_NORMAL}},
 		User:    reactionAccessUserRepo{level: 9, point: 0},
 	})
@@ -136,7 +136,7 @@ func TestPostReactionRejectsWriterBan(t *testing.T) {
 func TestCommentReactionRejectsRemovedCommentAndParentPost(t *testing.T) {
 	newService := func(commentStatus models.Status, postStatus models.Status) *NuboCommentService {
 		return NewNuboCommentService(&repositories.Repository{
-			BoardView: reactionAccessBoardViewRepo{postBoard: map[uint]uint{10: 1}},
+			BoardView: reactionAccessBoardViewRepo{postBoard: map[uint]uint{10: 1}}.BoardViewRepository,
 			Comment: reactionAccessCommentRepo{
 				commentBoard:  map[uint]uint{30: 1},
 				commentStatus: map[uint]models.Status{30: commentStatus},
@@ -171,7 +171,7 @@ func TestCommentReactionRejectsRemovedCommentAndParentPost(t *testing.T) {
 
 	// 열람 레벨이 부족하면 거부한다.
 	restricted := NewNuboCommentService(&repositories.Repository{
-		BoardView: reactionAccessBoardViewRepo{postBoard: map[uint]uint{10: 1}, needLevel: 7},
+		BoardView: reactionAccessBoardViewRepo{postBoard: map[uint]uint{10: 1}, needLevel: 7}.BoardViewRepository,
 		Comment: reactionAccessCommentRepo{
 			commentBoard:  map[uint]uint{30: 1},
 			commentStatus: map[uint]models.Status{30: models.CONTENT_NORMAL},
