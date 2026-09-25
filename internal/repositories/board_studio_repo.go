@@ -200,7 +200,10 @@ func (r *NuboBoardRepository) GetStudio(param models.BoardStudioParam) (models.B
 		for _, item := range result.Posts.Items {
 			uids = append(uids, item.Uid)
 		}
-		summaries := r.GetPostReactionSummaries(uids, param.UserUid)
+		summaries, err := r.GetPostReactionSummaries(uids, param.UserUid)
+		if err != nil {
+			return result, err
+		}
 		for i := range result.Posts.Items {
 			state := summaries[result.Posts.Items[i].Uid]
 			result.Posts.Items[i].Reactions = state.Reactions

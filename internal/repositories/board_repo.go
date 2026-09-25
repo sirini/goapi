@@ -23,7 +23,7 @@ type BoardRepository interface {
 	GetCommentReactionCounts(commentUid uint) (models.ReactionCounts, error)
 	GetCommentUserReaction(commentUid uint, userUid uint) models.ReactionType
 	GetPostReactionCounts(postUid uint) (models.ReactionCounts, error)
-	GetPostReactionSummaries(postUids []uint, userUid uint) map[uint]models.ReactionState
+	GetPostReactionSummaries(postUids []uint, userUid uint) (map[uint]models.ReactionState, error)
 	GetPostUserReaction(postUid uint, userUid uint) models.ReactionType
 	GetNoticePosts(boardUid uint, actionUserUid uint) ([]models.BoardListItem, error)
 	GetMaxUid(table models.Table) uint
@@ -228,10 +228,10 @@ func (r *NuboBoardRepository) scanReactionCounts(query string, targetUid uint) (
 }
 
 // 홈·스튜디오 같은 목록 화면을 위해 대상 uid 묶음의 종류별 집계와 내 선택을 한 번에 조회한다.
-func (r *NuboBoardRepository) GetPostReactionSummaries(postUids []uint, userUid uint) map[uint]models.ReactionState {
+func (r *NuboBoardRepository) GetPostReactionSummaries(postUids []uint, userUid uint) (map[uint]models.ReactionState, error) {
 	summaries := make(map[uint]models.ReactionState, len(postUids))
 	if len(postUids) == 0 {
-		return summaries
+		return summaries, fmt.Errorf("posts not found")
 	}
 	for _, postUid := range postUids {
 		summaries[postUid] = models.ReactionState{}
@@ -248,39 +248,48 @@ func (r *NuboBoardRepository) GetPostReactionSummaries(postUids []uint, userUid 
 		FROM %s%s WHERE post_uid IN (%s) GROUP BY post_uid`,
 		reactionSumColumns(models.TABLE_POST_LIKE, "reaction_type"),
 		configs.Env.Prefix, models.TABLE_POST_LIKE, placeholders), args...)
-	if err == nil {
-		defer countRows.Close()
-		for countRows.Next() {
-			var postUid uint
-			var counts models.ReactionCountsDTO
-			if err := countRows.Scan(&postUid, &counts.Like, &counts.Best, &counts.Facepalm, &counts.Hmm, &counts.Laugh, &counts.Celebrate, &counts.Fire, &counts.Support, &counts.Sad, &counts.Eyes); err == nil {
-				state := summaries[postUid]
-				state.Reactions = counts
-				summaries[postUid] = state
-			}
-		}
+	if err != nil {
+		return nil, err
 	}
 
+	defer countRows.Close()
+	for countRows.Next() {
+		var postUid uint
+		var counts models.ReactionCountsDTO
+		if err := countRows.Scan(&postUid, &counts.Like, &counts.Best, &counts.Facepalm, &counts.Hmm, &counts.Laugh, &counts.Celebrate, &counts.Fire, &counts.Support, &counts.Sad, &counts.Eyes); err != nil {
+			return nil, err
+		}
+		state := summaries[postUid]
+		state.Reactions = counts
+		summaries[postUid] = state
+	}
+	if err := countRows.Err(); err != nil {
+		return nil, err
+	}
 	mineRows, err := r.db.Query(fmt.Sprintf(
 		`SELECT post_uid, reaction_type FROM %s%s
 		WHERE user_uid = ? AND reaction_type > 0 AND post_uid IN (%s)`,
 		configs.Env.Prefix, models.TABLE_POST_LIKE, placeholders), append([]any{userUid}, args...)...)
-	if err == nil {
-		defer mineRows.Close()
-		for mineRows.Next() {
-			var postUid uint
-			var code uint8
-			if err := mineRows.Scan(&postUid, &code); err == nil {
-				state := summaries[postUid]
-				if reaction := models.ReactionType(code); reaction != models.REACTION_NONE {
-					value := reaction.APIValue()
-					state.MyReaction = &value
-				}
-				summaries[postUid] = state
+	if err != nil {
+		return nil, err
+	}
+	defer mineRows.Close()
+	for mineRows.Next() {
+		var postUid uint
+		var code uint8
+		if err := mineRows.Scan(&postUid, &code); err == nil {
+			state := summaries[postUid]
+			if reaction := models.ReactionType(code); reaction != models.REACTION_NONE {
+				value := reaction.APIValue()
+				state.MyReaction = &value
 			}
+			summaries[postUid] = state
 		}
 	}
-	return summaries
+	if err := mineRows.Err(); err != nil {
+		return nil, err
+	}
+	return summaries, nil
 }
 
 func (r *NuboBoardRepository) GetPostUserReaction(postUid uint, userUid uint) models.ReactionType {

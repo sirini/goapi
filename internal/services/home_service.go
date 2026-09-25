@@ -80,7 +80,10 @@ func (s *NuboHomeService) GetLatestPosts(param models.HomePostParam) ([]models.B
 	for _, item := range items {
 		postUids = append(postUids, item.Uid)
 	}
-	summaries := s.repos.Board.GetPostReactionSummaries(postUids, param.UserUid)
+	summaries, err := s.repos.Board.GetPostReactionSummaries(postUids, param.UserUid)
+	if err != nil {
+		return items, err
+	}
 	for i := range items {
 		state := summaries[items[i].Uid]
 		items[i].Reactions = state.Reactions
