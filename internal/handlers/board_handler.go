@@ -65,10 +65,7 @@ func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
 
 // 게시글 목록 가져오기 핸들러
 func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	id := c.Query("id")
 	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
@@ -177,11 +174,7 @@ func (h *NuboBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
 
 // 게시글 보기 핸들러
 func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
-
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	param := models.BoardViewParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, "Invalid parameters", models.CODE_INVALID_PARAMETER)
@@ -238,10 +231,7 @@ func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 
 // 게시물 보기 권한을 확인한 뒤 실제 저장 경로 대신 짧은 수명의 원본 스트리밍 URL을 발급한다.
 func (h *NuboBoardHandler) OriginalImageHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	if actionUserUid > 0 && !h.service.Auth.CanAuthenticate(uint(actionUserUid)) {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
