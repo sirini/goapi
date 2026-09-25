@@ -52,7 +52,7 @@ type AdminService interface {
 	GetUserList(param models.AdminUserParam) models.AdminUserListResult
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetUserBadges(userUid uint) ([]models.UserBadge, error)
-	GetSkinSettings() models.SkinSettings
+	GetSkinSettings() (models.SkinSettings, error)
 	SetSkinSetting(param models.AdminSkinSettingParam) error
 	ResolveReport(param models.AdminReportResolveParam) error
 	ModifyExistBoard(param models.AdminBoardModifyParam) error
@@ -320,7 +320,7 @@ func mailCampaignError(err error) string {
 	return message
 }
 
-func (s *NuboAdminService) GetSkinSettings() models.SkinSettings {
+func (s *NuboAdminService) GetSkinSettings() (models.SkinSettings, error) {
 	return s.repos.Admin.GetSkinSettings()
 }
 
