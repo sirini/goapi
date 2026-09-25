@@ -22,10 +22,12 @@ func NewNuboBlogService(repos *repositories.Repository) *NuboBlogService {
 func (s *NuboBlogService) GetLatestPosts(boardUid uint, bunch uint) ([]models.HomePostItem, error) {
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST)
 	return s.repos.Home.GetLatestPosts(models.HomePostParam{
-		SinceUid: maxUid,
-		Bunch:    bunch,
-		Option:   models.SEARCH_NONE,
-		Keyword:  "",
+		HomeLoadAllPostParam: models.HomeLoadAllPostParam{
+			SinceUid: maxUid,
+			Bunch:    bunch,
+			Option:   models.SEARCH_NONE,
+			Keyword:  "",
+		},
 		UserUid:  0,
 		BoardUid: boardUid,
 	})

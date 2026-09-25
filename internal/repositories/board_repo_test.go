@@ -181,9 +181,11 @@ func TestFindLatestPostsByTagReturnsEmptyWhenTagDoesNotExist(t *testing.T) {
 
 	expectMissingTag(t, mock, "missing")
 	items, err := homeRepo.FindLatestPostsByTag(models.HomePostParam{
-		Option:  models.SEARCH_TAG,
-		Keyword: "missing",
-		Bunch:   12,
+		HomeLoadAllPostParam: models.HomeLoadAllPostParam{
+			Option:  models.SEARCH_TAG,
+			Keyword: "missing",
+			Bunch:   12,
+		},
 	})
 	if err != nil {
 		t.Fatalf("FindLatestPostsByTag() error = %v", err)

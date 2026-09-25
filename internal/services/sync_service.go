@@ -24,10 +24,12 @@ func (s *NuboSyncService) GetLatestPosts(bunch uint) []models.SyncPostItem {
 	items := make([]models.SyncPostItem, 0)
 	maxUid := s.repos.Board.GetMaxUid(models.TABLE_POST) + 1
 	posts, err := s.repos.Home.GetLatestPosts(models.HomePostParam{
-		SinceUid: maxUid,
-		Bunch:    bunch,
-		Option:   models.SEARCH_NONE,
-		Keyword:  "",
+		HomeLoadAllPostParam: models.HomeLoadAllPostParam{
+			SinceUid: maxUid,
+			Bunch:    bunch,
+			Option:   models.SEARCH_NONE,
+			Keyword:  "",
+		},
 		UserUid:  0,
 		BoardUid: 0,
 	})

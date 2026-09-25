@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"net/url"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -61,33 +60,20 @@ func (h *NuboHomeHandler) LoadSidebarLinkHandler(c fiber.Ctx) error {
 // 홈화면에서 모든 최근 게시글들 가져오기 (검색 지원) 핸들러
 func (h *NuboHomeHandler) LoadAllPostsHandler(c fiber.Ctx) error {
 	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
-	sinceUid64, err := strconv.ParseUint(c.FormValue("sinceUid"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid since uid, not a valid number", models.CODE_INVALID_PARAMETER)
+	param := models.HomeLoadAllPostParam{}
+	if err := c.Bind().Query(&param); err != nil {
+		return utils.Err(c, "Invalid parameter", models.CODE_INVALID_PARAMETER)
 	}
-	bunch, err := strconv.ParseUint(c.FormValue("bunch"), 10, 32)
-	if err != nil || bunch < 1 || bunch > 100 {
-		return utils.Err(c, "Invalid bunch, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	option, err := strconv.ParseUint(c.FormValue("option"), 10, 32)
-	if err != nil {
-		return utils.Err(c, "Invalid option, not a valid number", models.CODE_INVALID_PARAMETER)
-	}
-	keyword, err := url.QueryUnescape(c.FormValue("keyword"))
-	if err != nil {
-		return utils.Err(c, "Invalid keyword, failed to unescape", models.CODE_INVALID_PARAMETER)
-	}
-	keyword = utils.Escape(keyword)
+	param.Keyword = utils.Escape(param.Keyword)
+	param.SinceUid = max(param.SinceUid, h.service.Board.GetMaxUid()+1)
 
-	sinceUid := uint(sinceUid64)
-	if sinceUid < 1 {
-		sinceUid = h.service.Board.GetMaxUid() + 1
-	}
 	parameter := models.HomePostParam{
-		SinceUid: sinceUid,
-		Bunch:    uint(bunch),
-		Option:   models.Search(option),
-		Keyword:  keyword,
+		HomeLoadAllPostParam: models.HomeLoadAllPostParam{
+			SinceUid: param.SinceUid,
+			Bunch:    param.Bunch,
+			Option:   models.Search(param.Option),
+			Keyword:  param.Keyword,
+		},
 		UserUid:  uint(actionUserUid),
 		BoardUid: 0,
 	}
@@ -115,10 +101,12 @@ func (h *NuboHomeHandler) LoadPostsByIdHandler(c fiber.Ctx) error {
 	}
 
 	parameter := models.HomePostParam{
-		SinceUid: h.service.Board.GetMaxUid() + 1,
-		Bunch:    uint(limit),
-		Option:   models.SEARCH_NONE,
-		Keyword:  "",
+		HomeLoadAllPostParam: models.HomeLoadAllPostParam{
+			SinceUid: h.service.Board.GetMaxUid() + 1,
+			Bunch:    uint(limit),
+			Option:   models.SEARCH_NONE,
+			Keyword:  "",
+		},
 		UserUid:  uint(actionUserUid),
 		BoardUid: uint(boardUid),
 	}

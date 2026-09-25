@@ -17,14 +17,19 @@ type HomeSidebarBoardResult struct {
 	Info string `json:"info"`
 }
 
-// 최근 게시글 가져올 때 필요한 파라미터 정의
-type HomePostParam struct {
+// 최근 게시글 가져올 때 프론트엔드로부터 받는 파라미터들 정의
+type HomeLoadAllPostParam struct {
 	SinceUid uint   `json:"sinceUid"`
 	Bunch    uint   `json:"bunch"`
 	Option   Search `json:"option"`
 	Keyword  string `json:"keyword"`
-	UserUid  uint   `json:"userUid"`
-	BoardUid uint   `json:"boardUid"`
+}
+
+// 최근 게시글 가져올 때 필요한 최종 파라미터 정의
+type HomePostParam struct {
+	HomeLoadAllPostParam
+	UserUid  uint `json:"userUid"`
+	BoardUid uint `json:"boardUid"`
 }
 
 // 홈 사이드바에 출력할 그룹 목록 형태 정의
