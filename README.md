@@ -351,7 +351,7 @@ OAUTH_KAKAO_CLIENT_ID=
 OAUTH_KAKAO_SECRET=
 OPENAI_API_KEY=
 OPENAI_IMAGE_DESCRIPTION_ENABLED=false
-OPENAI_IMAGE_DESCRIPTION_MODEL=gpt-5.6-luna
+OPENAI_IMAGE_DESCRIPTION_MODEL=gpt-6-luna
 OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST=3
 OPENAI_IMAGE_DESCRIPTION_CONCURRENCY=1
 FIREBASE_PROJECT_ID=
@@ -366,6 +366,7 @@ FIREBASE_CREDENTIALS_FILE=
   `user_oauth_identity`, `oauth_nonce` 테이블을 생성하세요.
 - OpenAI 키는 자격 증명일 뿐 기능 활성화 동의로 간주하지 않습니다. 이미지 설명은 키와 함께 `OPENAI_IMAGE_DESCRIPTION_ENABLED=true`를 설정해야 호출됩니다.
 - 이미지 설명은 기본적으로 게시글당 최대 3개, 서버 전체 동시 1개로 제한됩니다. 모델과 상한은 위 환경 변수로 변경할 수 있으며 API 사용료는 운영자가 부담합니다.
+- 기본 모델 `gpt-6-luna`는 Chat Completions에서 이미지 입력을 `detail=low`, `reasoning_effort=none`으로 처리합니다. `temperature`는 지정하지 않습니다. 기존 `.env`에 모델명이 설정되어 있다면 기본값보다 그 설정이 우선합니다.
 - 활성화 뒤 새로 첨부하는 이미지에는 한국어 설명과 검색어를 저장하며 `imagedesc` 검색으로 찾을 수 있습니다. 기존 첨부 이미지는 자동으로 소급 처리하지 않습니다.
 
 ### Android 실시간 푸시 알림

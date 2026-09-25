@@ -93,7 +93,7 @@ func GetImageDescriptionConfig() ImageDescriptionConfig {
 
 	model := strings.TrimSpace(Env.ImageDescription.Model)
 	if model == "" {
-		model = "gpt-5.6-luna"
+		model = "gpt-6-luna"
 	}
 
 	return ImageDescriptionConfig{
@@ -197,7 +197,7 @@ func LoadConfig() error {
 		FirebaseCredentialsFile:  getEnv("FIREBASE_CREDENTIALS_FILE", ""),
 		ImageDescription: ImageDescriptionEnv{
 			Enabled:     getEnv("OPENAI_IMAGE_DESCRIPTION_ENABLED", "false"),
-			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-5.6-luna"),
+			Model:       getEnv("OPENAI_IMAGE_DESCRIPTION_MODEL", "gpt-6-luna"),
 			MaxPerPost:  getEnv("OPENAI_IMAGE_DESCRIPTION_MAX_PER_POST", "3"),
 			Concurrency: getEnv("OPENAI_IMAGE_DESCRIPTION_CONCURRENCY", "1"),
 		},
