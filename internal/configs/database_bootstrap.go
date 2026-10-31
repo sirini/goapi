@@ -42,7 +42,9 @@ func BootstrapDatabase(db *sql.DB, prefix string, admin AdminInfo) error {
 		return fmt.Errorf("DB_TABLE_PREFIX에는 영문, 숫자, 밑줄만 사용할 수 있습니다")
 	}
 	dbInfo := DBInfo{Prefix: prefix}
-	createTables(db, dbInfo)
+	if err := createTables(db, dbInfo); err != nil {
+		return err
+	}
 	if err := verifyBaseTables(db, prefix); err != nil {
 		return err
 	}

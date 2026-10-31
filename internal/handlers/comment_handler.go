@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,6 +13,7 @@ import (
 type CommentHandler interface {
 	CommentListHandler(c fiber.Ctx) error
 	LikeCommentHandler(c fiber.Ctx) error
+	SetReactionHandler(c fiber.Ctx) error
 	ModifyCommentHandler(c fiber.Ctx) error
 	RemoveCommentHandler(c fiber.Ctx) error
 	ReplyCommentHandler(c fiber.Ctx) error
@@ -29,10 +31,7 @@ func NewNuboCommentHandler(service *services.Service) *NuboCommentHandler {
 
 // 댓글 목록 가져오기 핸들러
 func (h *NuboCommentHandler) CommentListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	param := models.CommentListParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
@@ -60,6 +59,38 @@ func (h *NuboCommentHandler) LikeCommentHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
+}
+
+// 댓글 다중 리액션 핸들러
+func (h *NuboCommentHandler) SetReactionHandler(c fiber.Ctx) error {
+	// reaction 필드의 누락과 명시적 null을 구분한다. 누락은 거부하고 null만 취소한다.
+	fields := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(c.Body(), &fields); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if _, present := fields["reaction"]; !present {
+		return utils.Err(c, "reaction field is required", models.CODE_INVALID_PARAMETER)
+	}
+	body := models.CommentReactionBody{}
+	if err := c.Bind().Body(&body); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if body.BoardUid == 0 || body.CommentUid == 0 {
+		return utils.Err(c, "boardUid and commentUid are required", models.CODE_INVALID_PARAMETER)
+	}
+	reaction := ""
+	if body.Reaction != nil {
+		reaction = *body.Reaction
+	}
+	state, err := h.service.Comment.SetReaction(models.CommentReactionParam{
+		BoardUid: body.BoardUid, CommentUid: body.CommentUid,
+		UserUid:  uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY))),
+		Reaction: reaction, ReactionIsNull: body.Reaction == nil,
+	})
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, state)
 }
 
 // 기존 댓글 내용 수정하기 핸들러

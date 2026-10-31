@@ -42,6 +42,7 @@ type BoardService interface {
 	GetThumbnailImage(fileUid uint, userUid uint) (string, error)
 	GetViewItem(param models.BoardViewParam) (models.BoardViewResult, error)
 	LikeThisPost(param models.BoardViewLikeParam) error
+	SetPostReaction(param models.BoardReactionParam) (models.ReactionState, error)
 	LoadPost(boardUid uint, postUid uint, userUid uint) (models.EditorLoadPostResult, error)
 	ModifyPost(param models.EditorModifyParam) error
 	MovePost(param models.BoardMovePostParam) error
@@ -441,19 +442,103 @@ func (s *NuboBoardService) LikeThisPost(param models.BoardViewLikeParam) error {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return fmt.Errorf("post does not belong to this board")
 	}
-	if isLiked := s.repos.BoardView.IsLikedPost(param.PostUid, param.UserUid); isLiked {
-		s.repos.BoardView.UpdateLikePost(param)
-	} else {
-		s.repos.BoardView.InsertLikePost(param)
+	// liked:false가 접근 검사 전에 조기 성공하지 않도록 자격을 먼저 확인한다.
+	if err := s.checkPostReactionAccess(param.PostUid, param.BoardUid, param.UserUid); err != nil {
+		return err
 	}
+	current := s.repos.BoardView.GetPostUserReaction(param.PostUid, param.UserUid)
+	reaction := ""
 	if param.Liked {
+		if current == models.REACTION_LIKE {
+			return nil
+		}
+		reaction = models.REACTIONS.LIKE
+	} else {
+		if current != models.REACTION_LIKE {
+			return nil
+		}
+	}
+	_, err := s.SetPostReaction(models.BoardReactionParam{
+		BoardUid: param.BoardUid, PostUid: param.PostUid, UserUid: param.UserUid,
+		Reaction: reaction, ReactionIsNull: !param.Liked,
+	})
+	return err
+}
+
+// 게시글에 다중 리액션 남기기
+func (s *NuboBoardService) SetPostReaction(param models.BoardReactionParam) (models.ReactionState, error) {
+	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
+		return models.ReactionState{}, fmt.Errorf("post does not belong to this board")
+	}
+	if err := s.checkPostReactionAccess(param.PostUid, param.BoardUid, param.UserUid); err != nil {
+		return models.ReactionState{}, err
+	}
+	code := models.REACTION_NONE
+	if param.ReactionIsNull {
+		// 취소(null)는 활성 행을 0으로 바꾼다. 취소할 상태가 없으면 무변경으로 성공한다.
+		if s.repos.BoardView.GetPostUserReaction(param.PostUid, param.UserUid) == models.REACTION_NONE {
+			state, err := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+			if err != nil {
+				return models.ReactionState{}, err
+			}
+			return state, nil
+		}
+	} else {
+		var err error
+		code, err = models.ParseReaction(param.Reaction)
+		if err != nil {
+			return models.ReactionState{}, err
+		}
+	}
+	param.ReactionCode = code
+	if param.ReactionCode == models.REACTION_LIKE {
 		targetUserUid := s.repos.Comment.GetPostWriterUid(param.PostUid)
+		param.TargetUserUid = targetUserUid
+		param.Notify = param.UserUid != targetUserUid
+	}
+	changed, err := s.repos.BoardView.SetPostReaction(param)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
+	state, err := s.repos.BoardView.GetPostReactionState(param.PostUid, param.UserUid)
+	if err != nil {
+		return models.ReactionState{}, err
+	}
+	if changed && param.ReactionCode == models.REACTION_LIKE && param.Notify {
 		s.notifications.Save(models.InsertNotificationParam{
 			ActionUserUid: param.UserUid,
-			TargetUserUid: targetUserUid,
+			TargetUserUid: param.TargetUserUid,
 			NotiType:      models.NOTI_LIKE_POST,
 			PostUid:       param.PostUid,
 		}, true)
+	}
+	return state, nil
+}
+
+// 리액션 쓰기는 삭제된 글, 작성자 차단 관계, 열람 권한이 없는 비밀글, 게시판 열람 자격을 거부한다.
+// 포인트는 차감하지 않고 열람 가능 여부만 확인한다.
+func (s *NuboBoardService) checkPostReactionAccess(postUid uint, boardUid uint, userUid uint) error {
+	status := s.repos.Comment.GetPostStatus(postUid)
+	if postUid < 1 || status == models.CONTENT_REMOVED {
+		return fmt.Errorf("post is not available")
+	}
+	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
+		return fmt.Errorf("you have been blocked by writer")
+	}
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return fmt.Errorf("not enough point")
+	}
+	if status == models.CONTENT_SECRET {
+		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+		isWriter := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+		if !isAdmin && !isWriter {
+			return fmt.Errorf("you have no permission to react to this post")
+		}
 	}
 	return nil
 }

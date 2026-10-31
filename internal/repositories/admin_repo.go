@@ -47,7 +47,7 @@ type AdminRepository interface {
 	GetTotalCount(table models.Table) uint
 	GetUserInfo(userUid uint) models.AdminUserInfo
 	GetUserList(param models.AdminUserParam) []models.AdminUserItem
-	GetSkinSettings() models.SkinSettings
+	GetSkinSettings() (models.SkinSettings, error)
 	SetSkinSetting(param models.AdminSkinSettingParam) error
 	ResolveReport(param models.AdminReportResolveParam) error
 	InsertCategory(boardUid uint, name string) uint
@@ -1092,20 +1092,24 @@ func (r *NuboAdminRepository) ModifyBoard(param models.AdminBoardModifyParam) er
 	return err
 }
 
-func (r *NuboAdminRepository) GetSkinSettings() models.SkinSettings {
+func (r *NuboAdminRepository) GetSkinSettings() (models.SkinSettings, error) {
 	result := models.SkinSettings{}
 	rows, err := r.db.Query(fmt.Sprintf("SELECT type, skin_key FROM %s%s", configs.Env.Prefix, models.TABLE_SKIN_SETTING))
 	if err != nil {
-		return result
+		return result, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var skinType, key string
-		if rows.Scan(&skinType, &key) == nil {
-			result[skinType] = key
+		if err := rows.Scan(&skinType, &key); err != nil {
+			return result, err
 		}
+		result[skinType] = key
 	}
-	return result
+	if err := rows.Err(); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func (r *NuboAdminRepository) SetSkinSetting(param models.AdminSkinSettingParam) error {

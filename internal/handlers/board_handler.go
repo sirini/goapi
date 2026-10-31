@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -25,6 +26,7 @@ type BoardHandler interface {
 	OriginalImageTransferHandler(c fiber.Ctx) error
 	LatestUserContentHandler(c fiber.Ctx) error
 	LikePostHandler(c fiber.Ctx) error
+	SetReactionHandler(c fiber.Ctx) error
 	ListForMoveHandler(c fiber.Ctx) error
 	MovePostHandler(c fiber.Ctx) error
 	MyStudioHandler(c fiber.Ctx) error
@@ -63,10 +65,7 @@ func NewNuboBoardHandler(service *services.Service) *NuboBoardHandler {
 
 // 게시글 목록 가져오기 핸들러
 func (h *NuboBoardHandler) BoardListHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	id := c.Query("id")
 	option, err := strconv.ParseUint(c.Query("option"), 10, 32)
 	if err != nil {
@@ -175,11 +174,7 @@ func (h *NuboBoardHandler) BoardRecentTagListHandler(c fiber.Ctx) error {
 
 // 게시글 보기 핸들러
 func (h *NuboBoardHandler) BoardViewHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
-
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	param := models.BoardViewParam{}
 	if err := c.Bind().Query(&param); err != nil {
 		return utils.Err(c, "Invalid parameters", models.CODE_INVALID_PARAMETER)
@@ -236,10 +231,7 @@ func (h *NuboBoardHandler) DownloadHandler(c fiber.Ctx) error {
 
 // 게시물 보기 권한을 확인한 뒤 실제 저장 경로 대신 짧은 수명의 원본 스트리밍 URL을 발급한다.
 func (h *NuboBoardHandler) OriginalImageHandler(c fiber.Ctx) error {
-	actionUserUid := utils.ExtractUserUid(c.Get(models.AUTH_KEY))
-	if actionUserUid < 0 {
-		actionUserUid = 0
-	}
+	actionUserUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
 	if actionUserUid > 0 && !h.service.Auth.CanAuthenticate(uint(actionUserUid)) {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
@@ -292,6 +284,38 @@ func (h *NuboBoardHandler) LikePostHandler(c fiber.Ctx) error {
 		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
 	}
 	return utils.Ok(c, nil)
+}
+
+// 게시글 다중 리액션 핸들러
+func (h *NuboBoardHandler) SetReactionHandler(c fiber.Ctx) error {
+	// reaction 필드의 누락과 명시적 null을 구분한다. 누락은 거부하고 null만 취소한다.
+	fields := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(c.Body(), &fields); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if _, present := fields["reaction"]; !present {
+		return utils.Err(c, "reaction field is required", models.CODE_INVALID_PARAMETER)
+	}
+	body := models.BoardReactionBody{}
+	if err := c.Bind().Body(&body); err != nil {
+		return utils.Err(c, err.Error(), models.CODE_INVALID_PARAMETER)
+	}
+	if body.BoardUid == 0 || body.PostUid == 0 {
+		return utils.Err(c, "boardUid and postUid are required", models.CODE_INVALID_PARAMETER)
+	}
+	reaction := ""
+	if body.Reaction != nil {
+		reaction = *body.Reaction
+	}
+	state, err := h.service.Board.SetPostReaction(models.BoardReactionParam{
+		BoardUid: body.BoardUid, PostUid: body.PostUid,
+		UserUid:  uint(utils.ExtractUserUid(c.Get(models.AUTH_KEY))),
+		Reaction: reaction, ReactionIsNull: body.Reaction == nil,
+	})
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, state)
 }
 
 // 게시글 이동 대상 목록 가져오는 핸들러

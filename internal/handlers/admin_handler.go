@@ -199,7 +199,11 @@ func mailCampaignUid(c fiber.Ctx) (uint, error) {
 }
 
 func (h *NuboAdminHandler) SkinSettingsLoadHandler(c fiber.Ctx) error {
-	return utils.Ok(c, h.service.Admin.GetSkinSettings())
+	setting, err := h.service.Admin.GetSkinSettings()
+	if err != nil {
+		return utils.Err(c, err.Error(), models.CODE_FAILED_OPERATION)
+	}
+	return utils.Ok(c, setting)
 }
 
 func (h *NuboAdminHandler) SkinSettingModifyHandler(c fiber.Ctx) error {

@@ -246,8 +246,8 @@ func TestGetImageDescriptionConfigUsesSafeDefaultsForInvalidValues(t *testing.T)
 	if config.Enabled {
 		t.Fatal("invalid opt-in value enabled image descriptions")
 	}
-	if config.Model != "gpt-5.6-luna" {
-		t.Fatalf("model = %q, want gpt-5.6-luna", config.Model)
+	if config.Model != "gpt-6-luna" {
+		t.Fatalf("model = %q, want gpt-6-luna", config.Model)
 	}
 	if config.MaxPerPost != 3 {
 		t.Fatalf("max per post = %d, want 3", config.MaxPerPost)

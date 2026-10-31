@@ -13,6 +13,7 @@ import (
 
 type CommentService interface {
 	Like(param models.CommentLikeParam) error
+	SetReaction(param models.CommentReactionParam) (models.ReactionState, error)
 	List(param models.CommentListParam) (models.CommentListResult, error)
 	Modify(param models.CommentModifyParam) error
 	Remove(param models.CommentRemoveParam) error
@@ -44,11 +45,62 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
 	if !s.repos.Comment.IsCommentInBoard(param.CommentUid, param.BoardUid) {
 		return fmt.Errorf("comment does not belong to this board")
 	}
-	if isLiked := s.repos.Comment.IsLikedComment(param.CommentUid, param.UserUid); !isLiked {
-		s.repos.Comment.InsertLikeComment(param)
+	// liked:false가 접근 검사 전에 조기 성공하지 않도록 자격을 먼저 확인한다.
+	if err := s.checkCommentReactionAccess(param.CommentUid, param.BoardUid, param.UserUid); err != nil {
+		return err
+	}
+	if !param.Liked {
+		// 현재 종류가 like일 때만 취소하고, 다른 리액션은 건드리지 않는다.
+		if s.repos.Comment.GetCommentUserReaction(param.CommentUid, param.UserUid) != models.REACTION_LIKE {
+			return nil
+		}
+	}
+	_, err := s.SetReaction(models.CommentReactionParam{
+		BoardUid: param.BoardUid, CommentUid: param.CommentUid, UserUid: param.UserUid,
+		Reaction: models.REACTIONS.LIKE, ReactionIsNull: !param.Liked,
+	})
+	return err
+}
 
+// 댓글에 다중 리액션 남기기
+func (s *NuboCommentService) SetReaction(param models.CommentReactionParam) (models.ReactionState, error) {
+	if !s.repos.Comment.IsCommentInBoard(param.CommentUid, param.BoardUid) {
+		return models.ReactionState{}, fmt.Errorf("comment does not belong to this board")
+	}
+	if err := s.checkCommentReactionAccess(param.CommentUid, param.BoardUid, param.UserUid); err != nil {
+		return models.ReactionState{}, err
+	}
+	code := models.REACTION_NONE
+	if param.ReactionIsNull {
+		// 취소(null)는 활성 행을 0으로 바꾼다. 취소할 상태가 없으면 무변경으로 성공한다.
+		if s.repos.Comment.GetCommentUserReaction(param.CommentUid, param.UserUid) == models.REACTION_NONE {
+			state, err := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+			if err != nil {
+				return models.ReactionState{}, err
+			}
+			return state, nil
+		}
+	} else {
+		var err error
+		code, err = models.ParseReaction(param.Reaction)
+		if err != nil {
+			return models.ReactionState{}, err
+		}
+	}
+	param.ReactionCode = code
+	if code == models.REACTION_LIKE {
 		postUid, targetUserUid := s.repos.Comment.FindPostUserUidByUid(param.CommentUid)
-		if param.UserUid != targetUserUid {
+		param.TargetUserUid = targetUserUid
+		param.Notify = param.UserUid != targetUserUid
+		changed, err := s.repos.Comment.SetCommentReaction(param)
+		if err != nil {
+			return models.ReactionState{}, err
+		}
+		state, err := s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+		if err != nil {
+			return models.ReactionState{}, err
+		}
+		if changed && param.Notify {
 			s.notifications.Save(models.InsertNotificationParam{
 				ActionUserUid: param.UserUid,
 				TargetUserUid: targetUserUid,
@@ -57,8 +109,42 @@ func (s *NuboCommentService) Like(param models.CommentLikeParam) error {
 				CommentUid:    param.CommentUid,
 			}, true)
 		}
-	} else {
-		s.repos.Comment.UpdateLikeComment(param)
+		return state, nil
+	}
+	if _, err := s.repos.Comment.SetCommentReaction(param); err != nil {
+		return models.ReactionState{}, err
+	}
+	return s.repos.Comment.GetCommentReactionState(param.CommentUid, param.UserUid)
+}
+
+// 댓글 리액션은 삭제된 댓글(답글 자리만 남은 경우 포함)과 열람 자격이 없는 부모 게시글을 거부한다.
+// 포인트는 차감하지 않고 열람 가능 여부만 확인한다.
+func (s *NuboCommentService) checkCommentReactionAccess(commentUid uint, boardUid uint, userUid uint) error {
+	if status := s.repos.Comment.GetCommentStatus(commentUid); status == models.CONTENT_REMOVED {
+		return fmt.Errorf("comment has been removed")
+	}
+	postUid, _ := s.repos.Comment.FindPostUserUidByUid(commentUid)
+	status := s.repos.Comment.GetPostStatus(postUid)
+	if postUid < 1 || status == models.CONTENT_REMOVED {
+		return fmt.Errorf("post is not available")
+	}
+	if isBanned := s.repos.BoardView.CheckBannedByWriter(postUid, userUid); isBanned {
+		return fmt.Errorf("you have been blocked by writer")
+	}
+	userLv, userPt := s.repos.User.GetUserLevelPoint(userUid)
+	needLv, needPt := s.repos.BoardView.GetNeededLevelPoint(boardUid, models.BOARD_ACTION_VIEW)
+	if userLv < needLv {
+		return fmt.Errorf("level restriction")
+	}
+	if needPt < 0 && userPt < utils.Abs(needPt) {
+		return fmt.Errorf("not enough point")
+	}
+	if status == models.CONTENT_SECRET {
+		isAdmin := s.repos.Auth.CheckPermissionByUid(userUid, boardUid)
+		isWriter := s.repos.BoardView.IsWriter(models.TABLE_POST, postUid, userUid)
+		if !isAdmin && !isWriter {
+			return fmt.Errorf("you have no permission to react to this comment")
+		}
 	}
 	return nil
 }
@@ -132,19 +218,26 @@ func (s *NuboCommentService) Remove(param models.CommentRemoveParam) error {
 }
 
 // 새로운 답글 작성하기
+// 대상의 스레드 루트를 reply_uid로 유지하고 직계 부모·깊이를 parent_uid·depth로 저장한다.
+// 구 앱이 루트에만 답글을 다는 한 결과는 기존 2단계 계약과 동일하다.
 func (s *NuboCommentService) Reply(param models.CommentReplyParam) (uint, error) {
 	if !s.repos.Comment.IsCommentInPost(param.ReplyTargetUid, param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("reply target does not belong to this post")
 	}
-	return s.write(param.CommentWriteParam, param.ReplyTargetUid)
+	info := s.repos.Comment.GetCommentThreadInfo(param.ReplyTargetUid)
+	threadRoot := info.ReplyUid
+	if threadRoot == 0 {
+		threadRoot = param.ReplyTargetUid
+	}
+	return s.writeThread(param.CommentWriteParam, threadRoot, param.ReplyTargetUid, info.Depth+1)
 }
 
 // 새로운 댓글 작성하기
 func (s *NuboCommentService) Write(param models.CommentWriteParam) (uint, error) {
-	return s.write(param, 0)
+	return s.writeThread(param, 0, 0, 0)
 }
 
-func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint) (uint, error) {
+func (s *NuboCommentService) writeThread(param models.CommentWriteParam, replyUid uint, parentUid uint, depth uint) (uint, error) {
 	if !s.repos.BoardView.IsPostInBoard(param.PostUid, param.BoardUid) {
 		return models.FAILED, fmt.Errorf("post does not belong to this board")
 	}
@@ -166,7 +259,7 @@ func (s *NuboCommentService) write(param models.CommentWriteParam, replyUid uint
 	if needPt < 0 && userPt < utils.Abs(needPt) {
 		return models.FAILED, fmt.Errorf("not enough point")
 	}
-	insertId, err := s.repos.Comment.InsertComment(param, replyUid, models.UpdatePointParam{
+	insertId, err := s.repos.Comment.InsertComment(param, replyUid, parentUid, depth, models.UpdatePointParam{
 		UserUid:  param.UserUid,
 		BoardUid: param.BoardUid,
 		Action:   models.POINT_ACTION_COMMENT,

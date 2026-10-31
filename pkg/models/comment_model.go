@@ -10,17 +10,22 @@ type CommentListParam struct {
 }
 
 // 댓글 내용 항목 정의
+// 계약: reactions는 종류별 집계, myReaction은 현재 사용자의 종류(비로그인이면 null)다.
 type CommentItem struct {
-	Uid       uint        `json:"uid"`
-	ReplyUid  uint        `json:"replyUid"`
-	PostUid   uint        `json:"postUid"`
-	Writer    BoardWriter `json:"writer"`
-	Like      uint        `json:"like"`
-	Liked     bool        `json:"liked"`
-	Submitted uint64      `json:"submitted"`
-	Modified  uint64      `json:"modified"`
-	Status    Status      `json:"status"`
-	Content   string      `json:"content"`
+	Uid        uint              `json:"uid"`
+	ReplyUid   uint              `json:"replyUid"`
+	ParentUid  uint              `json:"parentUid"`
+	Depth      uint              `json:"depth"`
+	PostUid    uint              `json:"postUid"`
+	Writer     BoardWriter       `json:"writer"`
+	Like       uint              `json:"like"`
+	Liked      bool              `json:"liked"`
+	Reactions  ReactionCountsDTO `json:"reactions"`
+	MyReaction *Reaction         `json:"myReaction"`
+	Submitted  uint64            `json:"submitted"`
+	Modified   uint64            `json:"modified"`
+	Status     Status            `json:"status"`
+	Content    string            `json:"content"`
 }
 
 // 댓글 목록 가져오기 결과 정의
@@ -50,6 +55,12 @@ type CommentRemoveParam struct {
 	BoardUid        uint `json:"boardUid"`
 	UserUid         uint `json:"userUid"`
 	RemoveTargetUid uint `json:"removeTargetUid"`
+}
+
+// 댓글의 스레드 정보: ReplyUid는 스레드 루트 uid, Depth는 루트부터의 깊이다.
+type CommentThreadInfo struct {
+	ReplyUid uint
+	Depth    uint
 }
 
 // 답글 작성하기에 필요한 파라미터 정의

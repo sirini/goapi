@@ -23,6 +23,7 @@ func RegisterBoardRouters(api fiber.Router, h *handlers.Handler) {
 	protected.Get("/my/studio", h.Board.MyStudioHandler)
 	protected.Get("/move/list", h.Board.ListForMoveHandler)
 	protected.Patch("/like", h.Board.LikePostHandler)
+	protected.Patch("/reaction", h.Board.SetReactionHandler)
 	protected.Post("/move/apply", h.Board.MovePostHandler)
 	protected.Delete("/remove/post", h.Board.RemovePostHandler)
 }
