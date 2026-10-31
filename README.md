@@ -204,7 +204,9 @@ docker run --rm --platform linux/amd64 ubuntu:22.04 uname -m
 
 CPU·메모리·디스크 값은 Mac의 여유 자원에 맞게 조정합니다. 디스크 값은 VM의 최대 용량입니다. 출력은 동일한 `dist/nubo-runtime/`이며, 실행 대상은 macOS가 아닌 Linux amd64입니다. 첫 빌드는 libvips·코덱을 소스에서 만들어 오래 걸릴 수 있습니다. 이후에는 캐시를 재사용합니다.
 
-재부팅 후에는 `colima start`로 저장된 설정을 다시 사용하고 스크립트를 실행하면 됩니다. 빌드를 마친 뒤 `colima stop`으로 VM의 CPU·메모리 사용을 중지해도 디스크의 빌드 캐시는 유지됩니다.
+설정이 끝난 Mac에서는 `./scripts/build-mac.sh`로 빌드할 수 있습니다. Docker가 중지되어 있으면 저장된 설정으로 Colima를 시작하고, 기존 공식 빌드 스크립트를 실행합니다. 출력 경로 인자도 그대로 전달됩니다. Docker Desktop이 이미 실행 중이면 그대로 사용합니다. Docker CLI·Buildx·Colima는 자동 설치하지 않습니다.
+
+재부팅 후에는 `colima start`로 저장된 설정을 다시 사용하고 스크립트를 실행해도 됩니다. 빌드를 마친 뒤 `colima stop`으로 VM의 CPU·메모리 사용을 중지해도 디스크의 빌드 캐시는 유지됩니다.
 
 ## `.env` 핵심 설정
 
