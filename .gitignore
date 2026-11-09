@@ -22,3 +22,6 @@ goapi
 # etc
 .codex
 dist/
+
+# Private runtime operational records
+security-logs/

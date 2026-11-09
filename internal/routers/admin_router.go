@@ -4,12 +4,13 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/middlewares"
+	"github.com/sirini/goapi/internal/securitylog"
 )
 
 // 관리화면과 상호작용에 필요한 라우터들 등록
 func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	api.Get("/skin/settings", h.Admin.SkinSettingsLoadHandler)
-	admin := api.Group("/admin", middlewares.AdminMiddleware(h.CanAuthenticate))
+	admin := api.Group("/admin", middlewares.AdminMiddleware(h.CanAuthenticate), securitylog.AuditMiddleware)
 	board := admin.Group("/board")
 	dashboard := admin.Group("/dashboard")
 	group := admin.Group("/group")
@@ -21,6 +22,9 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	skin := admin.Group("/skin")
 	system := admin.Group("/system")
 	skin.Put("/setting", h.Admin.SkinSettingModifyHandler)
+	system.Post("/audit/review", securitylog.AuditReviewHandler)
+	system.Get("/audit", securitylog.AuditReadHandler)
+	system.Get("/logs", securitylog.ReadHandler)
 	system.Get("/mail", h.Admin.MailStatusHandler)
 	mail.Get("/deliveries", h.Admin.MailDeliveryListHandler)
 	mail.Get("/campaigns", h.Admin.MailCampaignListHandler)

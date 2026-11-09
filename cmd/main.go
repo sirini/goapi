@@ -7,12 +7,16 @@ import (
 	"net"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/sirini/goapi/internal/configs"
 	"github.com/sirini/goapi/internal/handlers"
 	"github.com/sirini/goapi/internal/repositories"
 	"github.com/sirini/goapi/internal/routers"
+	"github.com/sirini/goapi/internal/securitylog"
 	"github.com/sirini/goapi/internal/services"
 	"github.com/sirini/goapi/pkg/models"
 )
@@ -46,6 +50,44 @@ func main() {
 	app := fiber.New(fiber.Config{
 		BodyLimit: sizeLimit,
 	})
+
+	days, parseErr := strconv.Atoi(configs.Env.SecurityLogDays)
+	if parseErr != nil || days < 1 || days > 90 {
+		log.Fatal("invalid NUBO_SECURITY_LOG_DAYS (1-90)")
+	}
+	maskedIP, parseErr := strconv.ParseBool(configs.Env.SecurityLogMaskedIP)
+	if parseErr != nil {
+		log.Fatal("invalid NUBO_SECURITY_LOG_MASKED_IP")
+	}
+	if err := securitylog.ValidatePrivateDirectory(configs.Env.SecurityLogDir, configs.Env.UploadDir); err != nil {
+		log.Fatal("security log directory must be private and outside uploads")
+	}
+	var logErr error
+	securitylog.Default, logErr = securitylog.New(configs.Env.SecurityLogDir, days, 10*1024*1024, maskedIP)
+	if logErr != nil {
+		log.Fatal("cannot initialize private security log directory")
+	}
+	auditDays, parseErr := strconv.Atoi(configs.Env.AuditLogDays)
+	if parseErr != nil || auditDays < 367 || auditDays > 732 {
+		log.Fatal("invalid NUBO_AUDIT_LOG_DAYS (367-732)")
+	}
+	securitylog.Audit, logErr = securitylog.NewAudit(filepath.Join(configs.Env.SecurityLogDir, "audit"), auditDays)
+	if logErr != nil {
+		log.Fatal("cannot initialize private administrator audit journal")
+	}
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := securitylog.Default.Prune(); err != nil {
+				log.Print("security log expiry cleanup failed")
+			}
+			if err := securitylog.Audit.Prune(); err != nil {
+				log.Print("administrator audit expiry cleanup failed")
+			}
+		}
+	}()
+	app.Use(securitylog.Middleware)
 
 	log.Printf("⚙️ Goapi base: %s\n", configs.Env.GoapiBase)
 	log.Printf("⚙️ Domain: %s\n", configs.Env.Domain)

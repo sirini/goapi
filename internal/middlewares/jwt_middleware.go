@@ -16,6 +16,7 @@ func JWTMiddleware(canAuthenticate func(uint) bool) fiber.Handler {
 		if canAuthenticate == nil || !canAuthenticate(uint(actionUserUid)) {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
+		c.Locals("securityLogActor", uint(actionUserUid))
 		return c.Next()
 	}
 }
@@ -33,6 +34,7 @@ func AdminMiddleware(canAuthenticate func(uint) bool) fiber.Handler {
 		if actionUserUid != 1 {
 			return utils.Err(c, "unauthorized: you are not an administrator", models.CODE_NOT_ADMIN)
 		}
+		c.Locals("securityLogActor", uint(actionUserUid))
 		return c.Next()
 	}
 }

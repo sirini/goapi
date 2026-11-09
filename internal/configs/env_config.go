@@ -10,6 +10,12 @@ import (
 )
 
 type Config struct {
+	AuditLogDays        string
+	TrustedProxyCIDRs   string
+	SecurityLogDir      string
+	SecurityLogDays     string
+	SecurityLogMaskedIP string
+
 	GoPort                   string
 	GoHost                   string
 	GoapiBase                string
@@ -148,6 +154,11 @@ func LoadConfig() error {
 	}
 
 	Env = Config{
+		AuditLogDays:             getEnv("NUBO_AUDIT_LOG_DAYS", "732"),
+		TrustedProxyCIDRs:        getEnv("NUBO_TRUSTED_PROXY_CIDRS", ""),
+		SecurityLogDir:           getEnv("NUBO_SECURITY_LOG_DIR", "./security-logs"),
+		SecurityLogDays:          getEnv("NUBO_SECURITY_LOG_DAYS", "7"),
+		SecurityLogMaskedIP:      getEnv("NUBO_SECURITY_LOG_MASKED_IP", "true"),
 		Version:                  getEnv("GOAPI_VERSION", "1.3.2"),
 		GoapiBase:                getEnv("GOAPI_BASE", "goapi"),
 		GoHost:                   getEnv("GOAPI_HOST", "0.0.0.0"),
