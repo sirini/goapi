@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/netip"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -115,7 +114,6 @@ func AuditMiddleware(c fiber.Ctx) error {
 		return c.SendStatus(503)
 	}
 	requestID := hex.EncodeToString(randomID[:])
-	c.Locals("securityLogRequestID", requestID)
 	reference := ""
 	if value := c.Query("date"); value != "" {
 		if _, err := time.Parse("2006-01-02", value); err == nil {
@@ -161,21 +159,19 @@ func AuditMiddleware(c fiber.Ctx) error {
 func AuditReadHandler(c fiber.Ctx) error { return readStore(c, Audit) }
 
 func AuditReviewHandler(c fiber.Ctx) error {
-	month := c.Query("month")
-	if month > time.Now().UTC().Format("2006-01") {
+	loc, err := queryLocation(c.Query("timezone"))
+	if err != nil {
 		return c.SendStatus(400)
 	}
-	if _, err := time.Parse("2006-01", month); err != nil {
+	month := c.Query("month")
+	start, err := time.ParseInLocation("2006-01", month, loc)
+	if err != nil || month > time.Now().In(loc).Format("2006-01") {
 		return c.SendStatus(400)
 	}
 	if Audit != nil {
-		files, err := filepath.Glob(filepath.Join(Audit.dir, month+"-*.jsonl"))
-		if err != nil {
-			return c.SendStatus(503)
-		}
-		for _, path := range files {
+		for _, day := range utcDays(start, start.AddDate(0, 1, 0)) {
 			Audit.mu.Lock()
-			_, err = Audit.verifyLocked(path)
+			_, err := Audit.verifyLocked(Audit.dayPath(day))
 			Audit.mu.Unlock()
 			if err != nil {
 				return c.Status(503).JSON(fiber.Map{"error": "audit integrity check failed"})
@@ -183,7 +179,7 @@ func AuditReviewHandler(c fiber.Ctx) error {
 		}
 	}
 	actor, _ := c.Locals("securityLogActor").(uint)
-	if Audit == nil || Audit.Append(Entry{Method: "REVIEW", Route: "/admin/system/audit/review/" + month, Actor: actor, Peer: RequestPeer(c), PeerSource: PeerSource(c), Phase: "review-confirmed"}) != nil {
+	if Audit == nil || Audit.Append(Entry{Method: "REVIEW", Route: "/admin/system/audit/review/" + month, Actor: actor, Peer: RequestPeer(c), PeerSource: PeerSource(c), Purpose: "audit-review-" + loc.String(), Phase: "review-confirmed"}) != nil {
 		return c.SendStatus(503)
 	}
 	c.Set("Cache-Control", "no-store")

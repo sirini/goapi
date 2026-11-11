@@ -46,9 +46,14 @@ func readStore(c fiber.Ctx, store *Store) error {
 		return c.Status(503).JSON(fiber.Map{"error": "security log unavailable"})
 	}
 	c.Set("Cache-Control", "no-store")
+	loc, err := queryLocation(c.Query("timezone"))
+	if err != nil {
+		return c.SendStatus(400)
+	}
+	c.Set("X-Nubo-Log-Timezone", loc.String())
+	day := c.Query("date", store.now().In(loc).Format("2006-01-02"))
 	if c.Query("format") == "csv" {
-		day := c.Query("date", time.Now().UTC().Format("2006-01-02"))
-		data, err := store.Export(day)
+		data, err := store.ExportInLocation(day, loc)
 		if err != nil {
 			return c.Status(400).JSON(fiber.Map{"error": "log export unavailable"})
 		}
@@ -67,8 +72,7 @@ func readStore(c fiber.Ctx, store *Store) error {
 	if err != nil || offset < 0 {
 		return c.SendStatus(400)
 	}
-	day := c.Query("date", time.Now().UTC().Format("2006-01-02"))
-	page, err := store.Read(day, offset)
+	page, err := store.ReadInLocation(day, offset, loc)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "log query unavailable"})
 	}

@@ -97,6 +97,14 @@ func (s *Store) verifyLocked(path string) (string, error) {
 		return "", err
 	}
 	seal, err := os.ReadFile(path + ".seal")
+	// Read-only compatibility for an interrupted deletion from the earlier implementation.
+	// Never rename, delete, or rewrite the data or pending seal during verification.
+	if os.IsNotExist(err) {
+		pending := path + ".seal.deleting"
+		if info, statErr := os.Lstat(pending); statErr == nil && info.Mode().IsRegular() && info.Size() <= 1024 {
+			seal, err = os.ReadFile(pending)
+		}
+	}
 	if err != nil {
 		return "", errors.New("audit seal missing")
 	}

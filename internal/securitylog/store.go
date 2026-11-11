@@ -52,8 +52,9 @@ type Store struct {
 }
 
 type Page struct {
-	FullIP           bool `json:"fullIP"`
-	IntegrityChecked bool `json:"integrityChecked"`
+	Timezone         string `json:"timezone"`
+	FullIP           bool   `json:"fullIP"`
+	IntegrityChecked bool   `json:"integrityChecked"`
 
 	Items              []Entry `json:"items"`
 	Next               int     `json:"next"`
@@ -198,34 +199,25 @@ func (s *Store) Append(e Entry) error {
 	return err
 }
 
-// Read is bounded to one day's capped file and returns at most 100 records.
-func (s *Store) Read(day string, offset int) (Page, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	page := Page{ManualDeletionOnly: s.days == 0, FullIP: s.fullIP, IntegrityChecked: len(s.integrityKey) > 0, Items: []Entry{}, RetentionDays: s.days, MaskedIP: s.maskedIP, WriteError: s.lastError, Dropped: s.dropped}
-	if _, err := time.Parse("2006-01-02", day); err != nil || offset < 0 {
-		return page, errors.New("invalid log query")
-	}
-	if err := s.pruneLocked(); err != nil {
-		return page, err
-	}
+// entriesLocked validates and reads a single immutable-format UTC journal.
+func (s *Store) entriesLocked(day string) ([]Entry, error) {
 	path := s.dayPath(day)
 	if _, err := s.verifyLocked(path); err != nil {
-		return page, err
+		return nil, err
 	}
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
-		return page, nil
+		return []Entry{}, nil
 	}
 	if err != nil {
-		return page, err
+		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > s.maxBytes {
-		return page, errors.New("invalid log file")
+		return nil, errors.New("invalid log file")
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return page, err
+		return nil, err
 	}
 	defer f.Close()
 	entries := []Entry{}
@@ -237,17 +229,30 @@ func (s *Store) Read(day string, offset int) (Page, error) {
 			entries = append(entries, e)
 		}
 	}
-	if err := scanner.Err(); err != nil {
+	return entries, scanner.Err()
+}
+
+func (s *Store) Read(day string, offset int) (Page, error) {
+	return s.ReadInLocation(day, offset, time.UTC)
+}
+
+// A KST date spans two UTC files. Verify both without rewriting any signed entry.
+func (s *Store) ReadInLocation(day string, offset int, loc *time.Location) (Page, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	page := Page{Timezone: loc.String(), ManualDeletionOnly: s.days == 0, FullIP: s.fullIP, IntegrityChecked: len(s.integrityKey) > 0, Items: []Entry{}, RetentionDays: s.days, MaskedIP: s.maskedIP, WriteError: s.lastError, Dropped: s.dropped}
+	if offset < 0 {
+		return page, errors.New("invalid offset")
+	}
+	entries, err := s.dateEntriesLocked(day, loc)
+	if err != nil {
 		return page, err
 	}
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Time > entries[j].Time })
 	if offset >= len(entries) {
 		return page, nil
 	}
-	end := offset + 100
-	if end > len(entries) {
-		end = len(entries)
-	}
+	end := min(offset+100, len(entries))
 	page.Items = entries[offset:end]
 	if end < len(entries) {
 		page.Next = end

@@ -14,9 +14,10 @@ import (
 )
 
 type dayCount struct {
-	size     int64
-	modified time.Time
-	count    int
+	size      int64
+	modified  time.Time
+	count     int
+	kstCounts map[string]int
 }
 
 // NewVisits deliberately has no expiry setting, including for existing installations.
@@ -91,8 +92,13 @@ func VisitStatisticsHandler(c fiber.Ctx) error {
 	if Visits == nil {
 		return c.SendStatus(503)
 	}
-	year := c.Query("year", time.Now().UTC().Format("2006"))
-	start, err := time.Parse("2006", year)
+	loc, err := queryLocation(c.Query("timezone"))
+	if err != nil {
+		return c.SendStatus(400)
+	}
+	now := Visits.now().In(loc)
+	year := c.Query("year", now.Format("2006"))
+	start, err := time.ParseInLocation("2006", year, loc)
 	if err != nil {
 		return c.SendStatus(400)
 	}
@@ -101,10 +107,10 @@ func VisitStatisticsHandler(c fiber.Ctx) error {
 		return c.SendStatus(400)
 	}
 	counts := map[string]int{}
-	cutoff := time.Now().UTC().AddDate(0, 0, -Visits.days+1).Format("2006-01-02")
+	cutoff := now.AddDate(0, 0, -Visits.days+1).Format("2006-01-02")
 	for d := start; d.Year() == start.Year(); d = d.AddDate(0, 0, 1) {
 		day := d.Format("2006-01-02")
-		if Visits.days > 0 && day < cutoff || day > time.Now().UTC().Format("2006-01-02") {
+		if Visits.days > 0 && day < cutoff || day > now.Format("2006-01-02") {
 			continue
 		}
 		key := day
@@ -115,52 +121,77 @@ func VisitStatisticsHandler(c fiber.Ctx) error {
 			key = year
 		}
 		counts[key] += 0
-		count, err := Visits.countDay(day)
+		count, err := Visits.countDayInLocation(day, loc)
 		if err != nil {
 			return c.SendStatus(503)
 		}
 		counts[key] += count
 
 	}
-	return c.JSON(fiber.Map{"manualDeletionOnly": Visits.days == 0, "counts": counts, "retentionDays": Visits.days, "unit": unit, "year": year, "metric": "pageviews", "timezone": "UTC"})
+	return c.JSON(fiber.Map{"manualDeletionOnly": Visits.days == 0, "counts": counts, "retentionDays": Visits.days, "unit": unit, "year": year, "metric": "pageviews", "timezone": loc.String()})
 }
 
-func (s *Store) countDay(day string) (int, error) {
+func (s *Store) countDay(day string) (int, error) { return s.countDayInLocation(day, time.UTC) }
+
+func (s *Store) countDayInLocation(day string, loc *time.Location) (int, error) {
+	start, err := time.ParseInLocation("2006-01-02", day, loc)
+	if err != nil {
+		return 0, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.pruneLocked(); err != nil {
 		return 0, err
 	}
+	count := 0
+	for _, utcDay := range utcDays(start, start.AddDate(0, 0, 1)) {
+		cached, err := s.countFileLocked(utcDay)
+		if err != nil {
+			return 0, err
+		}
+		if loc == KST {
+			count += cached.kstCounts[day]
+		} else {
+			count += cached.count
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) countFileLocked(day string) (dayCount, error) {
 	path := s.dayPath(day)
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
-		return 0, nil
+		return dayCount{}, nil
 	}
 	if err != nil {
-		return 0, err
+		return dayCount{}, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > s.maxBytes {
-		return 0, fiber.ErrServiceUnavailable
+		return dayCount{}, fiber.ErrServiceUnavailable
 	}
 	if cached, ok := s.countCache[day]; ok && cached.size == info.Size() && cached.modified.Equal(info.ModTime()) {
-		return cached.count, nil
+		return cached, nil
 	}
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, err
+		return dayCount{}, err
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 4096), 2*1024*1024)
-	count := 0
+	result := dayCount{size: info.Size(), modified: info.ModTime(), kstCounts: map[string]int{}}
 	for scanner.Scan() {
 		var entry Entry
 		if json.Unmarshal(scanner.Bytes(), &entry) == nil {
-			count++
+			result.count++
+			if stamp, err := time.Parse(time.RFC3339Nano, entry.Time); err == nil {
+				result.kstCounts[stamp.In(KST).Format("2006-01-02")]++
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, err
+		return dayCount{}, err
 	}
 	if s.countCache == nil {
 		s.countCache = map[string]dayCount{}
@@ -171,6 +202,6 @@ func (s *Store) countDay(day string) (int, error) {
 			delete(s.countCache, key)
 		}
 	}
-	s.countCache[day] = dayCount{size: info.Size(), modified: info.ModTime(), count: count}
-	return count, nil
+	s.countCache[day] = result
+	return result, nil
 }
