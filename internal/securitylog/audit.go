@@ -115,6 +115,7 @@ func AuditMiddleware(c fiber.Ctx) error {
 		return c.SendStatus(503)
 	}
 	requestID := hex.EncodeToString(randomID[:])
+	c.Locals("securityLogRequestID", requestID)
 	reference := ""
 	if value := c.Query("date"); value != "" {
 		if _, err := time.Parse("2006-01-02", value); err == nil {

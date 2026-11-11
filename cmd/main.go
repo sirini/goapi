@@ -67,38 +67,23 @@ func main() {
 	if logErr != nil {
 		log.Fatal("cannot initialize private security log directory")
 	}
-	auditDays, parseErr := strconv.Atoi(configs.Env.AuditLogDays)
-	if parseErr != nil || auditDays < 367 || auditDays > 732 {
-		log.Fatal("invalid NUBO_AUDIT_LOG_DAYS (367-732)")
-	}
-	securitylog.Audit, logErr = securitylog.NewAudit(filepath.Join(configs.Env.SecurityLogDir, "audit"), auditDays)
+	securitylog.Audit, logErr = securitylog.NewAudit(filepath.Join(configs.Env.SecurityLogDir, "audit"), 0)
 	if logErr != nil {
 		log.Fatal("cannot initialize private administrator audit journal")
-	}
-	visitDays, visitErr := strconv.Atoi(configs.Env.VisitLogDays)
-	if visitErr != nil || visitDays < 1 || visitDays > 732 {
-		log.Fatal("invalid NUBO_VISIT_LOG_DAYS (1-732)")
 	}
 	if err := securitylog.ValidatePrivateDirectory(filepath.Join(configs.Env.SecurityLogDir, "visits"), configs.Env.UploadDir); err != nil {
 		log.Fatal("visitor log directory must be private and outside uploads")
 	}
-	securitylog.Visits, logErr = securitylog.New(filepath.Join(configs.Env.SecurityLogDir, "visits"), visitDays, 100*1024*1024, false)
+	securitylog.Visits, logErr = securitylog.NewVisits(filepath.Join(configs.Env.SecurityLogDir, "visits"))
 	if logErr != nil {
 		log.Fatal("cannot initialize visitor logs")
 	}
-	securitylog.Visits.EnableFullIP()
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
-			if err := securitylog.Visits.Prune(); err != nil {
-				log.Print("visitor log expiry cleanup failed")
-			}
 			if err := securitylog.Default.Prune(); err != nil {
 				log.Print("security log expiry cleanup failed")
-			}
-			if err := securitylog.Audit.Prune(); err != nil {
-				log.Print("administrator audit expiry cleanup failed")
 			}
 		}
 	}()

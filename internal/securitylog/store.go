@@ -55,16 +55,17 @@ type Page struct {
 	FullIP           bool `json:"fullIP"`
 	IntegrityChecked bool `json:"integrityChecked"`
 
-	Items         []Entry `json:"items"`
-	Next          int     `json:"next"`
-	RetentionDays int     `json:"retentionDays"`
-	MaskedIP      bool    `json:"maskedIP"`
-	WriteError    bool    `json:"writeError"`
-	Dropped       uint64  `json:"dropped"`
+	Items              []Entry `json:"items"`
+	Next               int     `json:"next"`
+	RetentionDays      int     `json:"retentionDays"`
+	ManualDeletionOnly bool    `json:"manualDeletionOnly"`
+	MaskedIP           bool    `json:"maskedIP"`
+	WriteError         bool    `json:"writeError"`
+	Dropped            uint64  `json:"dropped"`
 }
 
 func New(dir string, days int, maxBytes int64, maskedIP bool) (*Store, error) {
-	if days < 1 || days > 800 || maxBytes < 1024 || maxBytes > 100*1024*1024 {
+	if days < 0 || days > 800 || maxBytes < 1024 || maxBytes > 100*1024*1024 {
 		return nil, errors.New("invalid security log limits")
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -93,6 +94,9 @@ func MaskPeer(value string) string {
 
 func (s *Store) dayPath(day string) string { return filepath.Join(s.dir, day+".jsonl") }
 func (s *Store) pruneLocked() error {
+	if s.days == 0 {
+		return nil
+	}
 	files, err := filepath.Glob(filepath.Join(s.dir, "*.jsonl*"))
 	if err != nil {
 		return err
@@ -198,7 +202,7 @@ func (s *Store) Append(e Entry) error {
 func (s *Store) Read(day string, offset int) (Page, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	page := Page{FullIP: s.fullIP, IntegrityChecked: len(s.integrityKey) > 0, Items: []Entry{}, RetentionDays: s.days, MaskedIP: s.maskedIP, WriteError: s.lastError, Dropped: s.dropped}
+	page := Page{ManualDeletionOnly: s.days == 0, FullIP: s.fullIP, IntegrityChecked: len(s.integrityKey) > 0, Items: []Entry{}, RetentionDays: s.days, MaskedIP: s.maskedIP, WriteError: s.lastError, Dropped: s.dropped}
 	if _, err := time.Parse("2006-01-02", day); err != nil || offset < 0 {
 		return page, errors.New("invalid log query")
 	}
@@ -253,7 +257,12 @@ func (s *Store) Read(day string, offset int) (Page, error) {
 
 func (s *Store) RetentionDays() int { return s.days }
 func (s *Store) MaskedIP() bool     { return s.maskedIP }
-func (s *Store) String() string     { return fmt.Sprintf("security log: %d days", s.days) }
+func (s *Store) String() string {
+	if s.days == 0 {
+		return "security log: manual deletion only"
+	}
+	return fmt.Sprintf("security log: %d days", s.days)
+}
 
 // EnableFullIP is called only during initialization of the private visitor store.
 func (s *Store) EnableFullIP() { s.fullIP = true }

@@ -10,8 +10,6 @@ import (
 )
 
 type Config struct {
-	VisitLogDays        string
-	AuditLogDays        string
 	TrustedProxyCIDRs   string
 	SecurityLogDir      string
 	SecurityLogDays     string
@@ -155,8 +153,6 @@ func LoadConfig() error {
 	}
 
 	Env = Config{
-		VisitLogDays:             getEnv("NUBO_VISIT_LOG_DAYS", "90"),
-		AuditLogDays:             getEnv("NUBO_AUDIT_LOG_DAYS", "732"),
 		TrustedProxyCIDRs:        getEnv("NUBO_TRUSTED_PROXY_CIDRS", ""),
 		SecurityLogDir:           getEnv("NUBO_SECURITY_LOG_DIR", "./security-logs"),
 		SecurityLogDays:          getEnv("NUBO_SECURITY_LOG_DAYS", "7"),

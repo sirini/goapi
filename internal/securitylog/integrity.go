@@ -15,11 +15,9 @@ import (
 )
 
 // Audit journals have independent retention and refuse further admin work if records cannot be written.
-func NewAudit(dir string, days int) (*Store, error) {
-	if days < 367 || days > 732 {
-		return nil, errors.New("audit retention must be 367-732 days")
-	}
-	s, err := New(dir, days, 100*1024*1024, false)
+// The legacy days argument is ignored: administrator journals never expire automatically.
+func NewAudit(dir string, _ int) (*Store, error) {
+	s, err := New(dir, 0, 100*1024*1024, false)
 	if err != nil {
 		return nil, err
 	}

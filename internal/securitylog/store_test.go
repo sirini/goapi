@@ -163,23 +163,23 @@ func TestAuditIntegrityDetectsModificationTruncationAndMissingData(t *testing.T)
 	if err := s.Prune(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path + ".seal"); !os.IsNotExist(err) {
-		t.Fatal("expired seal retained")
+	if _, err := os.Stat(path + ".seal"); err != nil {
+		t.Fatal("audit seal must remain until explicit deletion")
 	}
 }
 
-func TestAuditStartupPrunesExpiredDataAndOrphanSeals(t *testing.T) {
+func TestAuditStartupDoesNotEraseOldDataToRecoverMissingKey(t *testing.T) {
 	dir := t.TempDir()
 	for _, suffix := range []string{".jsonl", ".jsonl.seal", ".jsonl.seal.tmp"} {
 		if err := os.WriteFile(filepath.Join(dir, "2020-01-01"+suffix), []byte("expired"), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := NewAudit(dir, 732); err != nil {
-		t.Fatal(err)
+	if _, err := NewAudit(dir, 732); err == nil {
+		t.Fatal("missing key must fail without deleting any old files")
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "2020-01-01*"))
-	if err != nil || len(files) != 0 {
-		t.Fatalf("expired metadata remains: %v %v", files, err)
+	if err != nil || len(files) != 3 {
+		t.Fatalf("old metadata must remain: %v %v", files, err)
 	}
 }

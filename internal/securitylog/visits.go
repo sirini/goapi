@@ -19,6 +19,15 @@ type dayCount struct {
 	count    int
 }
 
+// NewVisits deliberately has no expiry setting, including for existing installations.
+func NewVisits(dir string) (*Store, error) {
+	s, err := New(dir, 0, 100*1024*1024, false)
+	if err == nil {
+		s.fullIP = true
+	}
+	return s, err
+}
+
 var Visits *Store
 var pagePath = regexp.MustCompile(`^/[a-zA-Z0-9/%_-]*$`)
 
@@ -95,7 +104,7 @@ func VisitStatisticsHandler(c fiber.Ctx) error {
 	cutoff := time.Now().UTC().AddDate(0, 0, -Visits.days+1).Format("2006-01-02")
 	for d := start; d.Year() == start.Year(); d = d.AddDate(0, 0, 1) {
 		day := d.Format("2006-01-02")
-		if day < cutoff || day > time.Now().UTC().Format("2006-01-02") {
+		if Visits.days > 0 && day < cutoff || day > time.Now().UTC().Format("2006-01-02") {
 			continue
 		}
 		key := day
@@ -113,7 +122,7 @@ func VisitStatisticsHandler(c fiber.Ctx) error {
 		counts[key] += count
 
 	}
-	return c.JSON(fiber.Map{"counts": counts, "retentionDays": Visits.days, "unit": unit, "year": year, "metric": "pageviews", "timezone": "UTC"})
+	return c.JSON(fiber.Map{"manualDeletionOnly": Visits.days == 0, "counts": counts, "retentionDays": Visits.days, "unit": unit, "year": year, "metric": "pageviews", "timezone": "UTC"})
 }
 
 func (s *Store) countDay(day string) (int, error) {
@@ -158,7 +167,7 @@ func (s *Store) countDay(day string) (int, error) {
 	}
 	cutoff := s.now().UTC().AddDate(0, 0, -s.days+1).Format("2006-01-02")
 	for key := range s.countCache {
-		if key < cutoff {
+		if s.days > 0 && key < cutoff || len(s.countCache) >= 800 {
 			delete(s.countCache, key)
 		}
 	}

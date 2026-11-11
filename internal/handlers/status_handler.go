@@ -108,5 +108,5 @@ func (h *NuboStatusHandler) PrivacyStatusHandler(c fiber.Ctx) error {
 		visitDays = securitylog.Visits.RetentionDays()
 	}
 	c.Set("Cache-Control", "no-store")
-	return c.JSON(fiber.Map{"visitLogRetentionDays": visitDays, "auditLogRetentionDays": auditDays, "providers": providers, "imageDescriptionEnabled": ai.Enabled, "securityLogEnabled": securitylog.Default != nil, "securityLogRetentionDays": days, "securityLogMaskedIP": masked})
+	return c.JSON(fiber.Map{"visitLogEnabled": securitylog.Visits != nil, "auditLogEnabled": securitylog.Audit != nil, "visitLogManualDeletionOnly": securitylog.Visits != nil && visitDays == 0, "auditLogManualDeletionOnly": securitylog.Audit != nil && auditDays == 0, "visitLogRetentionDays": visitDays, "auditLogRetentionDays": auditDays, "providers": providers, "imageDescriptionEnabled": ai.Enabled, "securityLogEnabled": securitylog.Default != nil, "securityLogRetentionDays": days, "securityLogMaskedIP": masked})
 }

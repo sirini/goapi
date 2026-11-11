@@ -25,6 +25,7 @@ func RegisterAdminRouters(api fiber.Router, h *handlers.Handler) {
 	system.Post("/audit/review", securitylog.AuditReviewHandler)
 	system.Get("/audit", securitylog.AuditReadHandler)
 	system.Get("/logs", securitylog.ReadHandler)
+	system.Delete("/records/:kind", securitylog.DeleteRecordsHandler)
 	system.Get("/visits", securitylog.VisitsReadHandler)
 	system.Get("/visit-statistics", securitylog.VisitStatisticsHandler)
 	system.Get("/mail", h.Admin.MailStatusHandler)

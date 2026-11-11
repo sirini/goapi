@@ -288,36 +288,3 @@ func TestNotificationSenderForeignKeyReferencesUser(t *testing.T) {
 		t.Fatalf("notification sender foreign key references the wrong table: %s", ddl)
 	}
 }
-
-func TestVisitRetentionRespectsFileAndProcessSettings(t *testing.T) {
-	old := Env
-	t.Cleanup(func() { Env = old })
-	path := filepath.Join(t.TempDir(), "nubo.env")
-	t.Setenv(EnvironmentFileVariable, path)
-	unsetEnvironmentForTest(t, "NUBO_VISIT_LOG_DAYS")
-	if err := os.WriteFile(path, []byte(""), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := LoadConfig(); err != nil {
-		t.Fatal(err)
-	}
-	if Env.VisitLogDays != "90" {
-		t.Fatal(Env.VisitLogDays)
-	}
-	if err := os.WriteFile(path, []byte("NUBO_VISIT_LOG_DAYS=365\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := LoadConfig(); err != nil {
-		t.Fatal(err)
-	}
-	if Env.VisitLogDays != "365" {
-		t.Fatal(Env.VisitLogDays)
-	}
-	t.Setenv("NUBO_VISIT_LOG_DAYS", "732")
-	if err := LoadConfig(); err != nil {
-		t.Fatal(err)
-	}
-	if Env.VisitLogDays != "732" {
-		t.Fatal(Env.VisitLogDays)
-	}
-}
