@@ -54,6 +54,9 @@ func readStore(c fiber.Ctx, store *Store) error {
 		}
 		c.Set("Content-Type", "text/csv; charset=utf-8")
 		prefix := "nubo-security-"
+		if store == Visits {
+			prefix = "nubo-visits-"
+		}
 		if store == Audit {
 			prefix = "nubo-audit-"
 		}

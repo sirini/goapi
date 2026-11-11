@@ -40,8 +40,8 @@ func (h *NuboHomeHandler) ShowVersionHandler(c fiber.Ctx) error {
 
 // 방문자 조회수 올리기 핸들러
 func (h *NuboHomeHandler) CountingVisitorHandler(c fiber.Ctx) error {
-	userUid, err := strconv.ParseUint(c.FormValue("userUid"), 10, 32)
-	if err != nil {
+	userUid := max(utils.ExtractUserUid(c.Get(models.AUTH_KEY)), 0)
+	if userUid > 0 && !h.service.Auth.CanAuthenticate(uint(userUid)) {
 		userUid = 0
 	}
 	h.service.Home.AddVisitorLog(uint(userUid))

@@ -75,10 +75,25 @@ func main() {
 	if logErr != nil {
 		log.Fatal("cannot initialize private administrator audit journal")
 	}
+	visitDays, visitErr := strconv.Atoi(configs.Env.VisitLogDays)
+	if visitErr != nil || visitDays < 1 || visitDays > 732 {
+		log.Fatal("invalid NUBO_VISIT_LOG_DAYS (1-732)")
+	}
+	if err := securitylog.ValidatePrivateDirectory(filepath.Join(configs.Env.SecurityLogDir, "visits"), configs.Env.UploadDir); err != nil {
+		log.Fatal("visitor log directory must be private and outside uploads")
+	}
+	securitylog.Visits, logErr = securitylog.New(filepath.Join(configs.Env.SecurityLogDir, "visits"), visitDays, 100*1024*1024, false)
+	if logErr != nil {
+		log.Fatal("cannot initialize visitor logs")
+	}
+	securitylog.Visits.EnableFullIP()
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
+			if err := securitylog.Visits.Prune(); err != nil {
+				log.Print("visitor log expiry cleanup failed")
+			}
 			if err := securitylog.Default.Prune(); err != nil {
 				log.Print("security log expiry cleanup failed")
 			}

@@ -35,6 +35,8 @@ type Entry struct {
 }
 
 type Store struct {
+	countCache map[string]dayCount
+
 	integrityKey []byte
 	fullIP       bool
 	strict       bool
@@ -252,3 +254,6 @@ func (s *Store) Read(day string, offset int) (Page, error) {
 func (s *Store) RetentionDays() int { return s.days }
 func (s *Store) MaskedIP() bool     { return s.maskedIP }
 func (s *Store) String() string     { return fmt.Sprintf("security log: %d days", s.days) }
+
+// EnableFullIP is called only during initialization of the private visitor store.
+func (s *Store) EnableFullIP() { s.fullIP = true }
